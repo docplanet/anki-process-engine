@@ -1,0 +1,55 @@
+# ════════════════════════════════════════════════════════════════════════════════
+#  PUBLIC REPO — WHITELIST. Ignore EVERYTHING by default, then explicitly allow ONLY
+#  the engine (code + method docs). All course materials — copyrighted textbooks,
+#  lecture PDFs/transcripts/recordings, learning objectives, the syllabus — and the
+#  personal card decks / built .apkg files are PRIVATE and never enter git.
+# ════════════════════════════════════════════════════════════════════════════════
+
+# 1) ignore everything at the root
+/*
+
+# 2) allow root-level engine files + the directories we need to descend into
+!/.gitignore
+!/README.md
+!/.mcp.json
+!/classes/
+!/.claude/
+!/anki-mcp-server/
+
+# 3) classes/  →  ONLY the ISF Python tooling + the operator guide
+#    (this excludes Week*/, textbooks/, .venv/, course-map.yaml, the syllabus, __pycache__)
+/classes/*
+!/classes/ISF/
+/classes/ISF/*
+!/classes/ISF/*.py
+!/classes/ISF/PROCESS-ENGINE.md
+
+# 4) .claude/  →  ONLY the card-authoring skill + the run-process workflow
+/.claude/*
+!/.claude/skills/
+/.claude/skills/*
+!/.claude/skills/anki-cards/
+/.claude/skills/anki-cards/*
+!/.claude/skills/anki-cards/*.md
+!/.claude/workflows/
+/.claude/workflows/*
+!/.claude/workflows/run-process.js
+
+# 5) anki-mcp-server/  →  source only, drop build artifacts
+/anki-mcp-server/node_modules/
+/anki-mcp-server/dist/
+
+# 6) belt-and-suspenders — NEVER commit these types, wherever they appear
+*.pdf
+*.apkg
+*.m4a
+*.mp4
+*.mp3
+*.vtt
+*.doc
+*.docx
+*.env
+.env
+.DS_Store
+__pycache__/
+*.pyc
