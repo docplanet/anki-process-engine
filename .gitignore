@@ -11,6 +11,7 @@
 # 2) allow root-level engine files + the directories we need to descend into
 !/.gitignore
 !/README.md
+!/LICENSE
 !/.mcp.json
 !/classes/
 !/.claude/
