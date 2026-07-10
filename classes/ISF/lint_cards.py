@@ -6,16 +6,21 @@ findings split into:
   - errors:   hard, mechanical rule violations (must fix). Exit code 1 if any.
   - warnings: heuristic/judgment suspects (a human/model adjudicates).
 
-Mechanical rules ENFORCED (errors):
-  well-formed JSON; type+required fields; tags present, no spaces; source present;
-  balanced {{ }}; a cloze exists and starts at c1; CLOZE CAP (>3 distinct clozes — the
-  measured Neurogenetics norm is 2, 4+ never); no terminal period on cloze text; balanced markup.
+Rules are CALIBRATED to the AnKing Neurogenetics reference deck (the golden test in
+tests/test_reference_deck.py asserts the linter errors on <2% of those 368 real cards).
 
-Judgment rules FLAGGED (warnings — cannot be mechanically confirmed):
-  exactly 3 clozes (verify not self-answering); 3+ italic answer spans ("italics all over",
-  excluding memorized lists); non-contiguous cloze numbering; subject-first (circumstantial
-  opener); two-concept smell ("whereas/while" pairing two full clauses); under-marked / no-<i>;
-  over-long note.
+Mechanical rules ENFORCED (errors — validated to not false-positive on the reference deck):
+  well-formed JSON; type+required fields; tags present, no spaces; source present;
+  balanced {{ }}; a cloze exists; CLOZE CAP (>3 distinct clozes — measured norm is 2, 4+ never);
+  no terminal period; balanced markup (attribute-aware); SELF-ANSWERING SHAPE — 2+ DISTINCT
+  italic-answer clozes (sibling-reveal, non-list); TWO CONCEPTS (a contrast word with a DISTINCT
+  cloze number on each side).
+  NOTE: no "must start at c1" error (reference cards ship lone-c2).
+
+Judgment rules FLAGGED (warnings — a human/model adjudicates, never ship-blocking):
+  exactly 3 clozes; non-contiguous numbering; SUBJECT-FIRST (circumstantial opener);
+  ONE-SIDED DEFINITIONAL (subject not clozed + definition exposed); under-marked / no-<i>;
+  over-long NON-LIST note (>25 words; lists excluded).
 
 Usage:
   python lint_cards.py "<cards dir or file>"          # human summary, exit 1 on errors
@@ -29,7 +34,11 @@ CLOZE_RE = re.compile(r"\{\{c(\d+)::(.*?)\}\}", re.S)
 LEAD_RE = re.compile(r"^(For|In order|When|Whenever|Prior to|Because|During|Before|After|To |As |If |Once|Upon|Through|Since|While|Given)\b", re.I)
 CONTRAST_RE = re.compile(r"\b(whereas|while|in contrast|conversely|as opposed to)\b", re.I)
 MAX_CLOZES = 3          # measured Neurogenetics: 2 is the norm, 3 rare, 4+ never. >3 = error; 3 = warn.
-LONG_NOTE_WORDS = 45
+# Length WARNING threshold for NON-LIST cards. Measured Neurogenetics non-list cards: median 12,
+# p90 20, max 29 words. Lists legitimately run to ~96 words, so they are excluded from this check.
+LONG_NOTE_WORDS = 25
+# Phrasing that signals a definition (used only to flag a likely one-sided definitional card).
+DEFINITIONAL_RE = re.compile(r"\b(is|are|was|were|refers to|defined as|means|called)\b", re.I)
 
 
 def _strip(s):
@@ -57,10 +66,20 @@ def _clozes(text):
 
 
 def _markup_balanced(text):
+    # Attribute-aware: real Anki markup carries attributes (<u style="">, <b class=...>), so an
+    # opening tag is "<b>" OR "<b ...>". Counting only the bare "<b>" mis-flags valid HTML.
     for tag in ("b", "i", "u"):
-        if text.count(f"<{tag}>") != text.count(f"</{tag}>"):
+        opens = len(re.findall(rf"<{tag}(\s[^>]*)?>", text))
+        closes = text.count(f"</{tag}>")
+        if opens != closes:
             return False
     return True
+
+
+def _is_list(text):
+    """A numbered/multi-line list card — legitimately long and multi-<i>, so length and
+    (optionally) multi-italic checks skip it. Matches '1.'/'2)' item markers or 3+ line breaks."""
+    return bool(re.search(r"(^|>)\s*\d+[.\)]\s", text)) or len(re.findall(r"<br", text)) >= 3
 
 
 def lint_card(card, loc):
@@ -95,43 +114,65 @@ def lint_card(card, loc):
     if not nums:
         errors.append(f"{loc} no {{{{c#::...}}}} cloze deletion")
     else:
-        if 1 not in nums:
-            errors.append(f"{loc} cloze numbering must start at c1 (found c{min(nums)})")
+        # NOTE: no "must start at c1" ERROR — the reference deck legitimately ships lone-c2 cards
+        # (a c1 sibling was deleted during authoring). Non-contiguity is only a WARNING below.
         if len(nums) > MAX_CLOZES:
             errors.append(f"{loc} {len(nums)} distinct clozes — the reference deck is 2 clozes (64%), 3 rare (5%), 4+ NEVER. Split into a second card")
         if nums != list(range(1, len(nums) + 1)):
-            warnings.append(f"{loc} non-contiguous cloze numbering {nums} — renumber c1..cN")
+            warnings.append(f"{loc} non-contiguous cloze numbering {nums} — number from c1 (a lone c{min(nums)} is OK)")
     if not _markup_balanced(text):
         errors.append(f"{loc} unbalanced <b>/<i>/<u> markup")
     if _strip(text).endswith("."):
         errors.append(f"{loc} terminal period — remove the trailing full stop")
 
-    # --- judgment (warnings) ---
+    # --- self-answering SHAPE (errors — mechanically decidable structural leaks) ---
+    # ONE-ANSWER rule: the canonical card carries exactly ONE <i> answer. Two+ DISTINCT cloze
+    # numbers each wrapping an <i> answer are separate answer-blanks that reveal each other on
+    # sibling fronts (the self-answering / "italics all over" defect). A memorized LIST shares ONE
+    # cloze number, so it counts as a single italic-answer cloze here and is not flagged.
+    italic_cloze_nums = sorted({n for (n, ans, _h, _s) in cl if "<i>" in ans})
+    if len(italic_cloze_nums) >= 2 and not _is_list(text):   # a numbered LIST may carry several item values
+        cs = ", c".join(str(n) for n in italic_cloze_nums)
+        errors.append(f"{loc} {len(italic_cloze_nums)} distinct italic-answer clozes (c{cs}) — a card carries exactly ONE <i> answer; separate answer-blanks reveal each other on sibling fronts (SELF-ANSWERING). Split into atomic cards, or reduce to a single <i> answer")
+    # TWO CONCEPTS: a contrast conjunction with a DISTINCT cloze number on each side pairs two
+    # standalone facts whose blanks reveal each other across sibling fronts. Keyed on distinct cloze
+    # NUMBERS (like the italic check): if both sides share ONE cloze number they are hidden and
+    # revealed TOGETHER — a single atomic comparison (e.g. "cal raises {{c1}} whereas kcal raises
+    # {{c1}}"), NOT the self-answering defect — so that does not fire. Fires on the canonical
+    # two-blank contrast card (c1 one side, c2 the other), which the old len>=3 guard also missed.
+    for m in CONTRAST_RE.finditer(text):
+        nums_before = {n for (n, _a, _h, s) in cl if s < m.start()}
+        nums_after = {n for (n, _a, _h, s) in cl if s > m.start()}
+        if nums_before and nums_after and (nums_before ^ nums_after):
+            errors.append(f"{loc} TWO CONCEPTS in one card — a contrast word (\"{m.group(0)}\") with a DISTINCT cloze on each side pairs two standalone facts (self-answering across siblings). Split into two atomic cards, or share one cloze number if it is a single comparison")
+            break
+    # --- judgment (warnings — heuristics a reviewer adjudicates; NOT ship-blocking) ---
     if len(nums) == MAX_CLOZES:
         warnings.append(f"{loc} 3 clozes — 2 is the norm; verify all three are genuinely needed, else split. Check the blanks aren't mutually-inferable (self-answering)")
-    # too many italic answer spans — but a memorized LIST legitimately has several (all sharing one cloze)
-    from collections import Counter
-    freq = Counter(n for n, *_ in cl)
-    is_list = any(v >= 2 for v in freq.values())   # a cloze number used 2+ times = numbered list
-    ital = len(re.findall(r"<i>", text))
-    if ital >= 3 and not is_list:
-        warnings.append(f"{loc} {ital} italic answer spans — the answer should usually be ONE <i> span. Multiple italic blanks = the 'italics all over' defect; fold into one answer or split the card")
-    # subject-first: circumstantial opener burying the first cloze
+    # SUBJECT-FIRST (warning): a circumstantial opener burying the first cloze behind ≥6 words of
+    # scene-setting. A WARNING, not an error — LEAD_RE fires on a real reference card, so route to
+    # review judgment rather than hard-blocking.
     if cl:
         first = min(cl, key=lambda x: x[3])
         pre = _strip(text[: first[3]])
         if pre and LEAD_RE.match(pre) and _wc(pre) >= 6:
-            warnings.append(f"{loc} SUBJECT-FIRST: opens with circumstance \"{pre[:40]}…\" before the first cloze — lead with the subject term")
-    # two-concept smell
-    if len(nums) >= 3 and CONTRAST_RE.search(_strip(text)):
-        warnings.append(f"{loc} possible TWO CONCEPTS in one card (\"whereas/while…\") — if each side is a full standalone definition, split into two cards")
+            warnings.append(f"{loc} SUBJECT-FIRST: opens with circumstance \"{pre[:40]}…\" before the first cloze — prefer leading with the subject term")
+    # ONE-SIDED DEFINITIONAL (warning): a single cloze whose <b> subject sits OUTSIDE every cloze,
+    # with definitional phrasing — the definition stays exposed as a permanent giveaway and is never
+    # retrieved. WARNING only: a bare label with nothing further to recall may legitimately stay
+    # one-sided (the reference deck has many), so a human/model decides. (Lists excluded.)
+    subject_outside_cloze = "<b>" in CLOZE_RE.sub("", text)
+    if len(nums) == 1 and subject_outside_cloze and DEFINITIONAL_RE.search(_strip(text)) and not _is_list(text):
+        warnings.append(f"{loc} ONE-SIDED DEFINITIONAL: <b>subject</b> is not clozed and the definition stays exposed — consider a two-sided cloze (blank the subject too) unless it's a bare label")
     # under-marked: no role color at all (see MARKUP.md)
     if not re.search(r"</?[biu]>", text):
         warnings.append(f"{loc} UNDER-MARKED: no <b>/<i>/<u> color roles — mark subject <b>, facet <u>, answer <i> (see MARKUP.md)")
     elif "<i>" not in text and nums:
         warnings.append(f"{loc} no <i> answer color — the answer/value should be wrapped <i> (see MARKUP.md)")
-    if _wc(text) > LONG_NOTE_WORDS:
-        warnings.append(f"{loc} long note ({_wc(text)} words) — likely over-packed; consider trimming or splitting")
+    # LENGTH (warning, list-aware): non-list cards past the measured p90 (~20 words) are likely
+    # over-packed. Lists legitimately run long (~96 words), so skip them entirely.
+    if not _is_list(text) and _wc(text) > LONG_NOTE_WORDS:
+        warnings.append(f"{loc} long note ({_wc(text)} words) — reference non-list cards are ~10-12 words (p90 20); trim or split")
     return errors, warnings
 
 

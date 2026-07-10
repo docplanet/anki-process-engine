@@ -70,6 +70,7 @@ A well-built card often shows all three: **`<b>`subject** → **`<u>`facet** →
 - **TRANSFORMATION / reaction cards are a natural 3-role case** — test substrate + PROCESS + product, the process (a genuine facet) underlined:
   `A {{c1::<b>substrate</b>}} undergoes {{c3::<u>process</u>::what process?}} to become {{c2::<i>product</i>::what product?}}`
   e.g. `An {{c1::<b>alcohol</b>}} undergoes {{c3::<u>dehydration</u>::what process?}} to become {{c2::<i>an alkene</i>}}` — bold substrate, teal process, red product. (The three blanks aren't mutually-inferable, so it's a legit 3-cloze card, not self-answering.)
+  - ⚠️ **A CLOSED IDENTITY is NOT a valid reaction card.** If `A + B → C` is a fixed equation/definition where any two terms force the third — `ADP + Pi → ATP`, `glucose + glucose → maltose` — then EVERY cloze is self-answering: card c1 reads "[...] + Pi → ATP" and only ADP fits. Don't cloze the equation terms; test the CONCEPT instead (e.g. `The cell's rechargeable energy currency, reformed from ADP + Pi, is {{c1::<i>ATP</i>}}`). The alcohol→alkene case is safe *because* the terms don't force each other (many substrates dehydrate; many reactions yield alkenes). **The test, always: render each cloze's front with the OTHER clozes revealed — if the blank is derivable, it's self-answering.**
   — subject (bold) + facet "what type" (teal) + answer "which disease" (red). Don't force this shape; most cards don't have a facet.
 
 **Memorized list — all items share ONE cloze number, recalled together:**

@@ -40,6 +40,12 @@
 /anki-mcp-server/node_modules/
 /anki-mcp-server/dist/
 
+# 5b) tests/  →  test CODE only. The golden-deck fixture (tests/fixtures/*.jsonl) is COPYRIGHTED
+#     AnKing content — never committed; regenerate it locally via extract_reference_fixture.py.
+!/tests/
+/tests/*
+!/tests/*.py
+
 # 6) belt-and-suspenders — NEVER commit these types, wherever they appear
 *.pdf
 *.apkg

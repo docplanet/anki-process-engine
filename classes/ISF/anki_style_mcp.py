@@ -112,12 +112,16 @@ async def anki_style_lint(params: LintInput) -> str:
     `warnings` (judgment suspects a human/model adjudicates). Call after writing or restyling
     cards; fix every error and reconcile warnings, then re-lint until error_count == 0.
 
+    Rules are calibrated to the AnKing Neurogenetics reference deck (a golden test asserts the
+    linter errors on <2% of those 368 real cards).
     Errors (mechanical, enforced): malformed JSON; missing type/fields/tags/source; tag with a
-    space; unbalanced {{ }}; no cloze / not starting at c1; >4 distinct clozes (cloze cap);
-    terminal period; unbalanced <b>/<i>/<u> markup.
-    Warnings (heuristic, flagged): exactly 4 clozes (verify single-axis contrast, not two
-    concepts); non-contiguous numbering; standalone cloze missing a ::hint; subject-first
-    violation (circumstantial opener); two-concept smell ("whereas…"); over-long note.
+    space; unbalanced {{ }}; no cloze; >3 distinct clozes (cloze cap); terminal period; unbalanced
+    <b>/<i>/<u> markup (attribute-aware); SELF-ANSWERING SHAPE — 2+ distinct italic-answer clozes
+    (non-list), TWO CONCEPTS (contrast word with a DISTINCT cloze number each side). No "start at
+    c1" error (reference decks ship lone-c2).
+    Warnings (heuristic, flagged): exactly 3 clozes; non-contiguous numbering; SUBJECT-FIRST opener;
+    ONE-SIDED DEFINITIONAL (subject not clozed, definition exposed); under-marked / no-<i>;
+    over-long NON-LIST note (>25 words; lists excluded).
 
     Args:
         params (LintInput):
