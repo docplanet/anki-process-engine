@@ -13,6 +13,11 @@
 !/README.md
 !/LICENSE
 !/.mcp.json
+!/requirements.txt
+!/ADDING-LECTURES.md
+!/.github/
+/.github/*
+!/.github/workflows/
 !/classes/
 !/.claude/
 !/anki-mcp-server/

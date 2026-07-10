@@ -1,22 +1,37 @@
 export const meta = {
   name: 'run-process',
   description: 'Drive the card process engine to completion — parallel chunk-workers per stage, then ship',
-  whenToUse: 'Generate a deck through the staged process engine (scaffold→emphasis→spec consensus→generate→accuracy→style→coverage). Pass args {jobPath}. Replaces build-week.js.',
+  whenToUse: 'Generate a deck through the staged process engine (scaffold→emphasis→spec consensus→generate→accuracy→markup→style→coverage). Pass args {jobPath}. Replaces build-week.js.',
   phases: [
     { title: 'Init',  detail: 'process_init the job → enumerate anchor units' },
-    { title: 'Run',   detail: 'per stage: fetch frontier → PARALLEL chunk-workers → submit (lock-serialized)' },
+    { title: 'Run',   detail: 'per stage: fetch frontier → bounded-parallel chunk-workers → submit (lock-serialized)' },
     { title: 'Ship',  detail: 'lint + review gates, then build_apkg (the immutable backstop)' },
   ],
 }
 
-// The DRIVER. Per stage it fetches the frontier ids, splits them into chunks, and runs the chunks in
-// PARALLEL. Concurrent submits are serialized by the MCP submit-lock, and ALL cards.jsonl writes go
-// through the engine (agents return card data / fixes), so parallel workers never race on the file.
-// Heavy per-item stages are chunked; spec + coverage stay single-agent so they keep whole-deck view.
+// The DRIVER. Per stage it fetches the frontier ids, splits them into chunks, and runs the chunks with
+// BOUNDED parallelism (≤ MAX_PARALLEL at once). Concurrent submits are serialized by the engine's
+// per-run lock, and ALL cards.jsonl writes go through the engine (agents return card data / fixes), so
+// parallel workers never race on the file. Heavy per-item stages are chunked; spec + coverage stay
+// single-agent so they keep whole-deck view.
 const JOB = (args && args.jobPath) || (typeof args === 'string' ? args : null)
 if (!JOB) throw new Error('run-process: pass args {jobPath} — abs path to the run job.yaml')
 const CHUNK = (args && args.chunk) || 8
-const CHUNKED = new Set(['scaffold', 'emphasis', 'generate', 'accuracy', 'style'])   // per-item, no cross-unit need
+const MAX_PARALLEL = (args && args.maxParallel) || 4    // concurrent chunk-workers per workflow — a server-friendly ceiling
+const CHUNKED = new Set(['scaffold', 'emphasis', 'generate', 'accuracy', 'markup', 'style'])   // per-item, no cross-unit need
+
+// Bounded rolling-window concurrency: at most `limit` chunk-workers hit the MCP server at once, even
+// when a deck fans out to dozens of chunks. The engine is hardened to survive load, but capping the
+// driver keeps pressure sane — especially since the operator may run more than one deck at a time
+// (safe ceiling: 2 workflows; see classes/ISF/PROCESS-ENGINE.md). A rolling window (not batched
+// barriers) keeps `limit` in flight continuously so one slow chunk never idles the others.
+async function runPool(items, limit, fn) {
+  const out = new Array(items.length)
+  let next = 0
+  const worker = async () => { while (next < items.length) { const i = next++; out[i] = await fn(items[i], i) } }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  return out
+}
 
 const FETCH = { type: 'object', additionalProperties: false,
   properties: { done: { type: 'boolean' }, halted: { type: 'boolean' }, stage: { type: 'string' },
@@ -49,8 +64,8 @@ while (!done && round++ < 80) {
   const size = CHUNKED.has(b.stage) ? CHUNK : ids.length            // single agent for spec/coverage
   const chunks = []
   for (let i = 0; i < ids.length; i += size) chunks.push(ids.slice(i, i + size))
-  log(`round ${round}: ${b.stage} × ${ids.length} items in ${chunks.length} chunk(s)`)
-  await parallel(chunks.map((chunk, ci) => () => agent(
+  log(`round ${round}: ${b.stage} × ${ids.length} items in ${chunks.length} chunk(s), ≤${MAX_PARALLEL} at a time`)
+  await runPool(chunks, MAX_PARALLEL, (chunk, ci) => agent(
 `Do the '${b.stage}' step for ONLY these items (cards_dir "${CARDS_DIR}"): ${JSON.stringify(chunk)}
 
 1. Call process_next_batch {cards_dir: "${CARDS_DIR}"} to get the batch {stage, instructions, items}. Use ONLY the
@@ -62,7 +77,7 @@ while (!done && round++ < 80) {
 3. Call process_submit_batch {cards_dir:"${CARDS_DIR}", results:[{target_id, stage:"${b.stage}", result}, ...]} for
    YOUR items only. If any entry errors, fix and resubmit just that one.
 Return {submitted:<count>}.`,
-    { schema: WORKER, phase: 'Run', label: `${b.stage}-c${ci}` })))
+    { schema: WORKER, phase: 'Run', label: `${b.stage}-c${ci}` }))
 }
 log(`run: ${round} rounds; done=${done} halted=${halted}`)
 

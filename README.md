@@ -23,7 +23,9 @@ per anchor unit (e.g. one slide):
                                         │ two agents must AGREE on the card count (0–4);
                                         │ disagreement escalates to a human
 per minted card:
-  accuracy → style → done
+  accuracy → markup → style → done
+            │ generate writes the FACT (no markup); markup applies the <b>/<u>/<i>
+            │ role colors; accuracy + style are the two independent reviewers
 run-level:
   coverage (map every objective → a card; draft cards for gaps) → ship
 ```
@@ -49,6 +51,35 @@ emphasis ▸ **textbook** precision. An objective the transcript defers is still
 | `classes/ISF/build_apkg.py` / `sync_anki.py` | build a `.apkg` / push live via AnkiConnect |
 | `classes/ISF/PROCESS-ENGINE.md` | **the operator's guide — start here** |
 | `anki-mcp-server/` | a TypeScript AnkiConnect MCP server (note CRUD + review stats) |
+
+## Setup
+
+Requires **Python 3** and a couple of system tools. On macOS:
+
+```bash
+# system deps
+brew install poppler                 # pdftotext + pdftoppm (text + slide-image extraction)
+brew install --cask libreoffice      # soffice — .pptx → .pdf, used by prep_lecture.py
+
+# python deps, in the venv the MCP config expects
+python3 -m venv classes/ISF/.venv
+classes/ISF/.venv/bin/pip install -r requirements.txt
+```
+
+The MCP servers are wired in **[`.mcp.json`](.mcp.json)** (`anki-style`, `process-engine`), launched
+via `classes/ISF/.venv/bin/python` — so create the venv at exactly that path. Opening this repo in
+Claude Code picks them up automatically. Live Anki sync (`sync_anki.py`) additionally needs Anki
+running with the **AnkiConnect** add-on (and the optional `anki-mcp-server/` for note CRUD / review
+stats). Card style/method lives in `.claude/skills/anki-cards/{SKILL,MARKUP,HIGH-YIELD}.md`.
+
+To add a new lecture, see **[`ADDING-LECTURES.md`](ADDING-LECTURES.md)** — `prep_lecture.py` turns a
+folder of raw materials into a ready-to-run job.
+
+**Tests.** The linter is calibrated to a reference deck via a golden test
+(`tests/test_reference_deck.py`): it must error on <2% of the 368 reference cards. Run it locally with
+`classes/ISF/.venv/bin/python -m unittest tests.test_reference_deck`. The reference fixture is
+copyright-private (gitignored), so CI **skips** it — regenerate locally with
+`tests/extract_reference_fixture.py`.
 
 ## Getting started
 

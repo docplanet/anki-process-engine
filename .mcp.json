@@ -2,17 +2,17 @@
   "mcpServers": {
     "anki-style": {
       "type": "stdio",
-      "command": "/Users/rallyplanet/Dev/Anki/classes/ISF/.venv/bin/python",
+      "command": "classes/ISF/.venv/bin/python",
       "args": [
-        "/Users/rallyplanet/Dev/Anki/classes/ISF/anki_style_mcp.py"
+        "classes/ISF/anki_style_mcp.py"
       ],
       "env": {}
     },
     "process-engine": {
       "type": "stdio",
-      "command": "/Users/rallyplanet/Dev/Anki/classes/ISF/.venv/bin/python",
+      "command": "classes/ISF/.venv/bin/python",
       "args": [
-        "/Users/rallyplanet/Dev/Anki/classes/ISF/process_engine_mcp.py"
+        "classes/ISF/process_engine_mcp.py"
       ],
       "env": {}
     }
