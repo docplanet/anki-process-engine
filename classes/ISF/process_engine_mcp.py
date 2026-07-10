@@ -16,12 +16,15 @@ Tools:
 Run (stdio):  python process_engine_mcp.py
 """
 import asyncio
+import io
 import json
 import os
 import sys
 
+import anyio
 from pydantic import BaseModel, Field, ConfigDict
 from mcp.server.fastmcp import FastMCP
+from mcp.server.stdio import stdio_server
 
 # process_engine.py lives beside this file — import the brains
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -29,8 +32,31 @@ import process_engine as PE  # noqa: E402
 
 mcp = FastMCP("process_engine_mcp")
 
-# Serializes ALL state mutations, so parallel workers can't lose updates or corrupt cards.jsonl.
-_SUBMIT_LOCK = asyncio.Lock()
+# ── concurrency model (why this server survives parallel load) ─────────────────────────
+# The engine's work is BLOCKING and heavy: process_init shells out to pdftotext/pdftoppm
+# (seconds-to-minutes for a big deck) and every submit rewrites cards.jsonl + the state file.
+# Running that on the asyncio event loop would starve the stdio transport — the client's
+# heartbeat times out and severs the session pipe even though this process is still alive
+# (the exact failure seen under a multi-deck batch). So EVERY tool offloads its blocking body
+# to a worker thread via asyncio.to_thread, keeping the loop free to service stdio throughout.
+#
+# Mutations still have to be serialized per run so parallel chunk-workers can't lose updates
+# or corrupt cards.jsonl. But a single global lock would make separate decks block each other
+# (head-of-line stalls that made the parallel batch worse). Each run owns its own files, so we
+# key the lock by cards_dir: same deck → serialized, different decks → fully concurrent.
+_DIR_LOCKS: dict[str, asyncio.Lock] = {}
+_DIR_LOCKS_GUARD = asyncio.Lock()
+
+
+async def _dir_lock(cards_dir: str) -> asyncio.Lock:
+    """Return the per-run mutation lock for cards_dir (created on first use). Keyed by realpath
+    so different spellings of the same dir share one lock."""
+    key = os.path.realpath(cards_dir)
+    async with _DIR_LOCKS_GUARD:
+        lock = _DIR_LOCKS.get(key)
+        if lock is None:
+            lock = _DIR_LOCKS[key] = asyncio.Lock()
+    return lock
 
 
 class InitInput(BaseModel):
@@ -62,6 +88,46 @@ def _load(cards_dir: str):
     return state
 
 
+# ── blocking bodies (each runs in a worker thread, never on the event loop) ────────────
+# Read-only bodies take no lock: load_state reads the whole file in one shot and save_state
+# swaps it in with os.replace (atomic), so a reader always sees a whole old-or-new state.
+def _b_init(job_path: str, force: bool) -> dict:
+    st = PE.init_run(job_path, force)
+    return {"execution_id": st["execution_id"], "units": len(st["units"]), "cards_dir": st["cards_dir"]}
+
+
+def _b_next_step(cards_dir: str) -> dict:
+    return PE.next_step(_load(cards_dir))
+
+
+def _b_next_batch(cards_dir: str) -> dict:
+    return PE.next_batch(_load(cards_dir))
+
+
+def _b_status(cards_dir: str) -> dict:
+    return PE.status(_load(cards_dir))
+
+
+def _b_gate(cards_dir: str) -> dict:
+    rep = PE.status(_load(cards_dir))
+    return {k: rep[k] for k in ("ok", "units_total", "cards_total", "escalated", "blocked")}
+
+
+# Mutating bodies do load→mutate→save as one unit; the caller holds the per-dir lock.
+def _b_submit(cards_dir: str, target_id: str, stage: str, result: dict) -> dict:
+    state = _load(cards_dir)
+    res = PE.submit_step(state, target_id, stage, result)
+    PE.save_state(cards_dir, state)
+    return res
+
+
+def _b_submit_batch(cards_dir: str, results: list) -> list:
+    state = _load(cards_dir)
+    res = PE.submit_batch(state, results)
+    PE.save_state(cards_dir, state)
+    return res
+
+
 @mcp.tool(
     name="process_init",
     annotations={"title": "Start a card-generation run", "readOnlyHint": False,
@@ -82,9 +148,8 @@ async def process_init(params: InitInput) -> str:
         str: JSON {execution_id, units, cards_dir}. On failure: "Error: <message>".
     """
     try:
-        st = PE.init_run(params.job_path, params.force)
-        return json.dumps({"execution_id": st["execution_id"], "units": len(st["units"]),
-                           "cards_dir": st["cards_dir"]}, ensure_ascii=False, indent=2)
+        out = await asyncio.to_thread(_b_init, params.job_path, params.force)
+        return json.dumps(out, ensure_ascii=False, indent=2)
     except Exception as e:
         return f"Error: {e}"
 
@@ -110,7 +175,7 @@ async def process_next_step(params: CardsDirInput) -> str:
         str: the JSON step packet, {done:true}, or a halted report. On failure: "Error: <message>".
     """
     try:
-        return json.dumps(PE.next_step(_load(params.cards_dir)), ensure_ascii=False, indent=2)
+        return json.dumps(await asyncio.to_thread(_b_next_step, params.cards_dir), ensure_ascii=False, indent=2)
     except Exception as e:
         return f"Error: {e}"
 
@@ -136,10 +201,9 @@ async def process_submit_step(params: SubmitInput) -> str:
         str: JSON {target_id, kind, new_stage, status}. On out-of-order/unknown/invalid input: "Error: <message>".
     """
     try:
-        async with _SUBMIT_LOCK:
-            state = _load(params.cards_dir)
-            res = PE.submit_step(state, params.target_id, params.stage, params.result)
-            PE.save_state(params.cards_dir, state)
+        async with await _dir_lock(params.cards_dir):
+            res = await asyncio.to_thread(_b_submit, params.cards_dir, params.target_id,
+                                          params.stage, params.result)
         return json.dumps(res, ensure_ascii=False, indent=2)
     except Exception as e:
         return f"Error: {e}"
@@ -163,7 +227,7 @@ async def process_status(params: CardsDirInput) -> str:
         On failure: "Error: <message>".
     """
     try:
-        return json.dumps(PE.status(_load(params.cards_dir)), ensure_ascii=False, indent=2)
+        return json.dumps(await asyncio.to_thread(_b_status, params.cards_dir), ensure_ascii=False, indent=2)
     except Exception as e:
         return f"Error: {e}"
 
@@ -184,9 +248,7 @@ async def process_gate(params: CardsDirInput) -> str:
         str: JSON {ok, units_total, cards_total, escalated[], blocked[]}. On failure: "Error: <message>".
     """
     try:
-        rep = PE.status(_load(params.cards_dir))
-        return json.dumps({k: rep[k] for k in ("ok", "units_total", "cards_total", "escalated", "blocked")},
-                          ensure_ascii=False, indent=2)
+        return json.dumps(await asyncio.to_thread(_b_gate, params.cards_dir), ensure_ascii=False, indent=2)
     except Exception as e:
         return f"Error: {e}"
 
@@ -218,7 +280,7 @@ async def process_next_batch(params: CardsDirInput) -> str:
         str: JSON batch packet / {done:true} / halted. On failure: "Error: <message>".
     """
     try:
-        return json.dumps(PE.next_batch(_load(params.cards_dir)), ensure_ascii=False, indent=2)
+        return json.dumps(await asyncio.to_thread(_b_next_batch, params.cards_dir), ensure_ascii=False, indent=2)
     except Exception as e:
         return f"Error: {e}"
 
@@ -240,14 +302,26 @@ async def process_submit_batch(params: BatchSubmitInput) -> str:
         str: JSON list of per-item outcomes. On failure: "Error: <message>".
     """
     try:
-        async with _SUBMIT_LOCK:
-            state = _load(params.cards_dir)
-            res = PE.submit_batch(state, params.results)
-            PE.save_state(params.cards_dir, state)
+        async with await _dir_lock(params.cards_dir):
+            res = await asyncio.to_thread(_b_submit_batch, params.cards_dir, params.results)
         return json.dumps(res, ensure_ascii=False, indent=2)
     except Exception as e:
         return f"Error: {e}"
 
 
+async def _serve_stdio() -> None:
+    """Serve over stdio, but hand the SDK a PRIVATE handle to the real stdout for JSON-RPC
+    framing and repoint sys.stdout at stderr. The framing lives on fd 1; anything that prints
+    to stdout — a stray print in engine code, a chatty dependency — would interleave into that
+    stream and sever the session. Isolating them makes the protocol robust regardless of what
+    the worker threads emit. (Mirrors FastMCP.run_stdio_async with an explicit stdout stream.)"""
+    protocol = anyio.wrap_file(io.TextIOWrapper(os.fdopen(os.dup(sys.stdout.fileno()), "wb"),
+                                                encoding="utf-8"))
+    sys.stdout = sys.stderr
+    server = mcp._mcp_server
+    async with stdio_server(stdout=protocol) as (read_stream, write_stream):
+        await server.run(read_stream, write_stream, server.create_initialization_options())
+
+
 if __name__ == "__main__":
-    mcp.run()
+    anyio.run(_serve_stdio)
