@@ -29,6 +29,9 @@
 /classes/ISF/*
 !/classes/ISF/*.py
 !/classes/ISF/PROCESS-ENGINE.md
+!/classes/ISF/REGEN-PIPELINE.md
+!/classes/ISF/regen/
+!/classes/ISF/regen/*
 
 # 4) .claude/  →  ONLY the card-authoring skill + the run-process workflow
 /.claude/*
