@@ -27,7 +27,10 @@ run-level (after all cards done):
   coverage → ship
 ```
 
-- **scaffold** — capture the unit's content for the answer-side reveal (`extra`)
+- **scaffold** — capture the unit's content for the answer-side reveal (`extra`). For diagram/figure
+  slides the agent **reads the slide image itself** as the primary source; the reveal keeps the slide
+  image + verbatim source text so every answer is verifiable (the same provenance model the regen
+  pipeline hard-enforces — see `REGEN-PIPELINE.md`).
 - **emphasis** — read the transcript: what did the teacher stress?
 - **spec_propose / spec_verify** — TWO agents decide how many cards the unit earns (0–4), grounded
   in `HIGH-YIELD.md`. They must agree; disagreement **escalates to you**. 0 is a first-class,
@@ -87,7 +90,10 @@ slide emphasis.**
 | `../../.claude/skills/anki-cards/MARKUP.md` | card shapes + color roles |
 | `../../.claude/skills/anki-cards/HIGH-YIELD.md` | the yield rubric (how many cards) |
 | `review_ledger.py` | per-card review verdicts + the ship gate |
-| `lint_cards.py` | mechanical style linter + gate |
+| `lint_cards.py` | mechanical style linter + gate (calibrated to the reference deck) |
+| `strict_shape.py` | **the mold** — hard pass/fail shape classifier (T1–T5/LIST); the regen pipeline's gate, not yet wired into the engine (task #4) |
+| `content_check.py` | deck-level content detectors (near-dupes, over-carding, suspicious extra) — the content axis above the mold |
+| `REGEN-PIPELINE.md` + `regen/` | the atomic-first, mold-gated regeneration pipeline (what built the current `ISF::Test 1` decks) |
 | `build_apkg.py` | build the `.apkg` (runs both gates) |
 | `sync_anki.py` | push cards live to Anki via AnkiConnect (runs both gates) |
 | `<subject>/job-<name>.yaml` | the per-deck SEED (documents + anchor + caps) |
@@ -174,12 +180,14 @@ sync_anki.py --cards <cards_dir> --deck "<deck>"    # push live (Anki open + Ank
 
 ---
 
-## Status (2026-07-08)
+## Status (2026-07-11)
 
-- **Done:** Biochem Wk1 — Functional Groups (30 cards, 24/24 obj) + Dietary Fuels (42 cards, 17/17 obj).
+- **Shipped:** all 7 Test-1 lectures (690 cards) live in `ISF::Test 1`, built via the **atomic-first
+  regen pipeline** (`REGEN-PIPELINE.md`), mold-gated + objective/Junqueira/transcript coverage-complete,
+  each card tagged `key::<deck>::<id>` for idempotent re-sync. Deck source of truth: `<deck>/out/cards.final.jsonl`.
+- **Engine status:** the `process_engine` path (this guide) still gates on `lint_cards.py` + the review
+  ledger. **Open (task #4):** wire the mold (`strict_shape.py`) + provenance + tiered coverage into the
+  engine so future decks generate this way natively, retiring the manual regen orchestration.
 - **Ready now:** any slide-anchored deck — a `job.yaml` + `/run-process`.
-- **Needs a small build:** histology `summary_section` enumerator (chapter summaries instead of slides).
-- After that, every deck (histology, embryology, RDM, Week 2+) is a `job.yaml` + one command.
 
-*The reviewed pre-engine baselines live in `cards-slideanchored/` (see their READMEs). The older
-textbook-mined decks were retired 2026-07-08.*
+*The older textbook-mined decks were retired 2026-07-08.*

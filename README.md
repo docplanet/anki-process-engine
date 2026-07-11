@@ -38,6 +38,16 @@ Document precedence: **objectives** are the contract ▸ **slides** the anchor �
 emphasis ▸ **textbook** precision. An objective the transcript defers is still carded (tagged
 `flag::beyond-scope`), never dropped.
 
+## Two pipelines
+
+There are two ways decks get built here. The **`process_engine`** (above) is the committed state
+machine, gated by the calibrated linter (`lint_cards.py`) + review ledger. The current `ISF::Test 1`
+decks were instead produced by an **atomic-first regeneration** — slides → fact DB → cards → review →
+coverage-fill → sync — gated by the harder **mold** (`strict_shape.py`), run as manual subagent
+orchestration. That pipeline is documented in
+**[`classes/ISF/REGEN-PIPELINE.md`](classes/ISF/REGEN-PIPELINE.md)**; folding it into the engine is the
+open reconciliation.
+
 ## What's here
 
 | Path | Role |
@@ -47,9 +57,11 @@ emphasis ▸ **textbook** precision. An objective the transcript defers is still
 | `.claude/workflows/run-process.js` | the driver: parallel chunk-workers per stage |
 | `.claude/skills/anki-cards/*.md` | the card method — style, card shapes, yield rubric |
 | `classes/ISF/review_ledger.py` | per-card review verdicts + the ship gate |
-| `classes/ISF/lint_cards.py` | mechanical style linter + gate |
+| `classes/ISF/lint_cards.py` | mechanical style linter + gate (calibrated to the reference deck) |
+| `classes/ISF/strict_shape.py` | **the mold** — hard pass/fail shape gate (used by the regen pipeline) |
 | `classes/ISF/build_apkg.py` / `sync_anki.py` | build a `.apkg` / push live via AnkiConnect |
-| `classes/ISF/PROCESS-ENGINE.md` | **the operator's guide — start here** |
+| `classes/ISF/PROCESS-ENGINE.md` | **the engine operator's guide — start here** |
+| `classes/ISF/REGEN-PIPELINE.md` + `regen/` | the atomic-first, mold-gated regeneration pipeline (as-run) |
 | `anki-mcp-server/` | a TypeScript AnkiConnect MCP server (note CRUD + review stats) |
 
 ## Setup

@@ -27,12 +27,16 @@ Do this well and a student somewhere closes their laptop *early* — deck done, 
 **What this is:** the pipeline that turns course materials into Anki decks. The pieces:
 - **This skill (`SKILL.md`)** — the card-making METHOD (what/how); auto-triggers on card requests.
 - **`MARKUP.md`** — the visual-cue / color spec, **measured** from the AnKing Neurogenetics deck.
-- **`build-week` workflow** (`.claude/workflows/build-week.js`, run via `/build-week`) — the
-  orchestrator: Prep → Generate → Review (grounding + style) → Build. Prefer it for a full subject.
+- **Orchestrators:** `/run-process` (`.claude/workflows/run-process.js`) drives the staged
+  `process_engine` (scaffold→…→coverage) — the current path for a full subject (see
+  `classes/ISF/PROCESS-ENGINE.md`). The atomic-first, **mold-gated regen pipeline** that produced the
+  current `ISF::Test 1` decks is documented in `classes/ISF/REGEN-PIPELINE.md`.
+  *(An older `build-week.js` orchestrator was removed — `run-process.js` replaces it.)*
 - **Tools** (`classes/ISF/`): `extract_sources.py`, `slice_textbook.py`, `validate_cards.py`
-  (well-formedness), **`lint_cards.py` + the `anki-style` MCP (the STYLE gate)**, `make_preview.py`,
-  `build_apkg.py` (export), `sync_anki.py` (live update, keyed by `key::` tag), `dump_anki.py`
-  (reverse pull from Anki).
+  (well-formedness), **`lint_cards.py` + the `anki-style` MCP (the calibrated STYLE gate)**,
+  **`strict_shape.py` (the mold — hard pass/fail shape gate used by the regen pipeline)**,
+  `make_preview.py`, `build_apkg.py` (export), `sync_anki.py` (live update, keyed by `key::` tag),
+  `dump_anki.py` (reverse pull from Anki).
 - **Memory** — the decisions / why (auto-loaded each session).
 
 **Principles that matter (hard-won — do not re-violate):**
@@ -464,7 +468,8 @@ contract + `MARKUP.md` and (b) its card file, then **fixing in place** every vio
 
 Splitting a card here changes card count — fine on a fresh deck (no review history yet). This is
 SEPARATE from the accuracy review below: **style fixes wording/structure, accuracy fixes facts —
-run both.** (In the `build-week` workflow this is the "Review B · quality" pass.)
+run both.** (In the `process_engine` pipeline this is the `style` stage, gated by `lint_cards.py`;
+in the regen pipeline it is Stage 3 review, gated by the mold, `strict_shape.py`.)
 
 **Lint tooling — confirm mechanically, don't eyeball.** Run the style linter and iterate until
 `error_count == 0`, then reconcile the warnings by hand:
