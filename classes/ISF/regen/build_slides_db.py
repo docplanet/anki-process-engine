@@ -23,7 +23,9 @@ def main():
     os.makedirs(slidedir, exist_ok=True)
     # page count (pdfinfo from poppler)
     info = subprocess.run(["pdfinfo", pdf], capture_output=True, text=True, check=True).stdout
-    npages = next(int(l.split(":")[1]) for l in info.splitlines() if l.startswith("Pages:"))
+    npages = next((int(l.split(":")[1]) for l in info.splitlines() if l.startswith("Pages:")), None)
+    if npages is None:
+        sys.exit(f"pdfinfo produced no 'Pages:' line for {pdf!r} — is it a valid PDF?")
     pad = len(str(npages))  # mirror pdftoppm's auto-pad width
     # render each page to JPEG: pdftoppm writes <root>-NN.jpg with its own pad width
     root = os.path.join(slidedir, f"isf-{slug}-slide")

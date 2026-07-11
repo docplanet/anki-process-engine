@@ -17,7 +17,8 @@ bad_field = [r.get("id") for r in rows if not all(k in r and r[k] not in ("", No
 bad_img = [r["id"] for r in rows if r.get("image") not in imgs]
 bad_slide = [r["id"] for r in rows if not (isinstance(r.get("slide"), int) and 1 <= r["slide"] <= nsl)]
 # non-atomic smell: a semicolon, or a contrast/reason connective joining two clauses
-smell = [r for r in rows if re.search(r";|\bwhile\b|\bwhereas\b|\bbut\b", r["fact"])]
+# (.get so a row missing "fact" — already reported in bad_field — doesn't crash the audit)
+smell = [r for r in rows if re.search(r";|\bwhile\b|\bwhereas\b|\bbut\b", r.get("fact", ""))]
 print(f"{deck.split('/')[-1]:34} facts={len(rows):3} | fields:{'ok' if not bad_field else bad_field} "
       f"img:{'ok' if not bad_img else bad_img} slide:{'ok' if not bad_slide else bad_slide} | smell={len(smell)}")
 for r in smell:

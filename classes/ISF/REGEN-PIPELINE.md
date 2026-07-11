@@ -83,7 +83,7 @@ Card-writer subagents read **`facts.jsonl` only** (never the slides directly) an
 ## Stage 3 — Content review + dedup (`cards.reviewed.jsonl`)
 Review subagents verify each card is faithful to its `source_exact` and drop near-duplicates.
 `regen/`-adjacent `content_check.py` flags near-dup pairs (SequenceMatcher ≥0.66, skipping
-same-base-id siblings), over-carded subjects, and long tails for a human call.
+same-base-id siblings), over-carded subjects, and suspicious `extra` fields for a human call.
 
 ## Stage 4 — Coverage cross-reference + gap-fill (`cards.gaps2.jsonl` → `cards.final.jsonl`)
 The **relevance** gate. Per deck, coverage subagents walk the three sources **ranked by exam signal**
@@ -132,8 +132,8 @@ the manual subagent orchestration this session ran. Until then, this pipeline is
 | Path | Role |
 |---|---|
 | `strict_shape.py` | **the mold** — hard pass/fail shape classifier (T1–T5/LIST); CLI `strict_shape.py <file> [--json]` |
-| `content_check.py` | deck-level content detectors (near-dupes, over-carding, tails); imports the mold |
-| `../tests/test_strict_shape.py` | mold self-test — 100% accept / 100% reject fixtures + reference-fidelity ≥90% |
+| `content_check.py` | deck-level content detectors (near-dupes, over-carding, suspicious extra) — the content axis above the mold |
+| `../../tests/test_strict_shape.py` | mold self-test — 100% accept / 100% reject fixtures + reference-fidelity ≥90% |
 | `regen/build_slides_db.py` | Stage 0 — render slides + build `slides.jsonl` (reconstructed) |
 | `regen/audit_facts.py` | Stage 1 audit |
 | `regen/audit_regen.py` | Stage 2/4 audit (mold + hints + provenance) |

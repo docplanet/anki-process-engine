@@ -8,8 +8,10 @@ pass) to resolve (merge / cut / trim / fix). It never edits or rejects.
 Detectors:
   - near-duplicate pairs   (revealed-text similarity >= RATIO)
   - over-carded subjects   (one <b> subject term appears in >= SUBJECT_REPEAT cards)
-  - trailing tails         (strict_shape LONG_TAIL soft flag — a dangling second fact)
   - suspicious extra       (the card's subject term never appears in its own `extra`)
+
+(Dangling trailing facts are NOT a soft detector here — the mold hard-rejects them as
+strict_shape TRAILING_FACT, so such a card never ships to reach this content pass.)
 
 Usage:
   python content_check.py "<dir-or-file>"          # human report
@@ -19,7 +21,6 @@ import argparse, glob, json, os, re, sys
 from difflib import SequenceMatcher
 
 from lint_cards import _strip
-import strict_shape as ss
 
 RATIO = 0.66            # revealed-text similarity above which two cards are "near-duplicates"
 SUBJECT_REPEAT = 3      # a subject term carded this many+ times is a redundancy candidate
@@ -63,12 +64,9 @@ def check(cards):
             subj.setdefault(s, []).append(c.get("id"))
     over = {s: v for s, v in subj.items() if len(v) >= SUBJECT_REPEAT}
 
-    # trailing tails + suspicious extra
-    tails, bad_extra = [], []
+    # suspicious extra (the subject's head nouns never appear in the card's own answer-side reveal)
+    bad_extra = []
     for c in cards:
-        res = ss.classify_card(c)
-        if res.ok and "LONG_TAIL" in res.soft:
-            tails.append(c.get("id"))
         s = subject(c)
         if s and c.get("extra"):
             sig = re.findall(r"[a-z]{5,}", s)          # significant subject words (head nouns)
@@ -77,7 +75,7 @@ def check(cards):
                 bad_extra.append(c.get("id"))
 
     return {"n": len(cards), "dup_pairs": dup_pairs, "over_carded": over,
-            "tails": tails, "suspicious_extra": bad_extra}
+            "suspicious_extra": bad_extra}
 
 
 def _iter(target):
@@ -99,7 +97,7 @@ def main():
             print(json.dumps({"file": fn, **rep}, ensure_ascii=False, indent=2)); continue
         print(f"\n### {os.path.basename(os.path.dirname(os.path.dirname(fn))) or fn}  ({rep['n']} cards)")
         print(f"  near-dup pairs: {len(rep['dup_pairs'])} | over-carded subjects: {len(rep['over_carded'])} "
-              f"| trailing tails: {len(rep['tails'])} | suspicious extra: {len(rep['suspicious_extra'])}")
+              f"| suspicious extra: {len(rep['suspicious_extra'])}")
         for r, a_, b_ in rep["dup_pairs"][:6]:
             print(f"    ~dup {r}: {a_}  ≈  {b_}")
         for s, v in list(rep["over_carded"].items())[:6]:

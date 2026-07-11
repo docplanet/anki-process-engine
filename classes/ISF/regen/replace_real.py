@@ -47,5 +47,6 @@ for deckdir, real, slug in MAP:
               "options": {"allowDuplicate": True}} for c in cards]
     added = sum(1 for x in invoke("addNotes", notes=notes) if x)
     total_del += len(old); total_add += added
-    print(f"{real.split('::')[-1]:34} -{len(old):3} old | +{added}/{len(cards)} new | {len(imgs)} imgs")
+    warn = "  ⚠️ PARTIAL ADD — old notes already deleted; investigate before re-running" if added < len(cards) else ""
+    print(f"{real.split('::')[-1]:34} -{len(old):3} old | +{added}/{len(cards)} new | {len(imgs)} imgs{warn}")
 print(f"\nTOTAL: deleted {total_del} old, added {total_add} finalized cards")

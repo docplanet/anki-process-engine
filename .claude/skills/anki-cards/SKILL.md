@@ -468,8 +468,8 @@ contract + `MARKUP.md` and (b) its card file, then **fixing in place** every vio
 
 Splitting a card here changes card count — fine on a fresh deck (no review history yet). This is
 SEPARATE from the accuracy review below: **style fixes wording/structure, accuracy fixes facts —
-run both.** (In the `process_engine` pipeline this is the `style` stage; in the regen pipeline it is
-Stage 3 review — both gated by the mold, `strict_shape.py`.)
+run both.** (In the `process_engine` pipeline this is the `style` stage, gated by `lint_cards.py`;
+in the regen pipeline it is Stage 3 review, gated by the mold, `strict_shape.py`.)
 
 **Lint tooling — confirm mechanically, don't eyeball.** Run the style linter and iterate until
 `error_count == 0`, then reconcile the warnings by hand:

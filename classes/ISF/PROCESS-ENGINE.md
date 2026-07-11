@@ -92,7 +92,7 @@ slide emphasis.**
 | `review_ledger.py` | per-card review verdicts + the ship gate |
 | `lint_cards.py` | mechanical style linter + gate (calibrated to the reference deck) |
 | `strict_shape.py` | **the mold** — hard pass/fail shape classifier (T1–T5/LIST); the regen pipeline's gate, not yet wired into the engine (task #4) |
-| `content_check.py` | deck-level content detectors (near-dupes, over-carding, tails); imports the mold |
+| `content_check.py` | deck-level content detectors (near-dupes, over-carding, suspicious extra) — the content axis above the mold |
 | `REGEN-PIPELINE.md` + `regen/` | the atomic-first, mold-gated regeneration pipeline (what built the current `ISF::Test 1` decks) |
 | `build_apkg.py` | build the `.apkg` (runs both gates) |
 | `sync_anki.py` | push cards live to Anki via AnkiConnect (runs both gates) |
