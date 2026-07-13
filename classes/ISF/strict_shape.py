@@ -214,7 +214,7 @@ def classify_card(card: dict) -> ShapeResult:
 
 
 def strict_verdict(card: dict) -> tuple[bool, str, list[str]]:
-    """Thin wrapper for process_engine._card_verdict."""
+    """Convenience wrapper: (ok, human-readable verdict, reasons) for a single card."""
     r = classify_card(card)
     if r.ok:
         return True, f"shape OK ({r.template})" + (f"; soft={r.soft}" if r.soft else ""), []
