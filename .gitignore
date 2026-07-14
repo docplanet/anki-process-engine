@@ -28,21 +28,19 @@
 !/classes/ISF/
 /classes/ISF/*
 !/classes/ISF/*.py
-!/classes/ISF/PROCESS-ENGINE.md
 !/classes/ISF/REGEN-PIPELINE.md
 !/classes/ISF/regen/
 !/classes/ISF/regen/*
+!/classes/ISF/okf/
+!/classes/ISF/okf/**
 
-# 4) .claude/  →  ONLY the card-authoring skill + the run-process workflow
+# 4) .claude/  →  ONLY the card-authoring skill
 /.claude/*
 !/.claude/skills/
 /.claude/skills/*
 !/.claude/skills/anki-cards/
 /.claude/skills/anki-cards/*
 !/.claude/skills/anki-cards/*.md
-!/.claude/workflows/
-/.claude/workflows/*
-!/.claude/workflows/run-process.js
 
 # 5) anki-mcp-server/  →  source only, drop build artifacts
 /anki-mcp-server/node_modules/

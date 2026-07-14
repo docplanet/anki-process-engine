@@ -137,7 +137,7 @@ def main():
     # 5) scaffold job.yaml (the slide-text source is redundant with the PDF anchor, so it's omitted)
     scaffold_job(lec, a.deck, a.subject, sources_by_role)
     print(f"\nprepped {os.path.relpath(lec)} -> job.yaml written")
-    print("  review sources/_manifest.txt + job.yaml, then:  process_engine.py init <lecture>/job.yaml")
+    print("  review sources/_manifest.txt + job.yaml, then run the regen pipeline (see classes/ISF/REGEN-PIPELINE.md)")
 
 
 if __name__ == "__main__":

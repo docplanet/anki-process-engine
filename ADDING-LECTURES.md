@@ -55,14 +55,9 @@ yield:   { max_cards_per_unit: 4, default: 1, allow_zero: true }
 gates:   { spec: consensus, accuracy: hard, style: hard }
 ```
 
-Worked examples: the seven committed lectures under `classes/ISF/Week 1|2/*/*/job.yaml`.
-
 ## Run it
 
-```bash
-classes/ISF/.venv/bin/python classes/ISF/process_engine.py init "<lecture>/job.yaml"
-# then drive it (in Claude Code):  /run-process  with args {jobPath: "<abs>/job.yaml"}
-```
-
-**Operating rule: run at most 2 decks at once** — the MCP server has crashed under 4 concurrent heavy
-runs. See `classes/ISF/PROCESS-ENGINE.md` for the full driver + gate details.
+The card-generation pipeline is the atomic-first, mold-gated regen flow. A one-command automated
+driver is being rebuilt from scratch and is not yet dialed in; until then the pipeline is run as the
+orchestrated subagent stages + `classes/ISF/regen/` scripts documented in
+**`classes/ISF/REGEN-PIPELINE.md`** (start there for the per-stage contracts, the mold, and the gates).

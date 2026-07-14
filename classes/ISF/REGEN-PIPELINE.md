@@ -1,11 +1,14 @@
 # ISF Card Pipeline — Atomic-First Regeneration (as-run record)
 
 This documents the pipeline that produced the **current `ISF::Test 1` decks (690 cards, 7 lectures)** —
-a from-source *regeneration* that is **distinct from** the committed `process_engine` state machine
-(see [PROCESS-ENGINE.md](PROCESS-ENGINE.md)). It ran as **parallel Claude subagents orchestrated by
+a from-source *regeneration*. It ran as **parallel Claude subagents orchestrated by
 hand**, gated at every card-producing step by **the mold** (`strict_shape.py`) — the hard pass/fail
 shape classifier, built because the calibrated linter (`lint_cards.py`) was too permissive and let
 malformed cards ship.
+
+> This is the sole card-generation pipeline. A one-command automated driver is being rebuilt from
+> scratch and is not yet dialed in; until then the pipeline is run as the orchestrated subagent stages
+> described below.
 
 Because the original orchestration lived in an ephemeral scratchpad that was wiped, this file is the
 **durable record**: the stage contracts (what each subagent is told), the artifact schemas, and the
@@ -108,22 +111,12 @@ writes `cards.final.jsonl = reviewed + gaps`, and (unless `--no-anki`) pushes th
 
 ---
 
-## Relationship to `process_engine` (the reconciliation)
+## Automation status
 
-The two pipelines are conceptually the same shape; they differ in **gate** and **orchestration**:
-
-| regen stage | process_engine analogue | gate |
-|---|---|---|
-| Stage 1 facts.jsonl DB | `scaffold` + `emphasis` (extra capture) | — |
-| Stage 2 generate (mold) | `generate` + `markup` | **mold** vs `lint_cards` |
-| Stage 3 review + dedup | `accuracy` + `style` | mold vs review-ledger |
-| Stage 4 coverage + fill | `coverage` stage | tiered gap-list vs objective-map |
-| Stage 5 sync | `build_apkg` / `sync_anki` | shared |
-
-**Open reconciliation (task #4):** fold the mold (`strict_shape.py`), the provenance rule, and the
-tiered coverage pass into `process_engine` so future decks generate this way **natively** — instead of
-the manual subagent orchestration this session ran. Until then, this pipeline is driven by hand +
-[`regen/`](regen/) scripts, and the engine remains the lint-gated path.
+This pipeline is currently driven by hand + [`regen/`](regen/) scripts + orchestrated subagents. A
+one-command automated driver — reusing the bounded-parallel harness pattern (fetch frontier → chunk →
+bounded-parallel workers → serialized submit) — is being **rebuilt from scratch** and is not yet
+dialed in. Its gate must be the **mold** (`strict_shape.py`), not the permissive linter.
 
 ---
 
