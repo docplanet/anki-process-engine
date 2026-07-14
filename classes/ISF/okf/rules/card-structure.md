@@ -28,6 +28,13 @@ Everything below follows from that.
    *forced by the ceiling*, not a stylistic choice.
 5. **No un-clozed asides.** A parenthetical or qualifier that isn't worth testing should be cut,
    not left dangling ("(including germ cells)").
+6. **A cloze holds only the tested term, styled uniformly.** The braces contain the answer and
+   nothing else — scoping/context nouns stay *outside* the cloze, and every character inside a
+   cloze carries the same role markup.
+   - ❌ `{{c1::<b>lysine</b> side chain::…}}` — "side chain" is context, and it's unstyled while
+     "lysine" is bold (mixed styling in one cloze).
+   - ✅ `The {{c1::<b>lysine</b>::which residue?}} side chain has a <u>pKa</u> of about {{c2::<i>10.5</i>}}`
+     — cloze = the term only, uniformly bold; "side chain" and the `<u>pKa</u>` facet sit outside it.
 
 Roles use the markup convention: `<b>` = subject, `<i>` = value/answer, `<u>` = facet
 (see [missing-underline] once written). Put markup inside the braces: `{{c1::<b>term</b>::hint}}`.
@@ -72,6 +79,10 @@ Over the ceiling, so split into two linked cards (overlapping at the shared node
 
 - **Reject > 3 distinct cloze numbers** in a card. (Reference-proven; over-reject budget is zero.)
 - **Flag a `<b>` subject that is not inside a cloze** (S1) — a displayed-but-untested subject.
+- **Flag a cloze that mixes a styled span with trailing/leading plain text** (rule 6), e.g.
+  `<b>lysine</b> side chain`. NOTE: the current `strict_shape.py` `CHOPPED_ANSWER` check only
+  catches a cloze carrying two *role* tags (`<i>`+`<u>`); it does NOT catch a styled term plus
+  unstyled context in one cloze — that gap is why these shipped. Worth extending the mold.
 
 ## Judgment (generator instructions + examples)
 
