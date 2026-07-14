@@ -21,6 +21,16 @@ exactly grounded in it. Any of the following is a defect:
 - **Ungrounded fact** — the source is missing, or too garbled to support the claim
   (a fact derived from an unreadable transcript line is not grounded).
 - **Factual error** — the claim is wrong on the subject matter, regardless of source.
+- **Invented or misapplied terminology (editorializing)** — a term or framing no one in the field
+  uses, or a real term applied where it's non-standard, *even when the underlying fact is true*.
+  This is a distinct, sneaky failure: a made-up label passes a factual check because it's
+  "true-adjacent." Example: calling a **free** amino acid's α-amino/α-carboxyl groups the
+  "**backbone** amine/acid" — "backbone" is real (the peptide main chain) but a free amino acid
+  has no backbone, so the usage is invented. Also: pseudo-classification subtypes ("cyclic",
+  "imino acid" for proline), and hedged characterizations ("borderline", "the most basic", loose
+  qualifiers like "hydrolyzable"). **Rule: cite or omit, never coin.** Use only established field
+  terminology; if no standard term fits a hint or label, leave it out (a hint is optional) rather
+  than invent one. Prefer the source's own words.
 
 # Status — review gate, not mechanical
 
@@ -44,6 +54,10 @@ From real flagged cards (`wrong-information`).
 
 - Compare each card's fact against the `Source:` in its `Extra`. If the card asserts anything the
   source does not support, set **flagged / blocked** and route to human accuracy review.
+- **Run a terminology-grounding pass** — a skeptical domain expert asks "would a practitioner
+  actually say this? is every term standard?" This is SEPARATE from the factual-accuracy pass,
+  which does not catch editorializing (a made-up term is often true-adjacent and passes it). The
+  factual reviewer checks *is it true*; this reviewer checks *is it real field language*.
 - **Provenance is a precondition:** a card with no resolvable source (no slide image and no
   verbatim `Source:` line) cannot be accuracy-checked — treat missing provenance as an automatic
   flag. (See the provenance requirement in the pipeline's fill contract.)
