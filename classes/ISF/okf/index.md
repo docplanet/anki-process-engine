@@ -8,6 +8,22 @@ timestamp: 2026-07-13T00:00:00Z
 
 # ISF Card-Authoring Rules
 
+## Governing principle: faithful transcription, not synthesis
+
+Card creation is a **faithful rendering of the provided material into card shape — a robust
+copy/paste, not a rewrite.** The generator's job is to take the facts *as the source states them*
+and restructure them into atomic cloze cards: split into one-fact cards, choose what to cloze,
+apply markup and hints, tag provenance. That is the entire transformation.
+
+**Add nothing.** No outside knowledge, no synthesized framing, no coined or reframed terminology,
+no editorializing. Editorializing is minimized to near-zero: if a fact, term, or qualifier is not
+in the source, it does not go on the card. When a hint or label has no basis in the source's own
+words, leave it out (hints are optional) rather than invent one. The facts are the source's; only
+the *shape* is ours.
+
+Every rule below serves this principle — the shape rules say how to restructure faithfully; the
+[accuracy](/rules/accuracy.md) rule guards against anything creeping in that the source didn't say.
+
 A vendor-neutral rulebook for generating ISF Anki cloze cards. Each rule is a separate
 OKF file so it can be cited, reviewed, and enforced independently. Rules are derived from
 real defects found in the shipped decks (tagged `wrong-*` in Anki) and stated as crisp,
