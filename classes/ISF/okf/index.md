@@ -31,6 +31,7 @@ irreducible taste is stated with worked examples.
 | [Underline the facet](/rules/facet-underline.md) | `wrong-missing-underline` | drafted |
 | [Accuracy](/rules/accuracy.md) | `wrong-information` | review-gated |
 | [No near-duplicates](/rules/no-duplicate.md) | `wrong-duplicate` | drafted |
+| [Recognition & attribute cards](/rules/recognition-and-attribute-cards.md) | (new genre — image⇄name, entity→attributes; mold-exempt) | drafted |
 
 # Coverage
 
