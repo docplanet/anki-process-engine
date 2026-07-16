@@ -35,6 +35,13 @@ Everything below follows from that.
      "lysine" is bold (mixed styling in one cloze).
    - ✅ `The {{c1::<b>lysine</b>::which residue?}} side chain has a <u>pKa</u> of about {{c2::<i>10.5</i>}}`
      — cloze = the term only, uniformly bold; "side chain" and the `<u>pKa</u>` facet sit outside it.
+7. **No cloze reveals another (no self-answering).** On a multi-cloze card, no cloze's *answer* may
+   give away a sibling cloze. Watch for a value that IS the other cloze under another name:
+   - ❌ `An amino acid's {{c1::<b>carboxyl group</b>}} is {{c2::<i>deprotonated (–COO⁻)</i>}}` — "–COO⁻"
+     is the carboxylate, i.e. the carboxyl group, so c2 hands you c1.
+   - ✅ drop the revealing token from the answer (cloze only the state: `{{c2::<i>deprotonated</i>}}`)
+     and move the structural form to `Extra`. Test by hiding each cloze in turn: the visible text
+     (including the *other* answers) must not contain or spell out the hidden one.
 
 Roles use the markup convention: `<b>` = subject, `<i>` = value/answer, `<u>` = facet
 (see [missing-underline] once written). Put markup inside the braces: `{{c1::<b>term</b>::hint}}`.
