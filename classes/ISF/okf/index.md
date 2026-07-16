@@ -48,6 +48,7 @@ irreducible taste is stated with worked examples.
 | [Accuracy](/rules/accuracy.md) | `wrong-information` | review-gated |
 | [No near-duplicates](/rules/no-duplicate.md) | `wrong-duplicate` | drafted |
 | [Recognition & attribute cards](/rules/recognition-and-attribute-cards.md) | (new genre — image⇄name, entity→attributes; mold-exempt) | drafted |
+| [The answer is a complete span](/rules/complete-span.md) | `wrong-style-off` (fragmented answer) | drafted |
 
 # Coverage
 
