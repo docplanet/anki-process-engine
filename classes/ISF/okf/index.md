@@ -50,6 +50,7 @@ irreducible taste is stated with worked examples.
 | [Recognition & attribute cards](/rules/recognition-and-attribute-cards.md) | (new genre — image⇄name, entity→attributes; mold-exempt) | drafted |
 | [The answer is a complete span](/rules/complete-span.md) | `wrong-style-off` (fragmented answer) | drafted |
 | [No terminal punctuation](/rules/no-terminal-period.md) | `wrong-style-off` (from reference-deck audit) | drafted |
+| [Cloze the whole insight](/rules/whole-insight.md) | `wrong-low-yield` (clause fragment clozed) | drafted |
 
 # Coverage
 

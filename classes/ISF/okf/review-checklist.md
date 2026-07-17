@@ -28,6 +28,9 @@ For EACH card, tested by hiding each cloze in turn:
    value, or a fragment with the rest trailing as plain text? → defect.
 5. **Every testable role clozed** ([card-structure](/rules/card-structure.md)) — is any word that the
    card clearly means to test left un-clozed (a condition, a downstream node)? → defect.
+5b. **Whole insight clozed** ([whole-insight](/rules/whole-insight.md)) — on a "because/which/so that"
+   clause, is only the tail clozed while the subject+verb of the explanation stay visible? Hide the
+   cloze: does the stem still reveal the mechanism? If yes, the cloze is too small → defect.
 6. **Facet underlined** ([facet-underline](/rules/facet-underline.md)) — is the aspect/category word
    (charge state, pH, pKa, the framing noun) marked `<u>`? Missing → defect.
 7. **Cloze content/styling** ([card-structure](/rules/card-structure.md) rule 6) — does any cloze carry
