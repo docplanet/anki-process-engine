@@ -11,10 +11,29 @@ source_defects: [wrong-first-hint, wrong-second-hint, wrong-undescriptive-hint]
 
 # Rule
 
-Every `::hint` inside a cloze, when substituted into its blank, **must read as natural
-English** — as if the hidden text were simply replaced by a placeholder. Beyond reading
-naturally, a hint must be **specific**, must **not leak** the answer, and must **not echo**
-a visible neighboring word.
+**Every cloze carries a hint by default.** House style requires a hint on each cloze unless there
+is a clear, specific reason not to. (This is a deliberate override of the reference deck, which
+hints only ~⅓ of clozes — the same way [card-structure](/rules/card-structure.md) requires the
+subject clozed where the reference is looser. Our decks are stricter.)
+
+Each `::hint`, when substituted into its blank, **must read as natural English** — as if the hidden
+text were simply replaced by a placeholder. Beyond reading naturally, a hint must be **specific**,
+must **not leak** the answer, and must **not echo** a visible neighboring word.
+
+## When a hint may be omitted (the exceptions)
+
+Omit a hint *only* for a clear reason, and state that reason:
+
+1. **No non-leaking hint exists** — every candidate hint would leak, echo, or be a vague catch-all,
+   and there is no specific placeholder that helps (per "cite or omit, never coin" in
+   [accuracy](/rules/accuracy.md)). Better no hint than a bad one.
+2. **The stem fully determines the answer** — an already-complete, unambiguous sentence leaves
+   exactly one reading, so a hint would be pure redundancy (e.g. a clozed whole "because …" clause,
+   [whole-insight](/rules/whole-insight.md)).
+
+If neither applies, the cloze needs a hint. A missing hint with no such reason is a defect — note
+the reason in the card's `Extra` ("more") when it isn't self-evident, so a reviewer can see the
+omission was deliberate.
 
 This is the master principle. The rest of this file is how it applies and how to check it.
 
@@ -81,8 +100,11 @@ Split the rule into what code can check vs. what needs reading comprehension.
 
 ## Mechanical (hard-gate candidates)
 
-Applied only to hints that are present (a missing hint stays a soft advisory — the reference
-deck hints only ~60% of cards, so requiring a hint everywhere would diverge from house style).
+- **Missing hint** — flag any cloze with no `::hint` for review (house style requires one). It
+  clears only if a stated exception applies (no non-leaking hint exists, or the stem fully
+  determines the answer). Not a silent pass.
+
+Checks applied to hints that ARE present:
 
 - **Vague blocklist** — reject a hint whose whole text is a bare catch-all:
   `which structure?`, `which cells?`, `which type?`, `which term?`, `which step?`, `what?`, etc.

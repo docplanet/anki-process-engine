@@ -35,6 +35,13 @@ Everything below follows from that.
      "lysine" is bold (mixed styling in one cloze).
    - ✅ `The {{c1::<b>lysine</b>::which residue?}} side chain has a <u>pKa</u> of about {{c2::<i>10.5</i>}}`
      — cloze = the term only, uniformly bold; "side chain" and the `<u>pKa</u>` facet sit outside it.
+   - **Cloze the distinguishing word; keep a generic head noun visible.** When the term is
+     `distinguisher + generic head` ("**carboxyl** group", "**amino** group", "**basal** lamina"),
+     cloze only the distinguisher and leave the head noun visible — but **bold it too**, so the whole
+     subject phrase reads bold: `The {{c1::<b>carboxyl</b>}} <b>group</b> of an amino acid has a
+     <u>pKa</u> of about {{c2::<i>1.8–2.4</i>}}`. The visible head noun frames the blank, so **no hint
+     is needed** (and none that would fit — "acidic group" etc. — could avoid leaking). This is the
+     preferred fix when a term's only good hints would leak ([hint](/rules/hint.md) exception 1).
 7. **No cloze reveals another (no self-answering).** On a multi-cloze card, no cloze's *answer* may
    give away a sibling cloze. Watch for a value that IS the other cloze under another name:
    - ❌ `An amino acid's {{c1::<b>carboxyl group</b>}} is {{c2::<i>deprotonated (–COO⁻)</i>}}` — "–COO⁻"
