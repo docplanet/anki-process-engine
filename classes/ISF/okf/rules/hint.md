@@ -68,6 +68,11 @@ A cloze card has a subject and a predicate; the hint's shape depends on which th
    describes the answer (that leaks).
 6. **Signal count.** If the answer is a set of N items, the hint should say so
    (`two gestational structures`).
+7. **Binary / small-set answer → list the options.** When the answer is one of a small, known set
+   (especially two), the hint gives the *options*, not a vague category. `protonated or deprotonated?`
+   beats `what form?`; `cis or trans?` beats `which geometry?`. This is the hint doing its job — the
+   purpose of a hint is to make recall *fast* (assemble known pieces, don't struggle to decode what's
+   being asked). Listing both options is **not a leak** — you still have to recall *which* one.
 
 # Examples
 

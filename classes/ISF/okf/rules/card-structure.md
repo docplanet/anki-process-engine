@@ -22,7 +22,10 @@ Everything below follows from that.
 
 1. **The card is a complete sentence stating one fact (or one short causal chain).**
 2. **Cloze every testable role in that fact** — the subject, the value, and each node of a
-   relationship. A role that matters is a role you test; do not leave it as un-clozed prose.
+   relationship. A role that matters is a role you test; do not leave it as un-clozed prose. In
+   particular, **the condition a fact hinges on is a testable role, not free context** — "the
+   carboxyl group is deprotonated at physiological pH" hinges on *physiological pH*, so cloze it;
+   leaving it visible tests a peripheral piece and makes the subject unclear.
 3. **Never more than 3 distinct clozes. Default to 2.**
 4. **If the fact needs more than 3 roles tested, split it into linked cards** — the split is
    *forced by the ceiling*, not a stylistic choice.
