@@ -42,10 +42,13 @@ Test identification in both directions from one note: the image is one cloze, th
 Give the entity; recall its small set of defining attributes (which genuinely belong together).
 
 ```
-<b>Glycine</b>: {{c1::<i>Gly, G</i>::abbreviations?}}, {{c2::<i>nonpolar (aliphatic)</i>::classification?}}
+<b>Glycine</b>: {{c1::<u>Gly, G</u>::abbreviations?}}, {{c2::<i>nonpolar (aliphatic)</i>::classification?}}
 ```
 
-- The entity leads as the visible `<b>` subject; each attribute is its own `<i>` cloze.
+- The entity leads as the visible `<b>` subject; each attribute is its own cloze.
+- **Distinct attributes get distinct styling** ([card-structure](/rules/card-structure.md) rule 8) —
+  don't make both attribute clozes `<i>` (they'd read identically). Convention: **abbreviations `<u>`,
+  classification `<i>`**. Three distinct roles, three stylings (`<b>` entity, `<u>` abbrev, `<i>` class).
 - Two (or three) attribute clozes are allowed here — this is the deliberate exemption. Keep it to
   the genuinely-paired attributes; overflow detail goes in `Extra`.
 

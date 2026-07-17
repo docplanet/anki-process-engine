@@ -42,6 +42,11 @@ Everything below follows from that.
      <u>pKa</u> of about {{c2::<i>1.8–2.4</i>}}`. The visible head noun frames the blank, so **no hint
      is needed** (and none that would fit — "acidic group" etc. — could avoid leaking). This is the
      preferred fix when a term's only good hints would leak ([hint](/rules/hint.md) exception 1).
+8. **Distinct clozes are distinctly styled.** Two *different* cloze numbers on a card must not share
+   the same role markup — each gets its own styling (`<b>` / `<i>` / `<u>`) so the reader can tell the
+   roles apart. Same styling is reserved for items that share ONE cloze number (a list, whose items
+   are all `<i>`). Example: an attribute card's two clozes were both `<i>` and read identically — fix
+   is one `<u>`, one `<i>` (see [recognition-and-attribute-cards](/rules/recognition-and-attribute-cards.md)).
 7. **No cloze reveals another (no self-answering).** On a multi-cloze card, no cloze's *answer* may
    give away a sibling cloze. Watch for a value that IS the other cloze under another name:
    - ❌ `An amino acid's {{c1::<b>carboxyl group</b>}} is {{c2::<i>deprotonated (–COO⁻)</i>}}` — "–COO⁻"
