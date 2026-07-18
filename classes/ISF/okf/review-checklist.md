@@ -21,8 +21,8 @@ For EACH card, tested by hiding each cloze in turn:
    visible text (including the *other* answers) contain or spell out the hidden answer? A structural
    form (–COO⁻, –NH₃⁺), synonym, or definition counts. If yes → defect.
 2. **Hint present** ([hint](/rules/hint.md)) — does every cloze have a `::hint`? A missing hint is a
-   defect unless a stated exception applies (no non-leaking hint exists, or the stem fully determines
-   the answer). Don't wave it through.
+   defect unless a stated exception applies (no non-leaking hint exists; the stem fully determines
+   the answer; or it's a **list item**, which takes no hint). Don't wave it through.
 2b. **Hint leak** ([hint](/rules/hint.md)) — does any hint name the answer, an instance of it, or a
    property that identifies a small (2–3 member) set? ("acidic AAs" for aspartate/glutamate leaks.)
    Does a hint echo an adjacent visible word, or share the answer's root? → defect.

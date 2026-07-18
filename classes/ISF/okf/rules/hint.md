@@ -30,6 +30,11 @@ Omit a hint *only* for a clear reason, and state that reason:
 2. **The stem fully determines the answer** — an already-complete, unambiguous sentence leaves
    exactly one reading, so a hint would be pure redundancy (e.g. a clozed whole "because …" clause,
    [whole-insight](/rules/whole-insight.md)).
+3. **List items take no hints.** On a numbered-list card ([mold](/mold.md) shape 3) the items share
+   one cloze number and reveal together — the bold header/stem *is* the cue ("The diencephalon
+   contains: 1. … 2. … 3. …"). Per-item hints would be identical, echoing, or bare catch-alls, all of
+   which this rule forbids. So: **hint the header cloze; leave the item clozes bare.** This is a rule,
+   not an exception to argue each time.
 
 If neither applies, the cloze needs a hint. A missing hint with no such reason is a defect — note
 the reason in the card's `Extra` ("more") when it isn't self-evident, so a reviewer can see the

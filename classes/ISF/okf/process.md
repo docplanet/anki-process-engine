@@ -25,8 +25,15 @@ Driver: `classes/ISF/.venv/bin/python classes/ISF/build_deck.py <subcommand>`
 
 ## 1 · Materials in
 
-Drop into the deck folder: the **slides PDF**, the **learning-objectives PDF**, and the **lecture
-transcript** (`.txt`/`.vtt`). Course material is gitignored — it stays local.
+Drop into the deck folder: the **slide deck**, the **learning objectives**, and the **lecture
+transcript** (`.txt`/`.vtt`/`.srt`). Course material is gitignored — it stays local.
+
+Two things vary by subject and neither is an error:
+- **Slides may be `.ppt`/`.pptx`, not PDF.** `build_deck slides` converts them via LibreOffice
+  automatically (`brew install --cask libreoffice`).
+- **There may be no objectives PDF.** Some subjects (histology) embed the objectives as prose on the
+  first few slides instead. Find them wherever they are — slides, a PDF, or the syllabus — and say in
+  your scope note where you got them.
 
 ## 2 · Slide DB
 
@@ -49,6 +56,28 @@ Read the objectives and the slide titles. State plainly what **this** deck cover
 objectives that belong to a *different* lecture (objectives files often span several). Card only
 this deck's scope.
 
+### A slide deck is not a lecture — check what was actually taught
+
+**The transcript is the authority on what was covered, not the slide deck.** A folder's slides
+routinely overrun the session. Expect all of these:
+
+- **The lecture covers only part of its deck.** It ends with "we'll pick this up next time" — the
+  remaining slides are *not yet taught*. Card only the covered portion.
+- **The lecture spends most of its time on the *previous* week's material** before starting this
+  week's topic. (Real case: an "Exam 2 Histology Week 3" recording was ~78% Week-2 epithelium
+  review; connective tissue didn't start until three-quarters through.)
+- **The deck folder holds more than one lecture's slides.**
+
+So before authoring, **establish the covered range explicitly**: find where the topic starts in the
+transcript and where the session ends, and map that to slide numbers. Write it down in your scope
+note — e.g. *"transcript covers slides 1–29; slides 30–88 (collagen synthesis, elastic fibers, GAGs)
+were previewed as 'next time' and are NOT carded here."*
+
+**Uncovered slides are not a gap to fill** — they are next session's material and get carded with
+that lecture. Do not card untaught content just because the slide exists; that is exactly the
+over-mining [yield](/rules/yield.md) forbids. Objective-backed material that was deferred still gets
+carded, tagged `flag::beyond-scope` (see the yield rule).
+
 ## 5 · 🧠 Audit existing decks and REUSE first
 
 **Before authoring anything**, query Anki for decks already covering this material
@@ -70,9 +99,35 @@ Read [`index.md`](/index.md), [`mold.md`](/mold.md), and **every rule** in `rule
 Then author, obeying the governing principle: **faithful transcription, not synthesis** — render the
 source into card shape, add nothing, coin no terminology, and prefer the source's own words.
 
-Write drafts as JSONL, one card per line:
-`{"id", "type":"cloze", "text", "extra", "source", "tags":[]}`
-`extra` carries provenance: the slide image plus a verbatim `Source:` line.
+Write drafts as JSONL, one card per line. **Keys are lowercase and map to the note type's
+capitalized fields:**
+
+| JSONL key | Note field | Contents |
+|---|---|---|
+| `text` | `Text` | the cloze card itself |
+| `extra` | `Extra` | provenance — the slide `<img>` plus a verbatim `Source:` line |
+| `source` | `Source` | short origin label, e.g. `Slide 12` / `Slide 12 / Transcript` |
+| `tags` | (tags) | array of strings, see below |
+| `id` | — | your own reference; not written to Anki |
+
+```json
+{"id":"ct-01","type":"cloze","text":"…","extra":"<img src=\"…\"><br><br><b>Source:</b> …","source":"Slide 12","tags":["isf::histology::connective-tissue","week::03"]}
+```
+
+### Tag vocabulary
+
+| Tag | Meaning |
+|---|---|
+| `isf::<subject>::<topic>` | what the card is about — e.g. `isf::histology::connective-tissue` |
+| `week::NN` | source week, zero-padded |
+| `test::N` | which exam block |
+| `slide::NN` | the slide the fact came from |
+| `src::<origin>` | provenance of the *card* — see [index.md](/index.md) |
+| `flag::beyond-scope` | correct + objective-backed, but the lecture deferred it (suspendable) |
+| `wrong-<defect>` | added **by the user during review** to flag a problem — never by the author |
+
+`key::…` appears on older cards; it was an idempotency key for a sync script that no longer exists.
+**Don't add it to new cards.**
 
 ## 8 · Gate
 
@@ -103,10 +158,19 @@ Pushes the slide JPEGs into Anki's media collection so `extra` images render. Id
 ## 11 · Insert
 
 ```
-build_deck insert "<deck>/out/cards.jsonl" --deck "ISF::Test N::Subject::Topic" [--dry-run]
+build_deck insert "<deck>/out/cards.jsonl" --deck "ISF::Test 2::Histology::Connective Tissue" [--dry-run]
 ```
-Adds notes with note type `Custom Cloze` (fields Text/Extra/Source).
+Adds notes with note type `Custom Cloze` (fields Text/Extra/Source). Use `--dry-run` first.
 *Manual:* `anki` MCP `anki_add_notes`.
+
+**Deck naming:** `ISF::Test <N>::<Subject>::<Topic>` — e.g.
+`ISF::Test 2::Biochemistry::Amino Acid Structures`. Subject is the strand (Biochemistry, Histology,
+Embryology); Topic is the lecture. **Check the existing deck list first** (`anki_list_decks`) and
+match what's there rather than inventing a sibling.
+
+> Some older decks read `ISF::Test 1::Week 2::Histology (Engine)::Epithelium` — that carries a
+> now-meaningless `(Engine)` suffix and an extra week level, both left over from a deleted pipeline.
+> Don't copy that shape for new decks.
 
 ## 12 · 🧠 Review
 

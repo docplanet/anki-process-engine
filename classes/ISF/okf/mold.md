@@ -76,6 +76,8 @@ The {{c2::<b>diencephalon</b>::which brain part?}} contains:<br><br>1. {{c1::<i>
 - Subject takes **one** cloze number; **every item shares the OTHER** cloze number so they reveal
   together.
 - Each item is exactly one `<i>` span, on its own line, capitalized, no trailing punctuation.
+- **Hint the header cloze; leave the item clozes bare** — the header is the cue, and per-item hints
+  would just repeat it ([hint](/rules/hint.md) exception 3).
 - Never chop an item into italic-plus-underline pieces, and never put a "term — examples" bundle in
   an item.
 - Note this is the one place repeated styling is correct — items share a cloze number, so they share

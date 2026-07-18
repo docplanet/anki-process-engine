@@ -6,7 +6,7 @@ AGENT work — no script writes cards. See classes/ISF/okf/process.md for the fu
 the manual fallback for every step below (each subcommand is independent; if one fails, do that
 step by hand and continue).
 
-    build_deck.py slides  <slides.pdf> <out_dir> <slug>   render slides -> JPEGs + slides.jsonl
+    build_deck.py slides  <slides.pdf|.ppt> <out> <slug>   render slides -> JPEGs + slides.jsonl
     build_deck.py sources <deck_dir>                      extract PDFs/transcript -> out/sources/
     build_deck.py gate    <cards.jsonl>                   strict_shape mold gate (must be N/N)
     build_deck.py dedupe  <cards.jsonl>                   content_check near-dup report
@@ -15,7 +15,7 @@ step by hand and continue).
     build_deck.py sync                                    AnkiConnect sync
 
 Anki steps need Anki running with the AnkiConnect add-on (http://127.0.0.1:8765).
-Slide rendering needs poppler (pdftoppm, pdftotext, pdfinfo).
+Slide rendering needs poppler (pdftoppm, pdftotext, pdfinfo); .ppt/.pptx also needs LibreOffice.
 """
 import argparse, glob, json, os, subprocess, sys, urllib.request
 
@@ -40,10 +40,31 @@ def invoke(action, **params):
 
 
 # ── slides ────────────────────────────────────────────────────────────────────
+def _as_pdf(path, out_dir):
+    """Slide decks often ship as .ppt/.pptx — convert to PDF via LibreOffice first."""
+    if path.lower().endswith(".pdf"):
+        return path
+    if not path.lower().endswith((".ppt", ".pptx", ".key", ".odp")):
+        sys.exit(f"don't know how to render {path!r} — give a .pdf or .ppt/.pptx")
+    os.makedirs(out_dir, exist_ok=True)
+    print(f"converting {os.path.basename(path)} -> PDF (LibreOffice)…")
+    r = subprocess.run(["soffice", "--headless", "--convert-to", "pdf", "--outdir", out_dir, path],
+                       capture_output=True, text=True)
+    pdf = os.path.join(out_dir, os.path.splitext(os.path.basename(path))[0] + ".pdf")
+    if r.returncode != 0 or not os.path.exists(pdf):
+        sys.exit(f"LibreOffice conversion failed ({r.returncode}). Install it "
+                 "(`brew install --cask libreoffice`) or convert to PDF by hand, then re-run.")
+    return pdf
+
+
 def cmd_slides(a):
-    """Render each PDF page to a JPEG and emit slides.jsonl (slide, image, text)."""
+    """Render each slide to a JPEG and emit slides.jsonl (slide, image, text).
+
+    Accepts a PDF, or a .ppt/.pptx which is converted to PDF first.
+    """
     slidedir = os.path.join(a.out_dir, "slides")
     os.makedirs(slidedir, exist_ok=True)
+    a.pdf = _as_pdf(a.pdf, a.out_dir)
     info = subprocess.run(["pdfinfo", a.pdf], capture_output=True, text=True, check=True).stdout
     npages = next((int(l.split(":")[1]) for l in info.splitlines() if l.startswith("Pages:")), None)
     if npages is None:
@@ -168,7 +189,7 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("slides", help="render slide PDF -> JPEGs + slides.jsonl")
+    p = sub.add_parser("slides", help="render slide PDF/.ppt -> JPEGs + slides.jsonl")
     p.add_argument("pdf"); p.add_argument("out_dir"); p.add_argument("slug")
     p.set_defaults(fn=cmd_slides)
 
