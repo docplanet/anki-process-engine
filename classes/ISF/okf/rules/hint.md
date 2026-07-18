@@ -27,6 +27,11 @@ Omit a hint *only* for a clear reason, and state that reason:
 1. **No non-leaking hint exists** — every candidate hint would leak, echo, or be a vague catch-all,
    and there is no specific placeholder that helps (per "cite or omit, never coin" in
    [accuracy](/rules/accuracy.md)). Better no hint than a bad one.
+   **Before invoking this, try the structural fix:** if the term is `distinguisher + generic head
+   noun` ("**carboxyl** group", "**dense regular** connective tissue"), cloze only the distinguisher
+   and leave the head noun visible and bold — the visible head frames the blank and no hint is
+   needed. See [card-structure](/rules/card-structure.md) rule 6. This resolves most small-closed-set
+   cases where any category hint would leak by elimination.
 2. **The stem fully determines the answer** — an already-complete, unambiguous sentence leaves
    exactly one reading, so a hint would be pure redundancy (e.g. a clozed whole "because …" clause,
    [whole-insight](/rules/whole-insight.md)).

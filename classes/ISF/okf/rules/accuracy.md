@@ -50,6 +50,26 @@ From real flagged cards (`wrong-information`).
 
 # Enforcement
 
+## Citing a transcript-only fact (the title-slide case)
+
+A slide is often just a **title over an image**, with the actual content spoken. When the fact comes
+from the transcript but was said *over* a slide:
+
+- **Show the slide image** in `Extra` (it's the visual referent), **but the `Source:` line must be
+  the verbatim transcript quote**, labelled as such.
+- **Never imply the slide states it.** `Source: Slide 5` on a transcript-only fact is a false
+  citation — the reviewer checking the slide will find nothing.
+- Set the `source` field to `Transcript` (or `Slide N / Transcript` when both genuinely contribute).
+
+```
+Extra: <img src="…slide-05.jpg"><br><br><b>Source (transcript):</b> "…verbatim words…"
+source: Transcript
+```
+
+A quote presented as verbatim must be **exactly** what was said — do not tidy it, merge lines, or
+insert words. (A real defect caught in review: a mnemonic's words were written into a "verbatim"
+transcript quote the lecturer never spoke.)
+
 ## Human-review gate
 
 - Compare each card's fact against the `Source:` in its `Extra`. If the card asserts anything the

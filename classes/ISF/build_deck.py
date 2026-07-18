@@ -17,11 +17,22 @@ step by hand and continue).
 Anki steps need Anki running with the AnkiConnect add-on (http://127.0.0.1:8765).
 Slide rendering needs poppler (pdftoppm, pdftotext, pdfinfo); .ppt/.pptx also needs LibreOffice.
 """
-import argparse, glob, json, os, subprocess, sys, urllib.request
+import argparse, datetime, glob, json, os, subprocess, sys, urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ANKI = "http://127.0.0.1:8765"
 MODEL = "Custom Cloze"          # fields: Text, Extra, Source
+
+
+def _log(out_dir, step, detail):
+    """Record what ran into out/.build_deck.log so a later session can see the state of out/."""
+    try:
+        os.makedirs(out_dir, exist_ok=True)
+        stamp = datetime.datetime.now().isoformat(timespec="seconds")
+        with open(os.path.join(out_dir, ".build_deck.log"), "a", encoding="utf-8") as f:
+            f.write(f"{stamp}\t{step}\t{detail}\n")
+    except OSError:
+        pass                                     # logging must never break a build step
 
 
 # ── AnkiConnect ───────────────────────────────────────────────────────────────
@@ -82,6 +93,7 @@ def cmd_slides(a):
                                 "image": f"isf-{a.slug}-slide-{i:0{pad}d}.jpg",
                                 "text": pages[i - 1].strip() if i - 1 < len(pages) else ""},
                                ensure_ascii=False) + "\n")
+    _log(a.out_dir, "slides", f"{npages} slides from {os.path.basename(a.pdf)} (slug={a.slug})")
     print(f"{a.slug}: {npages} slides -> {slidedir}/ + {out}")
 
 
@@ -122,6 +134,7 @@ def cmd_sources(a):
         n += 1
     for s in skipped:
         print(f"  (skipped {s} — same basename, cleaner format kept)")
+    _log(os.path.join(a.deck_dir, "out"), "sources", f"{n} file(s) -> out/sources/")
     print(f"{n} source file(s) extracted to {dest}")
     if not n:
         print("  (nothing found — drop the slides PDF, objectives PDF and transcript in the folder)")

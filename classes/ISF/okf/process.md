@@ -19,7 +19,13 @@ Every step lists the **driver command** and the **manual fallback**. The subcomm
 independent — if the driver fails on one step, do that step by hand and continue.
 
 Driver: `classes/ISF/.venv/bin/python classes/ISF/build_deck.py <subcommand>`
-(abbreviated `build_deck` below).
+(abbreviated `build_deck` below). **Run it from the repo root** — the paths are relative, and an
+agent's shell may reset its working directory between calls, so `cd` to the repo root in the same
+command if unsure.
+
+**Check `out/` before re-running steps 2–3.** A previous session may have already rendered slides or
+extracted sources. `out/.build_deck.log` records what ran and when. All subcommands are idempotent,
+so re-running is safe — but if `out/` looks half-populated, re-run rather than trust it.
 
 ---
 
@@ -144,7 +150,12 @@ Recognition/attribute cards are **exempt** — see
 ```
 build_deck dedupe "<deck>/out/cards.jsonl"
 ```
-Advisory worklist of near-duplicates and over-carded subjects — a human resolves each.
+Advisory worklist: near-duplicate pairs, over-carded subjects, and "suspicious extra" (the subject
+term is missing from the card's own `Extra` — often a provenance problem).
+
+**Every flag must be resolved, but you may resolve it yourself** — merge, cut, or keep-both-with-a-
+written-reason. Escalate only when the call needs course knowledge you don't have. See
+[no-duplicate](/rules/no-duplicate.md).
 *Manual:* `classes/ISF/content_check.py <cards.jsonl>`.
 
 ## 10 · Media into Anki

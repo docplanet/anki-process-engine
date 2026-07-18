@@ -33,11 +33,33 @@ classes/ISF/.venv/bin/python classes/ISF/content_check.py <deck-dir> --json
 It also flags **over-carded subjects** (one `<b>` subject appearing in ≥ 3 cards) — a redundancy
 signal adjacent to duplication.
 
-## Human-review gate
+## What the detector reports
 
-The detector never edits or rejects — it produces a worklist. Each near-duplicate pair is routed
-to human review to **merge, cut, or keep-both-with-reason** before ship; an unresolved pair blocks
-ship (consistent with the project rule that an open flag must be resolved).
+`content_check.py` prints three advisory signals — none of them auto-reject:
+
+| Signal | Means |
+|---|---|
+| **near-dup pairs** | two cards' revealed text is ≥66% similar (same-note siblings excluded) |
+| **over-carded subjects** | one `<b>` subject appears in ≥3 cards — possible redundancy |
+| **suspicious extra** | the card's subject term never appears in its own `Extra` — often a sign the provenance doesn't actually support the card (this is what caught a fabricated quote in review) |
+
+## Resolving a flag — who decides
+
+Every flag must be **resolved, not ignored** — but an agent may resolve it itself:
+
+- **Resolve and record the reason** when the call is about the cards in front of you: merge the
+  duplicate, cut the weaker card, or keep both with a written justification (e.g. "five distinct
+  objective-backed facets of one generic subject, not redundancy"). Put the reason where the next
+  reviewer will see it.
+- **Escalate to the user** only when the decision needs course knowledge you don't have — e.g.
+  whether the instructor treats two phrasings as the same exam point.
+- A **`suspicious extra`** hit is often a false positive (an abbreviation in the `Extra`); confirm by
+  reading the card before acting.
+
+An unresolved flag blocks ship. A *resolved-with-reason* flag does not.
+
+> `flag::beyond-scope` cards are suspended, not deleted. **The user un-suspends them** when the
+> material comes into scope for an exam — an agent should never silently drop or unsuspend one.
 
 # Related
 
