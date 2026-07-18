@@ -188,9 +188,13 @@ match what's there rather than inventing a sibling.
 Run [`review-checklist.md`](/review-checklist.md) — **every check, per card**, not a "looks right"
 pass. Best run as parallel subagents on separate axes:
 
+- **sense & yield** — read each card as a *student*, not a linter: does it make basic logical sense?
+  Does the hint line up with the blank? Is this worth carding at all, or is it a slide-outline
+  artifact? **Run this axis first** — it catches the defects the others structurally miss, because
+  style/accuracy checks can all pass on a card that is simply nonsense or not worth knowing.
 - **accuracy** — each fact against the slides *and* transcript
 - **terminology grounding** — is every term real field language? (catches invented/editorialized
-  wording that a factual check passes)
+  wording that a factual check passes) — **this covers hints too**, which are card text
 - **style** — against every rule in `rules/`
 - **coverage** — objectives and transcript emphasis vs. what got carded
 

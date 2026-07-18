@@ -42,14 +42,9 @@ Everything below follows from that.
      `distinguisher + generic head` ("**carboxyl** group", "**amino** group", "**basal** lamina"),
      cloze only the distinguisher and leave the head noun visible — but **bold it too**, so the whole
      subject phrase reads bold: `The {{c1::<b>carboxyl</b>}} <b>group</b> of an amino acid has a
-     <u>pKa</u> of about {{c2::<i>1.8–2.4</i>}}`. The visible head noun frames the blank, so **no hint
-     is needed** (and none that would fit — "acidic group" etc. — could avoid leaking). This is the
-     preferred fix when a term's only good hints would leak ([hint](/rules/hint.md) exception 1).
-8. **Distinct clozes are distinctly styled.** Two *different* cloze numbers on a card must not share
-   the same role markup — each gets its own styling (`<b>` / `<i>` / `<u>`) so the reader can tell the
-   roles apart. Same styling is reserved for items that share ONE cloze number (a list, whose items
-   are all `<i>`). Example: an attribute card's two clozes were both `<i>` and read identically — fix
-   is one `<u>`, one `<i>` (see [recognition-and-attribute-cards](/rules/recognition-and-attribute-cards.md)).
+     <u>pKa</u> of about {{c2::<i>1.8–2.4</i>}}`. The visible head noun frames the blank and defuses most leaks — but **still give the cloze a
+     hint** ([hint](/rules/hint.md)); an option-listing one often fits best here
+     (`regular or irregular?`, `embryonic, proper, or specialized?`).
 7. **No cloze reveals another (no self-answering).** On a multi-cloze card, no cloze's *answer* may
    give away a sibling cloze. Watch for a value that IS the other cloze under another name:
    - ❌ `An amino acid's {{c1::<b>carboxyl group</b>}} is {{c2::<i>deprotonated (–COO⁻)</i>}}` — "–COO⁻"
@@ -58,8 +53,14 @@ Everything below follows from that.
      and move the structural form to `Extra`. Test by hiding each cloze in turn: the visible text
      (including the *other* answers) must not contain or spell out the hidden one.
 
-Roles use the markup convention: `<b>` = subject, `<i>` = value/answer, `<u>` = facet
-(see [missing-underline] once written). Put markup inside the braces: `{{c1::<b>term</b>::hint}}`.
+8. **Distinct clozes are distinctly styled.** Two *different* cloze numbers on a card must not share
+   the same role markup — each gets its own styling (`<b>` / `<i>` / `<u>`) so the reader can tell the
+   roles apart. Same styling is reserved for items that share ONE cloze number (a list, whose items
+   are all `<i>`). Example: an attribute card's two clozes were both `<i>` and read identically — fix
+   is one `<u>`, one `<i>` (see [recognition-and-attribute-cards](/rules/recognition-and-attribute-cards.md)).
+Roles use the markup convention: `<b>` = subject, `<i>` = value/answer, `<u>` = facet — see
+[mold.md](/mold.md) and [facet-underline](/rules/facet-underline.md). Put markup inside the braces:
+`{{c1::<b>term</b>::hint}}`.
 
 # Reference basis
 
@@ -101,6 +102,7 @@ Over the ceiling, so split into two linked cards (overlapping at the shared node
 
 - **Reject > 3 distinct cloze numbers** in a card. (Reference-proven; over-reject budget is zero.)
 - **Flag a `<b>` subject that is not inside a cloze** (S1) — a displayed-but-untested subject.
+  **Except on list cards**, where a visible bold header is legitimate ([mold](/mold.md) shape 3).
 - **Flag a cloze that mixes a styled span with trailing/leading plain text** (rule 6), e.g.
   `<b>lysine</b> side chain`. NOTE: the current `strict_shape.py` `CHOPPED_ANSWER` check only
   catches a cloze carrying two *role* tags (`<i>`+`<u>`); it does NOT catch a styled term plus

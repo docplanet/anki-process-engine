@@ -73,11 +73,14 @@ See [facet-underline](/rules/facet-underline.md).
 The {{c2::<b>diencephalon</b>::which brain part?}} contains:<br><br>1. {{c1::<i>Pineal gland</i>}}<br>2. {{c1::<i>Thalamus</i>}}<br>3. {{c1::<i>Hypothalamus</i>}}
 ```
 
-- Subject takes **one** cloze number; **every item shares the OTHER** cloze number so they reveal
-  together.
+- **Every item shares ONE cloze number** so they reveal together.
+- **The header may be clozed or left visible — judge by ambiguity.** Cloze it when the item list
+  uniquely identifies it, so "given these items, name the thing" is a real test. Leave it **bold and
+  visible** when many subjects could own that list, or when clozing it would need a coined hint —
+  a nonsense header cloze is worse than none. When in doubt, leave it visible.
 - Each item is exactly one `<i>` span, on its own line, capitalized, no trailing punctuation.
-- **Hint the header cloze; leave the item clozes bare** — the header is the cue, and per-item hints
-  would just repeat it ([hint](/rules/hint.md) exception 3).
+- **Hint the header if you cloze it; leave the item clozes bare** — the header is the cue, and
+  per-item hints would just repeat it ([hint](/rules/hint.md), the one exception).
 - Never chop an item into italic-plus-underline pieces, and never put a "term — examples" bundle in
   an item.
 - Note this is the one place repeated styling is correct — items share a cloze number, so they share

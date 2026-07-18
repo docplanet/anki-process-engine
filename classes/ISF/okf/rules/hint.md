@@ -20,30 +20,21 @@ Each `::hint`, when substituted into its blank, **must read as natural English**
 text were simply replaced by a placeholder. Beyond reading naturally, a hint must be **specific**,
 must **not leak** the answer, and must **not echo** a visible neighboring word.
 
-## When a hint may be omitted (the exceptions)
+## When a hint may be omitted
 
-Omit a hint *only* for a clear reason, and state that reason:
+**Almost never.** If nothing better fits, use a simple one — `::why?`, `::what?`, `::how?` — rather
+than none. A plain hint beats an absent one; do not reach for an exception because a good hint is
+hard to find.
 
-1. **No non-leaking hint exists** — every candidate hint would leak, echo, or be a vague catch-all,
-   and there is no specific placeholder that helps (per "cite or omit, never coin" in
-   [accuracy](/rules/accuracy.md)). Better no hint than a bad one.
-   **Before invoking this, try the structural fix:** if the term is `distinguisher + generic head
-   noun` ("**carboxyl** group", "**dense regular** connective tissue"), cloze only the distinguisher
-   and leave the head noun visible and bold — the visible head frames the blank and no hint is
-   needed. See [card-structure](/rules/card-structure.md) rule 6. This resolves most small-closed-set
-   cases where any category hint would leak by elimination.
-2. **The stem fully determines the answer** — an already-complete, unambiguous sentence leaves
-   exactly one reading, so a hint would be pure redundancy (e.g. a clozed whole "because …" clause,
-   [whole-insight](/rules/whole-insight.md)).
-3. **List items take no hints.** On a numbered-list card ([mold](/mold.md) shape 3) the items share
-   one cloze number and reveal together — the bold header/stem *is* the cue ("The diencephalon
-   contains: 1. … 2. … 3. …"). Per-item hints would be identical, echoing, or bare catch-alls, all of
-   which this rule forbids. So: **hint the header cloze; leave the item clozes bare.** This is a rule,
-   not an exception to argue each time.
+The single exception:
 
-If neither applies, the cloze needs a hint. A missing hint with no such reason is a defect — note
-the reason in the card's `Extra` ("more") when it isn't self-evident, so a reviewer can see the
-omission was deliberate.
+- **List items take no hints.** On a numbered-list card ([mold](/mold.md) shape 3) the items share
+  one cloze number and reveal together — the header is the cue. Per-item hints would be identical or
+  bare catch-alls. **Hint the header if it's clozed; leave the item clozes bare.**
+
+Anything else needs a hint. In particular these are *not* excuses to omit one:
+- the term is `distinguisher + head noun` (cloze the distinguisher — and still hint it)
+- the stem "fully determines" the answer (it rarely does for the reviewer; `::why?` still helps)
 
 This is the master principle. The rest of this file is how it applies and how to check it.
 
@@ -78,7 +69,17 @@ A cloze card has a subject and a predicate; the hint's shape depends on which th
    describes the answer (that leaks).
 6. **Signal count.** If the answer is a set of N items, the hint should say so
    (`two gestational structures`).
-7. **Binary / small-set answer → list the options.** When the answer is one of a small, known set
+7. **The hint must match the whole answer, not part of it.** If the answer is
+   `randomly arranged large collagen bundles`, the hint `oriented how?` is wrong — it only addresses
+   the arrangement, so the hint and the blank don't line up. Either widen the hint
+   (`which fibres, arranged how?`) or narrow the cloze to just what the hint asks
+   (`{{c2::<i>randomly arranged</i>::arranged how?}} large collagen bundles`). Same defect:
+   answer `about 90% of the tissue fluid` with hint `what fraction?` — cloze just `about 90%`.
+8. **No invented terminology in a hint** — a hint is card text and is bound by
+   [accuracy](/rules/accuracy.md): use real field language. `which developmental class?`,
+   `which class of organ-forming tissues?`, `which compartment beneath the epithelium?` are coined
+   categories nobody says. If you can't name the category in real terms, use a plain `::what?`.
+9. **Binary / small-set answer → list the options.** When the answer is one of a small, known set
    (especially two), the hint gives the *options*, not a vague category. `protonated or deprotonated?`
    beats `what form?`; `cis or trans?` beats `which geometry?`. This is the hint doing its job — the
    purpose of a hint is to make recall *fast* (assemble known pieces, don't struggle to decode what's

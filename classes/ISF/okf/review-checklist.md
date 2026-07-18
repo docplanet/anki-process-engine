@@ -13,6 +13,23 @@ the card and asked "does it look right" instead of running each rule as a concre
 is the checklist a review (human or agent) MUST run per card. Reviewers should be given these as
 explicit instructions, not left to apply the rules from memory.
 
+# Check 0 — does this card make sense, and should it exist?
+
+**Run this before the mechanical checks.** Read the card as a student seeing it cold:
+
+- **Does it make basic logical sense?** A card can pass every style and accuracy check and still be
+  nonsense — a header cloze nothing identifies, a hint that doesn't line up with its blank, a
+  sentence that parses but says nothing.
+- **Does the hint match the blank?** Hide the cloze: does the hint ask for *exactly* what's hidden —
+  not a part of it, not something broader?
+- **Is it worth carding at all?** Is this a fact the teacher signalled, or an artifact of a slide's
+  outline (a classification qualifier, a heading, a bullet that exists for layout)? See
+  [yield](/rules/yield.md).
+- **Would a student learn the intended thing from it?** If the insight is real but the structure
+  buries it, the card fails even though nothing is technically "wrong."
+
+Defects here are usually *rewrite or cut*, not patch.
+
 # Run every check, per card
 
 For EACH card, tested by hiding each cloze in turn:
