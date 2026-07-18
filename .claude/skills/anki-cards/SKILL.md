@@ -26,8 +26,9 @@ extract sources, gate, dedupe, media, insert, sync). **Scope, authoring, and rev
 — no script writes cards. Don't go looking for a generator; there isn't one.
 
 **Two things that repeatedly go wrong:**
-- **Card the lecture on its own terms.** Do not consult other decks to decide what to card — a
-  lecture deck must contain what that lecture taught.
+- **The deck folder's material is the only input.** Cards come from the slides, transcript and
+  objectives in that directory. Never look at Anki to decide what to card — Anki is the destination,
+  not an input. Other decks are irrelevant.
 - **Any card you edit re-enters review**, and **read a note's current text before editing it**.
 
 When the user flags a card `wrong-<defect>`: fix the card, and if the defect names a rule the book

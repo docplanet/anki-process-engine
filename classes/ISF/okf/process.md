@@ -56,10 +56,10 @@ build_deck sources "<deck>"
 ```
 *Manual:* `pdftotext -layout <objectives.pdf> -` and read the transcript directly.
 
-> **Card this lecture on its own terms.** Do NOT consult other decks to decide what to card. A
-> lecture deck must contain what that lecture taught — full stop. If a fact is also carded in another
-> deck, that is fine and not your problem; omitting it here would leave this deck an incomplete
-> record of the session and make it depend on a neighbouring deck to be usable.
+> **The material in the deck folder is the only input.** Cards are derived from the slides,
+> transcript, and objectives sitting in that directory — nothing else. **Never look at Anki to decide
+> what to card.** Anki is where finished cards are written; it is not a source of authoring
+> decisions. What other decks do or don't contain is irrelevant.
 
 ## 4 · 🧠 Scope
 
