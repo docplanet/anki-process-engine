@@ -11,7 +11,7 @@ timestamp: 2026-07-17T00:00:00Z
 **This is the only card-generation process.** If you find another document describing a different
 pipeline, it is stale — delete it rather than follow it.
 
-**The driver automates only the deterministic steps.** Scope, audit-and-reuse, authoring, and review
+**The driver automates only the deterministic steps.** Scope, authoring, and review
 are **agent work** — marked 🧠 below. *No script writes cards.* There is no "generator" to find; if a
 card is wrong, fix the card and (if it names a rule the book lacks) add the rule.
 
@@ -56,6 +56,11 @@ build_deck sources "<deck>"
 ```
 *Manual:* `pdftotext -layout <objectives.pdf> -` and read the transcript directly.
 
+> **Card this lecture on its own terms.** Do NOT consult other decks to decide what to card. A
+> lecture deck must contain what that lecture taught — full stop. If a fact is also carded in another
+> deck, that is fine and not your problem; omitting it here would leave this deck an incomplete
+> record of the session and make it depend on a neighbouring deck to be usable.
+
 ## 4 · 🧠 Scope
 
 Read the objectives and the slide titles. State plainly what **this** deck covers — and flag any
@@ -89,22 +94,13 @@ that lecture. Do not card untaught content just because the slide exists; that i
 over-mining [yield](/rules/yield.md) forbids. Objective-backed material that was deferred still gets
 carded, tagged `flag::beyond-scope` (see the yield rule).
 
-## 5 · 🧠 Audit existing decks and REUSE first
-
-**Before authoring anything**, query Anki for decks already covering this material
-(`anki_find_notes`, `anki_get_notes_info`). If good cards exist, **reuse them** — tag and move them
-into the target deck rather than regenerating. Then identify only the **genuine gap**.
-
-This is the single biggest yield lever: on the amino-acids deck it reused 40 existing cards and cut
-authoring to the ~24 the course actually added.
-
-## 6 · 🧠 Read the transcript for emphasis
+## 5 · 🧠 Read the transcript for emphasis
 
 Find what the instructor **stressed** ("you must know", "common exam question") and — just as
 important — what they said **not** to memorize ("that will be given"). An explicit exclusion is a
 direct instruction: do not card it. See [yield](/rules/yield.md).
 
-## 7 · 🧠 Author the gap
+## 6 · 🧠 Author the gap
 
 Read [`index.md`](/index.md), [`mold.md`](/mold.md), and **every rule** in `rules/` before writing.
 Then author, obeying the governing principle: **faithful transcription, not synthesis** — render the
@@ -140,7 +136,7 @@ capitalized fields:**
 `key::…` appears on older cards; it was an idempotency key for a sync script that no longer exists.
 **Don't add it to new cards.**
 
-## 8 · Gate
+## 7 · Gate
 
 ```
 build_deck gate "<deck>/out/cards.jsonl"
@@ -150,7 +146,7 @@ Recognition/attribute cards are **exempt** — see
 [recognition-and-attribute-cards](/rules/recognition-and-attribute-cards.md).
 *Manual:* `classes/ISF/strict_shape.py <cards.jsonl>`.
 
-## 9 · Dedup check
+## 8 · Dedup check
 
 ```
 build_deck dedupe "<deck>/out/cards.jsonl"
@@ -163,7 +159,7 @@ written-reason. Escalate only when the call needs course knowledge you don't hav
 [no-duplicate](/rules/no-duplicate.md).
 *Manual:* `classes/ISF/content_check.py <cards.jsonl>`.
 
-## 10 · Media into Anki
+## 9 · Media into Anki
 
 ```
 build_deck media "<deck>/out"
@@ -171,7 +167,7 @@ build_deck media "<deck>/out"
 Pushes the slide JPEGs into Anki's media collection so `extra` images render. Idempotent.
 *Manual:* copy `out/slides/*.jpg` into the Anki profile's `collection.media/`.
 
-## 11 · Insert
+## 10 · Insert
 
 ```
 build_deck insert "<deck>/out/cards.jsonl" --deck "ISF::Test 2::Histology::Connective Tissue" [--dry-run]
@@ -199,7 +195,7 @@ inventing a sibling.
 > Some older decks read `ISF::Test 1::Week 2::Histology (Engine)::Epithelium` — a meaningless
 > `(Engine)` suffix and a topic leaf, both legacy. Don't copy that shape.
 
-## 12 · 🧠 Review
+## 11 · 🧠 Review
 
 Run [`review-checklist.md`](/review-checklist.md) — **every check, per card**, not a "looks right"
 pass. Best run as parallel subagents on separate axes:
@@ -214,14 +210,14 @@ pass. Best run as parallel subagents on separate axes:
 - **style** — against every rule in `rules/`
 - **coverage** — objectives and transcript emphasis vs. what got carded
 
-## 13 · 🧠 Fix and re-review
+## 12 · 🧠 Fix and re-review
 
 Apply findings. Two hard-won rules:
 - **Any edited card re-enters review.** A card changed after its last review is unreviewed.
 - **Read a note's current text before editing it.** Note-ids are easy to mistake; editing the wrong
   note has silently destroyed a card before.
 
-## 14 · Sync
+## 13 · Sync
 
 ```
 build_deck sync

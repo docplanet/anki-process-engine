@@ -22,12 +22,12 @@ describing a different pipeline, it is stale — delete it rather than follow it
    explicit per-card checks a review must run.
 
 **The driver:** `classes/ISF/build_deck.py` automates only the deterministic steps (render slides,
-extract sources, gate, dedupe, media, insert, sync). **Scope, audit-and-reuse, authoring, and review
-are your work** — no script writes cards. Don't go looking for a generator; there isn't one.
+extract sources, gate, dedupe, media, insert, sync). **Scope, authoring, and review are your work**
+— no script writes cards. Don't go looking for a generator; there isn't one.
 
 **Two things that repeatedly go wrong:**
-- **Audit and reuse existing decks before authoring.** Often most of the material is already carded
-  somewhere; move those cards instead of regenerating them.
+- **Card the lecture on its own terms.** Do not consult other decks to decide what to card — a
+  lecture deck must contain what that lecture taught.
 - **Any card you edit re-enters review**, and **read a note's current text before editing it**.
 
 When the user flags a card `wrong-<defect>`: fix the card, and if the defect names a rule the book
