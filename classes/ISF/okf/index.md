@@ -36,10 +36,23 @@ Rules split into two kinds:
 Most rules are partly both: as much as possible is pushed to mechanical enforcement, and the
 irreducible taste is stated with worked examples.
 
+# Start here
+
+| File | What it is |
+|---|---|
+| **[process.md](/process.md)** | **How to build a deck** — every step, with the driver command and the manual fallback. Start here to make cards. |
+| [mold.md](/mold.md) | The shape `strict_shape.py` enforces — roles/colors, the three card shapes, the hard rejects |
+| [review-checklist.md](/review-checklist.md) | The explicit per-card checks a review must run |
+| `rules/*.md` | The rules themselves (indexed below) |
+
+The driver is `classes/ISF/build_deck.py`. It automates only the deterministic steps — **authoring
+and review are agent work; no script writes cards.**
+
 # Provenance tags (what `src::` means on a card)
 
-- **`src::regen`** — produced by the scripted pipeline in `classes/ISF/regen/`
-  ([REGEN-PIPELINE.md](../REGEN-PIPELINE.md)). Reproducible from the repo.
+- **`src::regen`** — produced by the original Test-1 pipeline, which has since been **deleted**
+  (superseded by [process.md](/process.md)). These cards are historical; treat them like any other
+  card — if one is wrong, fix it here.
 - **`src::okf-gen`** — **hand-authored by an agent directly against this rulebook.** There is **no
   `okf-gen` script, prompt, or pipeline** — the name is a provenance label only. The process was:
   read the deck's sources (`out/slides.jsonl`, lecture transcript, objectives) → author cards inline

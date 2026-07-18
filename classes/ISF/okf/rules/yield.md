@@ -14,6 +14,30 @@ source_defects: [wrong-low-yield]
 Before a fact becomes a card, apply **common sense**: is this actually worth memorizing/testing?
 If not, it does not earn a card.
 
+## The governing principle — RESTRAINT
+
+**Teachers are clear about what needs to be known.** The slides are the teacher's signal; the
+transcript reveals what was *stressed*. The bar is **not** "is this true / is this in the textbook"
+but **"did the teacher signal this as need-to-know?"** Mining every fact mints low-yield cards.
+
+- **Default is 1 card per stressed slide.** Occasionally 2.
+- **0 is normal and legitimate** — a title/agenda slide, something waved past, or a fact already
+  carded elsewhere earns zero. Not a failure.
+- **Density reference:** the AnKing Neurogenetics deck is ~1 card per stressed slide; a whole
+  semester ≈ 670 cards. If a lecture is trending past ~1 card/slide, you're mining, not measuring.
+- **Listen for explicit exclusions.** When the instructor says a value "will be given" or not to
+  memorize something, that is a direct instruction — do not card it.
+
+## Objectives are the contract (restraint has a floor)
+
+A learning **objective** is a promise about what must be known, and it outranks slide emphasis.
+Restraint governs *slides*, never *objectives*: **an objective-backed fact is never dropped to 0.**
+If the transcript defers it ("not on this exam"), it is still carded — tagged `flag::beyond-scope`
+(suspendable), never deleted.
+
+Document precedence: **objectives = the coverage contract** ▸ **slides = the anchor** ▸
+**transcript = emphasis/priority** ▸ **textbook = precision**.
+
 Yield is **not** a property of the card's form. There is no rule against exact numbers,
 definitions, dates, or any other content type — a number is high-yield when it matters and
 low-yield when it doesn't. The test is common sense about the *fact*, never a surface heuristic.
