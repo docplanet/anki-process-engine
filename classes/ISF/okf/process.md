@@ -69,9 +69,14 @@ routinely overrun the session. Expect all of these:
 
 - **The lecture covers only part of its deck.** It ends with "we'll pick this up next time" — the
   remaining slides are *not yet taught*. Card only the covered portion.
-- **The lecture spends most of its time on the *previous* week's material** before starting this
-  week's topic. (Real case: an "Exam 2 Histology Week 3" recording was ~78% Week-2 epithelium
-  review; connective tissue didn't start until three-quarters through.)
+- **The lecture *finishes* the previous topic before starting this week's.** This is the trap:
+  that earlier material was taught **in this session**, so it is **in scope and you must card it** —
+  the previous week's deck was built from the previous week's lecture and does not contain it.
+  (Real case: an "Exam 2 Histology Week 3" recording was ~83% finishing epithelium, then began
+  connective tissue. The epithelium portion was wrongly dropped as "Week 2's topic" and went
+  un-carded anywhere.)
+  **Scope by session, not by topic:** everything taught in this recording belongs to this deck,
+  whichever topic it belongs to. Tag the topic; don't drop the material.
 - **The deck folder holds more than one lecture's slides.**
 
 So before authoring, **establish the covered range explicitly**: find where the topic starts in the
@@ -174,14 +179,25 @@ build_deck insert "<deck>/out/cards.jsonl" --deck "ISF::Test 2::Histology::Conne
 Adds notes with note type `Custom Cloze` (fields Text/Extra/Source). Use `--dry-run` first.
 *Manual:* `anki` MCP `anki_add_notes`.
 
-**Deck naming:** `ISF::Test <N>::<Subject>::<Topic>` — e.g.
-`ISF::Test 2::Biochemistry::Amino Acid Structures`. Subject is the strand (Biochemistry, Histology,
-Embryology); Topic is the lecture. **Check the existing deck list first** (`anki_list_decks`) and
-match what's there rather than inventing a sibling.
+**Deck naming — deck by LECTURE, tag by TOPIC.**
 
-> Some older decks read `ISF::Test 1::Week 2::Histology (Engine)::Epithelium` — that carries a
-> now-meaningless `(Engine)` suffix and an extra week level, both left over from a deleted pipeline.
-> Don't copy that shape for new decks.
+`ISF::Test <N>::<Subject>::<Lecture>` — e.g. `ISF::Test 2::Histology::Week 3`. The deck is the
+*session*: one recording, one date, everything taught in it. Topics are carried by
+`isf::<subject>::<topic>` tags, so you can still review a topic across sessions.
+
+**Why not deck-by-topic:** a lecture is not a topic. A single session routinely *finishes* one topic
+and *starts* another — the Week 3 histology lecture closed out epithelium and opened connective
+tissue. Deck-by-topic has nowhere to put such a session, and the material that doesn't match the
+deck's topic silently falls out. (That is exactly what happened: 83% of a recording was dropped as
+"the previous week's topic".)
+
+So a single deck may legitimately carry cards tagged with two topics. That's correct, not a defect.
+
+**Check the existing deck list first** (`anki_list_decks`) and match what's there rather than
+inventing a sibling.
+
+> Some older decks read `ISF::Test 1::Week 2::Histology (Engine)::Epithelium` — a meaningless
+> `(Engine)` suffix and a topic leaf, both legacy. Don't copy that shape.
 
 ## 12 · 🧠 Review
 
