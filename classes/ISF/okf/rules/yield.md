@@ -42,6 +42,27 @@ Yield is **not** a property of the card's form. There is no rule against exact n
 definitions, dates, or any other content type — a number is high-yield when it matters and
 low-yield when it doesn't. The test is common sense about the *fact*, never a surface heuristic.
 
+## A low-yield flag sends you back to the SOURCE, not to the markup
+
+When a card is flagged low-yield, **do not fix it by moving the clozes around.** Reframing inside a
+weak fact keeps it weak — you get a better-shaped card testing something still not worth knowing.
+
+Go back to the source and ask: *what did the teacher actually want known here?* Then card **that**,
+even if it means the flagged card is discarded entirely and replaced by a different fact.
+
+**Real case.** A card read *"A rod of collagen has a higher tensile strength than steel."* Flagged
+low-yield. It was "fixed" twice by re-clozing within that same sentence — first the comparison, then
+the property — and stayed low-yield both times, because *stronger than steel* is a colorful aside,
+not an exam point. Nine lines away in the same transcript sat the fact that earns a card:
+
+> "Some of these fibers provide strength, like collagen. Others, like elastic fibers, provide elasticity."
+
+The examinable point was **discriminating collagen from elastic fibres** — a fact the shape-fixes
+never approached, because they never left the card.
+
+Symptom to watch for: you are editing markup and the *fact* hasn't changed. Stop and re-read the
+source.
+
 # Status — no firm rule yet
 
 Yield cannot currently be reduced to a mechanical check, and the common-sense boundary isn't yet

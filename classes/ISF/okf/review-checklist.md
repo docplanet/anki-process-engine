@@ -28,7 +28,10 @@ explicit instructions, not left to apply the rules from memory.
 - **Would a student learn the intended thing from it?** If the insight is real but the structure
   buries it, the card fails even though nothing is technically "wrong."
 
-Defects here are usually *rewrite or cut*, not patch.
+Defects here are usually *rewrite or cut*, not patch. **If the verdict is low-yield, go back to the
+source** — find the fact that earns a card rather than re-clozing the weak one
+([yield](/rules/yield.md)). If you're editing markup and the *fact* hasn't changed, you're patching
+the wrong layer.
 
 # Run every check, per card
 
