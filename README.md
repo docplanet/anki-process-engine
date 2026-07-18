@@ -43,7 +43,8 @@ emphasis ▸ **textbook** precision. An objective the transcript defers is still
 
 | Path | Role |
 |---|---|
-| `classes/ISF/REGEN-PIPELINE.md` + `regen/` | **the atomic-first, mold-gated pipeline (as-run) — start here** |
+| `classes/ISF/okf/` | **the card-authoring rulebook — what makes a good card.** Start here for card quality |
+| `classes/ISF/REGEN-PIPELINE.md` + `regen/` | **the atomic-first, mold-gated pipeline (as-run) — start here for how decks get built** |
 | `classes/ISF/strict_shape.py` | **the mold** — hard pass/fail shape gate |
 | `.claude/skills/anki-cards/*.md` | the card method — style, card shapes, yield rubric |
 | `classes/ISF/review_ledger.py` | per-card review verdicts + the ship gate |
@@ -80,6 +81,24 @@ folder of raw materials into a ready-to-run job.
 `classes/ISF/.venv/bin/python -m unittest tests.test_reference_deck`. The reference fixture is
 copyright-private (gitignored), so CI **skips** it — regenerate locally with
 `tests/extract_reference_fixture.py`.
+
+## The rulebook — what makes a good card
+
+**[`classes/ISF/okf/`](classes/ISF/okf/)** is the source of truth for card *quality*, in
+[Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
+(plain markdown + YAML frontmatter, one rule per file). Read
+**[`okf/index.md`](classes/ISF/okf/index.md)** first — it opens with the governing principle
+(*faithful transcription, not synthesis*) and indexes every rule.
+
+Rules cover hints, subject-first, card structure, complete spans, yield, facet underlining,
+accuracy/no-editorializing, duplicates, and the recognition/attribute card genre.
+**[`okf/review-checklist.md`](classes/ISF/okf/review-checklist.md)** is the explicit per-card check
+a review pass must run.
+
+**How the rulebook grows** (the working loop): review cards in Anki → tag anything wrong with a
+`wrong-<defect>` tag → those flagged cards get fixed *and* the defect becomes a rule (or sharpens an
+existing one), so the same class is caught mechanically next time. Every rule in the book came from a
+real flagged card. Any card *edited* after review re-enters review.
 
 ## Getting started
 
