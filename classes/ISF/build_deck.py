@@ -174,15 +174,17 @@ def cmd_insert(a):
         sys.exit(f"{a.cards} is empty")
     if MODEL not in set(invoke("modelNames")):
         sys.exit(f"note type {MODEL!r} not found in this collection")
-    if a.deck not in set(invoke("deckNames")):
-        invoke("createDeck", deck=a.deck)
     notes = [{"deckName": a.deck, "modelName": MODEL,
               "fields": {"Text": c.get("text", ""), "Extra": c.get("extra", ""),
                          "Source": c.get("source", "")},
               "tags": c.get("tags", [])} for c in cards]
-    if a.dry_run:
-        print(f"DRY RUN — would add {len(notes)} note(s) to {a.deck!r}")
+    if a.dry_run:                                # must not touch the collection at all
+        exists = a.deck in set(invoke("deckNames"))
+        print(f"DRY RUN — would add {len(notes)} note(s) to {a.deck!r}"
+              f"{'' if exists else ' (deck would be created)'}")
         return
+    if a.deck not in set(invoke("deckNames")):
+        invoke("createDeck", deck=a.deck)
     res = invoke("addNotes", notes=notes)
     ok = [r for r in res if r]
     print(f"added {len(ok)}/{len(notes)} note(s) to {a.deck!r}")
