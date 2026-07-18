@@ -12,9 +12,7 @@
 !/.gitignore
 !/README.md
 !/LICENSE
-!/.mcp.json
 !/requirements.txt
-!/ADDING-LECTURES.md
 !/.github/
 /.github/*
 !/.github/workflows/
@@ -22,15 +20,12 @@
 !/.claude/
 !/anki-mcp-server/
 
-# 3) classes/  →  ONLY the ISF Python tooling + the operator guide
-#    (this excludes Week*/, textbooks/, .venv/, course-map.yaml, the syllabus, __pycache__)
+# 3) classes/  →  ONLY the ISF Python tooling + the OKF rulebook
+#    (this excludes Week*/, Exam*/, textbooks/, .venv/, course-map.yaml, the syllabus, __pycache__)
 /classes/*
 !/classes/ISF/
 /classes/ISF/*
 !/classes/ISF/*.py
-!/classes/ISF/REGEN-PIPELINE.md
-!/classes/ISF/regen/
-!/classes/ISF/regen/*
 !/classes/ISF/okf/
 !/classes/ISF/okf/**
 

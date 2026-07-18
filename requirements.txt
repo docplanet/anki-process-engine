@@ -1,17 +1,10 @@
-# Python dependencies for the card process engine (classes/ISF/*.py).
-# Install into a venv at classes/ISF/.venv (the path .mcp.json expects):
+# No pip dependencies — classes/ISF/*.py is pure Python standard library
+# (argparse, json, os, re, subprocess, sys, urllib, difflib, dataclasses, ...).
+#
+# Create the venv anyway so the documented commands work verbatim:
 #   python3 -m venv classes/ISF/.venv
-#   classes/ISF/.venv/bin/pip install -r requirements.txt
 #
-# SYSTEM dependencies (not pip-installable) — install separately:
-#   poppler      -> pdftotext + pdftoppm  (text + slide-image extraction)   `brew install poppler`
-#   libreoffice  -> soffice  (.pptx -> .pdf conversion, used by prep_lecture.py) `brew install --cask libreoffice`
-#   textutil     -> macOS built-in  (.docx -> .txt, used by prep_lecture.py)     (ships with macOS)
-#
-# Everything not listed below is the Python standard library (json, urllib, sqlite3, argparse, ...).
-
-genanki>=0.13      # build_apkg.py — assemble the .apkg
-mcp>=1.2           # process_engine_mcp.py, anki_style_mcp.py — FastMCP stdio servers
-pydantic>=2.0      # MCP tool input schemas
-anyio>=4.0         # async plumbing for the MCP servers
-pyyaml>=6.0        # process_engine.py init_run — parse job.yaml
+# SYSTEM dependencies (not pip-installable):
+#   poppler  ->  pdftoppm, pdftotext, pdfinfo   (slide rendering + text extraction)
+#                `brew install poppler`
+#   Anki + the AnkiConnect add-on (code 2055492159), running, for the media/insert/sync steps.

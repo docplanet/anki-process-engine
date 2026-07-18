@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+"""build_deck — the one driver for building an Anki deck from lecture material.
+
+It automates ONLY the deterministic steps. Scope, audit-and-reuse, authoring, and review are
+AGENT work — no script writes cards. See classes/ISF/okf/process.md for the full procedure and
+the manual fallback for every step below (each subcommand is independent; if one fails, do that
+step by hand and continue).
+
+    build_deck.py slides  <slides.pdf> <out_dir> <slug>   render slides -> JPEGs + slides.jsonl
+    build_deck.py sources <deck_dir>                      extract PDFs/transcript -> out/sources/
+    build_deck.py gate    <cards.jsonl>                   strict_shape mold gate (must be N/N)
+    build_deck.py dedupe  <cards.jsonl>                   content_check near-dup report
+    build_deck.py media   <out_dir>                       push slide images into Anki media
+    build_deck.py insert  <cards.jsonl> --deck "<name>"   add notes via AnkiConnect
+    build_deck.py sync                                    AnkiConnect sync
+
+Anki steps need Anki running with the AnkiConnect add-on (http://127.0.0.1:8765).
+Slide rendering needs poppler (pdftoppm, pdftotext, pdfinfo).
+"""
+import argparse, glob, json, os, subprocess, sys, urllib.request
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ANKI = "http://127.0.0.1:8765"
+MODEL = "Custom Cloze"          # fields: Text, Extra, Source
+
+
+# ── AnkiConnect ───────────────────────────────────────────────────────────────
+def invoke(action, **params):
+    body = json.dumps({"action": action, "version": 6, "params": params}).encode()
+    req = urllib.request.Request(ANKI, body, {"Content-Type": "application/json"})
+    try:
+        res = json.loads(urllib.request.urlopen(req, timeout=60).read())
+    except Exception as e:
+        sys.exit(f"AnkiConnect unreachable at {ANKI} ({e}).\n"
+                 "Open Anki with the AnkiConnect add-on, or do this step by hand "
+                 "(see okf/process.md).")
+    if res.get("error"):
+        raise RuntimeError(f"{action}: {res['error']}")
+    return res["result"]
+
+
+# ── slides ────────────────────────────────────────────────────────────────────
+def cmd_slides(a):
+    """Render each PDF page to a JPEG and emit slides.jsonl (slide, image, text)."""
+    slidedir = os.path.join(a.out_dir, "slides")
+    os.makedirs(slidedir, exist_ok=True)
+    info = subprocess.run(["pdfinfo", a.pdf], capture_output=True, text=True, check=True).stdout
+    npages = next((int(l.split(":")[1]) for l in info.splitlines() if l.startswith("Pages:")), None)
+    if npages is None:
+        sys.exit(f"pdfinfo produced no 'Pages:' line for {a.pdf!r} — is it a valid PDF?")
+    pad = len(str(npages))                       # mirror pdftoppm's auto-pad width
+    root = os.path.join(slidedir, f"isf-{a.slug}-slide")
+    subprocess.run(["pdftoppm", "-jpeg", "-r", "150", a.pdf, root], check=True)
+    text = subprocess.run(["pdftotext", "-layout", a.pdf, "-"],
+                          capture_output=True, text=True, check=True).stdout
+    pages = text.split("\f")
+    out = os.path.join(a.out_dir, "slides.jsonl")
+    with open(out, "w", encoding="utf-8") as f:
+        for i in range(1, npages + 1):
+            f.write(json.dumps({"slide": i,
+                                "image": f"isf-{a.slug}-slide-{i:0{pad}d}.jpg",
+                                "text": pages[i - 1].strip() if i - 1 < len(pages) else ""},
+                               ensure_ascii=False) + "\n")
+    print(f"{a.slug}: {npages} slides -> {slidedir}/ + {out}")
+
+
+# ── sources ───────────────────────────────────────────────────────────────────
+def cmd_sources(a):
+    """Extract every PDF and transcript in the deck folder to plain text under out/sources/.
+
+    A recording often ships as .txt + .vtt + .srt with the SAME basename; they'd collide on
+    output, so keep only the cleanest one per basename (.txt > .vtt > .srt).
+    """
+    dest = os.path.join(a.deck_dir, "out", "sources")
+    os.makedirs(dest, exist_ok=True)
+    PREF = {".txt": 0, ".vtt": 1, ".srt": 2}          # lower = preferred
+    chosen, skipped = {}, []
+    for path in sorted(glob.glob(os.path.join(a.deck_dir, "*"))):
+        base, ext = os.path.splitext(os.path.basename(path))
+        ext = ext.lower()
+        if ext == ".pdf":
+            chosen[base] = (path, ext)                 # PDFs never collide with transcripts here
+        elif ext in PREF:
+            cur = chosen.get(base)
+            if cur is None or PREF[ext] < PREF.get(cur[1], 99):
+                if cur:
+                    skipped.append(os.path.basename(cur[0]))
+                chosen[base] = (path, ext)
+            else:
+                skipped.append(os.path.basename(path))
+
+    n = 0
+    for base, (path, ext) in sorted(chosen.items()):
+        if ext == ".pdf":
+            txt = subprocess.run(["pdftotext", "-layout", path, "-"],
+                                 capture_output=True, text=True).stdout
+        else:
+            txt = open(path, encoding="utf-8", errors="replace").read()
+        open(os.path.join(dest, base + ".txt"), "w", encoding="utf-8").write(txt)
+        print(f"  {os.path.basename(path)} -> out/sources/{base}.txt ({len(txt.split())} words)")
+        n += 1
+    for s in skipped:
+        print(f"  (skipped {s} — same basename, cleaner format kept)")
+    print(f"{n} source file(s) extracted to {dest}")
+    if not n:
+        print("  (nothing found — drop the slides PDF, objectives PDF and transcript in the folder)")
+
+
+# ── gate / dedupe ─────────────────────────────────────────────────────────────
+def _run(script, *args):
+    r = subprocess.run([sys.executable, os.path.join(HERE, script), *args])
+    return r.returncode
+
+
+def cmd_gate(a):
+    """The mold. Must print N/N conforming. Recognition/attribute cards are exempt."""
+    sys.exit(_run("strict_shape.py", a.cards))
+
+
+def cmd_dedupe(a):
+    sys.exit(_run("content_check.py", a.cards))
+
+
+# ── media ─────────────────────────────────────────────────────────────────────
+def cmd_media(a):
+    """Push rendered slide images into Anki's media collection (idempotent)."""
+    imgs = sorted(glob.glob(os.path.join(a.out_dir, "slides", "*.jpg")))
+    if not imgs:
+        sys.exit(f"no JPEGs under {a.out_dir}/slides — run `build_deck.py slides` first")
+    for p in imgs:
+        invoke("storeMediaFile", filename=os.path.basename(p), path=os.path.abspath(p))
+    print(f"stored {len(imgs)} image(s) in Anki media")
+
+
+# ── insert ────────────────────────────────────────────────────────────────────
+def cmd_insert(a):
+    """Add notes from JSONL. Each line: {text, extra, source, tags[]} (id/type optional)."""
+    cards = [json.loads(l) for l in open(a.cards, encoding="utf-8") if l.strip()]
+    if not cards:
+        sys.exit(f"{a.cards} is empty")
+    if MODEL not in set(invoke("modelNames")):
+        sys.exit(f"note type {MODEL!r} not found in this collection")
+    if a.deck not in set(invoke("deckNames")):
+        invoke("createDeck", deck=a.deck)
+    notes = [{"deckName": a.deck, "modelName": MODEL,
+              "fields": {"Text": c.get("text", ""), "Extra": c.get("extra", ""),
+                         "Source": c.get("source", "")},
+              "tags": c.get("tags", [])} for c in cards]
+    if a.dry_run:
+        print(f"DRY RUN — would add {len(notes)} note(s) to {a.deck!r}")
+        return
+    res = invoke("addNotes", notes=notes)
+    ok = [r for r in res if r]
+    print(f"added {len(ok)}/{len(notes)} note(s) to {a.deck!r}")
+    for i, r in enumerate(res):
+        if not r:
+            print(f"  FAILED (likely duplicate): {cards[i].get('id', i)}")
+
+
+def cmd_sync(a):
+    invoke("sync")
+    print("synced")
+
+
+# ── cli ───────────────────────────────────────────────────────────────────────
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    p = sub.add_parser("slides", help="render slide PDF -> JPEGs + slides.jsonl")
+    p.add_argument("pdf"); p.add_argument("out_dir"); p.add_argument("slug")
+    p.set_defaults(fn=cmd_slides)
+
+    p = sub.add_parser("sources", help="extract PDFs/transcripts -> out/sources/*.txt")
+    p.add_argument("deck_dir"); p.set_defaults(fn=cmd_sources)
+
+    p = sub.add_parser("gate", help="strict_shape mold gate")
+    p.add_argument("cards"); p.set_defaults(fn=cmd_gate)
+
+    p = sub.add_parser("dedupe", help="content_check near-duplicate report")
+    p.add_argument("cards"); p.set_defaults(fn=cmd_dedupe)
+
+    p = sub.add_parser("media", help="push slide images into Anki media")
+    p.add_argument("out_dir"); p.set_defaults(fn=cmd_media)
+
+    p = sub.add_parser("insert", help="add notes via AnkiConnect")
+    p.add_argument("cards"); p.add_argument("--deck", required=True)
+    p.add_argument("--dry-run", action="store_true"); p.set_defaults(fn=cmd_insert)
+
+    p = sub.add_parser("sync", help="AnkiConnect sync")
+    p.set_defaults(fn=cmd_sync)
+
+    a = ap.parse_args()
+    a.fn(a)
+
+
+if __name__ == "__main__":
+    main()
