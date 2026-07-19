@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """GOLDEN REGRESSION TEST — the style linter must PASS the reference deck.
 
-The house style is *measured from* the AnKing Neurogenetics deck (okf/style.md says so
+HISTORICAL. This fixture is the AnKing Neurogenetics deck, which is NO LONGER the house-style
+reference — okf/style.md now settles style from the owner-reviewed corpus
+`ISF::Test 2::Biochemistry::Amino Acid Structures`. The two differ (e.g. Neurogenetics favours bare
+noun-phrase hints; the owner's decks use question-form hints, and bare `what?`/`which?` are fine).
+This test still guards strict_shape against structural regressions, which is worth keeping — but do
+NOT treat a disagreement with this fixture as a style defect.
+
+Originally: the house style was measured from this deck (okf/style.md said so
 explicitly). Therefore the linter must not hard-ERROR on the reference deck's own cards: if it
 does, the linter — not the deck — is miscalibrated. This test is the anchor that would have caught
 the linter drifting away from the real house style.

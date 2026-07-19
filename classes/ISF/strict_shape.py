@@ -6,7 +6,13 @@ is deliberately permissive), this module is a hard PASS/FAIL classifier: it sort
 exactly ONE allowed template (T1–T5 or LIST) or REJECTS it with enumerated reason codes. A card
 "conforms" iff it matches exactly one template AND trips zero vetoes.
 
-The allowed templates are the real shapes measured in the AnKing Neurogenetics deck (368 cards):
+The allowed templates were measured from the AnKing Neurogenetics deck (368 cards). NOTE: that
+deck is NO LONGER the house-style reference — see okf/style.md. Card STYLE is settled by the
+owner-reviewed corpus `ISF::Test 2::Biochemistry::Amino Acid Structures`. These templates still
+describe the structural shapes both decks use, but where this gate and the corpus disagree, the
+corpus wins and the gate is what should change.
+
+The templates:
   T1  subject-clozed Q&A     — <b> subject clozed (lower c#) + <i> answer clozed
   T4  subject-second variant — <b> subject clozed (higher c#) + <i> answer clozed
   T2  visible subject        — <b> subject PLAIN (un-clozed), only <i> answer clozed

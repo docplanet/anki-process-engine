@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """build_deck — the one driver for building an Anki deck from lecture material.
 
-It automates ONLY the deterministic steps. Scope, audit-and-reuse, authoring, and review are
+It automates ONLY the deterministic steps. Scope, authoring, and review judgment are
 AGENT work — no script writes cards. See classes/ISF/okf/process.md for the full procedure and
 the manual fallback for every step below (each subcommand is independent; if one fails, do that
 step by hand and continue).

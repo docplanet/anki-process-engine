@@ -38,13 +38,17 @@ source, it doesn't go on the card.
 | `classes/ISF/okf/` | **the process + the rulebook** — start here |
 | `classes/ISF/build_deck.py` | **the driver** — slides, sources, gate, dedupe, media, insert, sync |
 | `classes/ISF/strict_shape.py` | **the mold** — hard pass/fail shape gate |
-| `classes/ISF/lint_cards.py` | style-linter helpers the mold builds on (calibrated to the reference deck) |
+| `classes/ISF/lint_cards.py` | style-linter helpers the mold builds on (thresholds measured from the old AnKing deck — historical, see `okf/style.md`) |
+| `classes/ISF/check_cards.py` | **mechanical review** — verbatim quotes, hints, cloze count, media (~10s for a deck) |
 | `classes/ISF/content_check.py` | deck-level near-duplicate / over-carding detector |
 | `anki-mcp-server/` | TypeScript AnkiConnect MCP server (note CRUD + review stats) |
-| `tests/` | golden tests for the mold and the linter calibration |
+| `tests/` | golden tests for the mold (fixture is the retired AnKing deck — structural regression guard only, **not** the style authority) |
 
-**The driver automates only the deterministic steps.** Scope, audit-and-reuse, authoring, and review
-are agent work — *no script writes cards*. There is no "generator" to find.
+**The driver automates only the deterministic steps.** Scope, authoring, and the judgment half of
+review are agent work — *no script writes cards*. There is no "generator" to find.
+
+**Card style is settled by looking at real cards**, not by reading prose: the reference corpus is
+the owner-reviewed deck `ISF::Test 2::Biochemistry::Amino Acid Structures`. See `okf/style.md`.
 
 ```bash
 classes/ISF/.venv/bin/python classes/ISF/build_deck.py --help

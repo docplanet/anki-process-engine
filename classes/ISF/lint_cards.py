@@ -6,7 +6,11 @@ findings split into:
   - errors:   hard, mechanical rule violations (must fix). Exit code 1 if any.
   - warnings: heuristic/judgment suspects (a human/model adjudicates).
 
-Rules are CALIBRATED to the AnKing Neurogenetics reference deck (the golden test in
+Rules were CALIBRATED to the AnKing Neurogenetics deck, which is NO LONGER the house-style
+reference (see okf/style.md — style is settled by the biochem corpus). Treat the thresholds below
+as historical measurements, not as the standard; the owner's own deck overrules them.
+
+Originally calibrated against the golden test in
 tests/test_reference_deck.py asserts the linter errors on <2% of those 368 real cards).
 
 Mechanical rules ENFORCED (errors — validated to not false-positive on the reference deck):
