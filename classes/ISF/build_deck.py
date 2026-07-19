@@ -185,12 +185,25 @@ def cmd_insert(a):
         return
     if a.deck not in set(invoke("deckNames")):
         invoke("createDeck", deck=a.deck)
-    res = invoke("addNotes", notes=notes)
-    ok = [r for r in res if r]
-    print(f"added {len(ok)}/{len(notes)} note(s) to {a.deck!r}")
-    for i, r in enumerate(res):
-        if not r:
-            print(f"  FAILED (likely duplicate): {cards[i].get('id', i)}")
+    # addNotes raises if EVERY note fails, so add one at a time and report per-card
+    added, dupes, failed = 0, [], []
+    for i, note in enumerate(notes):
+        ref = cards[i].get("id", i)
+        try:
+            r = invoke("addNote", note=note)
+            added += 1 if r else 0
+            if not r:
+                failed.append(ref)
+        except RuntimeError as e:
+            (dupes if "duplicate" in str(e).lower() else failed).append(ref)
+    print(f"added {added}/{len(notes)} note(s) to {a.deck!r}")
+    if dupes:
+        print(f"  {len(dupes)} skipped as duplicates (already in the collection): "
+              f"{', '.join(map(str, dupes[:8]))}{' …' if len(dupes) > 8 else ''}")
+        print("  NOTE: Anki dedupes on the first field. To relocate existing notes, move them in "
+              "Anki (Browse → Change Deck) — re-inserting is blocked by design.")
+    for ref in failed:
+        print(f"  FAILED: {ref}")
 
 
 def cmd_sync(a):
