@@ -45,6 +45,11 @@ card — so they measured surface statistics against it while judging quality ag
 then review those. (A review that both diagnosed and rewrote once shipped five cards nobody had
 ever checked.)
 
+**If you are rejecting a card's *second* attempt, say so explicitly and recommend escalating.** Two
+failed attempts means the third will be markup-shuffling, not a fix — see
+[process.md](process.md) step 10. Say plainly when the original was better than both attempts;
+that has been the right answer more than once.
+
 ## 1 · Sense — read it as a student, not a linter
 
 - Does the sentence make basic logical sense?

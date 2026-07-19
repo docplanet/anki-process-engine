@@ -136,7 +136,8 @@ capitalized fields:**
 | `test::N` | which exam block |
 | `slide::<slug>-NN` | the slide the fact came from — **the slug is required** |
 | `src::<origin>` | provenance of the *card* — see [index.md](index.md) |
-| `flag::beyond-scope` | correct + objective-backed, but the lecture deferred it (suspendable) |
+| `flag::beyond-scope` | correct + objective-backed, but the lecture deferred it (suspended) |
+| `flag::low-yield` | shipped suspended because its yield is uncertain — for the owner's end-of-build list |
 | `wrong-<defect>` | added **by the user during review** to flag a problem — never by the author |
 
 **A deck folder often holds more than one slide deck, and both number from 1.** In the Week 3
@@ -243,6 +244,25 @@ Apply findings. Two hard-won rules:
 - **Any edited card re-enters review.** A card changed after its last review is unreviewed.
 - **Read a note's current text before editing it.** Note-ids are easy to mistake; editing the wrong
   note has silently destroyed a card before.
+
+### When to stop — two attempts, then ask
+
+**A card gets two authoring attempts. If the second is also rejected, do not write a third.** Stop,
+and put the original text and both attempts in front of the owner. Ask which they prefer.
+
+Round three is a signal that the problem is not in the card. By then the agent is reshaping markup
+instead of re-reading the source — the failure [yield](rules/yield.md) names: *you are editing
+markup and the fact hasn't changed*.
+
+*Real case: two cards went three rounds each. Every round fixed the named defect and introduced a
+different one. The owner then read both and said the **originals** were fine. Two rounds would have
+reached the right answer sooner, and the right answer was "leave it alone."*
+
+**Escalate immediately, without a second attempt, when:**
+- the fact itself is disputed (two sources disagree, or a slide contradicts the textbook)
+- the card is the only one covering its topic — cutting it would leave a hole (see the coverage
+  floor in [yield](rules/yield.md))
+- the fix would change what the card teaches rather than how it is worded
 
 ## 11 · Media into Anki
 

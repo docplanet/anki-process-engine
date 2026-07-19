@@ -125,13 +125,28 @@ These are review triggers, not auto-reject reasons — a human confirms.
 
 # Enforcement
 
-## Human-review gate
+## Human-review gate — flagged means SUSPENDED AND LISTED, not blocked
 
-- A suspected low-yield card is set to **flagged / blocked** and must be resolved by a human
-  before ship (consistent with the project rule that an open flag must be resolved, never
-  silently carried).
+A suspected low-yield card **does not hold up the deck.** Card it, tag `flag::low-yield`, insert it
+**suspended**, and put every flag into **one list at the end of the build**. The owner un-suspends
+what they want.
+
+**Never stop mid-build to ask about a single card.** One question per uncertain card is the failure
+mode — it converts a build into an interrogation, and the answer is nearly always "keep it." The
+owner's standing instruction:
+
+> *"err on the side better to have at least 1 card from a topic if there's any uncertainty, it
+> won't balloon the deck too much to have one or two extra on occasion."*
+
+So the default is **card it and flag it**, not ask. A suspended card costs nothing; a missing topic
+costs an exam question. What reaches the owner is a single end-of-build list: *here are the N cards
+I was unsure about, suspended, with one line each on why.*
+
+An open flag must still be **resolved, never silently carried** — but resolution happens on the
+owner's schedule, in Anki, not by blocking the build.
+
 - Optional soft mechanical assist: flag **self-answering** cards (significant prompt tokens
-  appear in the answer) — routed to the same human review, not hard-rejected.
+  appear in the answer) — routed to the same list, not hard-rejected.
 
 ## Judgment (generator instructions)
 
