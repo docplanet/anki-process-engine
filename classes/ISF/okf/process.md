@@ -15,6 +15,10 @@ pipeline, it is stale — delete it rather than follow it.
 are **agent work** — marked 🧠 below. *No script writes cards.* There is no "generator" to find; if a
 card is wrong, fix the card and (if it names a rule the book lacks) add the rule.
 
+**Nothing unreviewed goes into the deck.** Cards are authored, gated, reviewed and fixed *before*
+they are inserted. If a card has not been through step 9, it does not get inserted — no exceptions,
+including cards drafted as a byproduct of some other task.
+
 Every step lists the **driver command** and the **manual fallback**. The subcommands are
 independent — if the driver fails on one step, do that step by hand and continue.
 
@@ -159,7 +163,29 @@ written-reason. Escalate only when the call needs course knowledge you don't hav
 [no-duplicate](/rules/no-duplicate.md).
 *Manual:* `classes/ISF/content_check.py <cards.jsonl>`.
 
-## 9 · Media into Anki
+## 9 · 🧠 Review
+
+Run [`review-checklist.md`](/review-checklist.md) — **every check, per card**, not a "looks right"
+pass. Best run as parallel subagents on separate axes:
+
+- **sense & yield** — read each card as a *student*, not a linter: does it make basic logical sense?
+  Does the hint line up with the blank? Is this worth carding at all, or is it a slide-outline
+  artifact? **Run this axis first** — it catches the defects the others structurally miss, because
+  style/accuracy checks can all pass on a card that is simply nonsense or not worth knowing.
+- **accuracy** — each fact against the slides *and* transcript
+- **terminology grounding** — is every term real field language? (catches invented/editorialized
+  wording that a factual check passes) — **this covers hints too**, which are card text
+- **style** — against every rule in `rules/`
+- **coverage** — objectives and transcript emphasis vs. what got carded
+
+## 10 · 🧠 Fix and re-review
+
+Apply findings. Two hard-won rules:
+- **Any edited card re-enters review.** A card changed after its last review is unreviewed.
+- **Read a note's current text before editing it.** Note-ids are easy to mistake; editing the wrong
+  note has silently destroyed a card before.
+
+## 11 · Media into Anki
 
 ```
 build_deck media "<deck>/out"
@@ -167,7 +193,7 @@ build_deck media "<deck>/out"
 Pushes the slide JPEGs into Anki's media collection so `extra` images render. Idempotent.
 *Manual:* copy `out/slides/*.jpg` into the Anki profile's `collection.media/`.
 
-## 10 · Insert
+## 12 · Insert
 
 ```
 build_deck insert "<deck>/out/cards.jsonl" --deck "ISF::Test 2::Histology::Connective Tissue" [--dry-run]
@@ -194,28 +220,6 @@ inventing a sibling.
 
 > Some older decks read `ISF::Test 1::Week 2::Histology (Engine)::Epithelium` — a meaningless
 > `(Engine)` suffix and a topic leaf, both legacy. Don't copy that shape.
-
-## 11 · 🧠 Review
-
-Run [`review-checklist.md`](/review-checklist.md) — **every check, per card**, not a "looks right"
-pass. Best run as parallel subagents on separate axes:
-
-- **sense & yield** — read each card as a *student*, not a linter: does it make basic logical sense?
-  Does the hint line up with the blank? Is this worth carding at all, or is it a slide-outline
-  artifact? **Run this axis first** — it catches the defects the others structurally miss, because
-  style/accuracy checks can all pass on a card that is simply nonsense or not worth knowing.
-- **accuracy** — each fact against the slides *and* transcript
-- **terminology grounding** — is every term real field language? (catches invented/editorialized
-  wording that a factual check passes) — **this covers hints too**, which are card text
-- **style** — against every rule in `rules/`
-- **coverage** — objectives and transcript emphasis vs. what got carded
-
-## 12 · 🧠 Fix and re-review
-
-Apply findings. Two hard-won rules:
-- **Any edited card re-enters review.** A card changed after its last review is unreviewed.
-- **Read a note's current text before editing it.** Note-ids are easy to mistake; editing the wrong
-  note has silently destroyed a card before.
 
 ## 13 · Sync
 
