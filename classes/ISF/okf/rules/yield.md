@@ -21,8 +21,18 @@ transcript reveals what was *stressed*. The bar is **not** "is this true / is th
 but **"did the teacher signal this as need-to-know?"** Mining every fact mints low-yield cards.
 
 - **Default is 1 card per stressed slide.** Occasionally 2.
-- **0 is normal and legitimate** — a title/agenda slide, something waved past, or a fact already
-  carded elsewhere earns zero. Not a failure.
+- **0 is legitimate for a SLIDE** — a title/agenda slide, or something waved past, earns zero.
+- **But 0 for a TOPIC is a failure.** If a topic was taught and you are uncertain whether it earns
+  a card, **card it.** One or two extra cards on occasion will not balloon a deck; a taught topic
+  with no card at all is a hole in the deck, and holes are the expensive error. Restraint governs
+  *how many* cards a topic gets, never *whether* it gets one.
+
+  Real case: a lecture deck reached 78 cards with **five** on its most bullet-heavy slide and
+  **zero** on the image the instructor named for the lab practical ("that's the image I'll use"),
+  zero on the three minutes he spent teaching cell identification, and zero on the terminology he
+  flagged with "just so you know the terminology." The card budget was roughly right in total and
+  distributed away from what was stressed. Over-carding a slide and under-covering a topic are the
+  same mistake seen from two ends.
 - **Density reference:** the AnKing Neurogenetics deck is ~1 card per stressed slide; a whole
   semester ≈ 670 cards. If a lecture is trending past ~1 card/slide, you're mining, not measuring.
 - **Listen for explicit exclusions.** When the instructor says a value "will be given" or not to
