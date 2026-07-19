@@ -34,7 +34,7 @@ but **"did the teacher signal this as need-to-know?"** Mining every fact mints l
   distributed away from what was stressed. Over-carding a slide and under-covering a topic are the
   same mistake seen from two ends.
 - **Density reference** (measured on the AnKing Neurogenetics deck — retained only as a density
-  figure; that deck is no longer the style reference, see [style.md](/style.md)):
+  figure; that deck is no longer the style reference, see [style.md](../style.md)):
   ~1 card per stressed slide; a whole
   semester ≈ 670 cards. If a lecture is trending past ~1 card/slide, you're mining, not measuring.
 - **Listen for explicit exclusions.** When the instructor says a value "will be given" or not to

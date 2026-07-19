@@ -57,13 +57,13 @@ ever checked.)
 
 ## 2 · Yield — is it worth knowing
 
-See [yield](/rules/yield.md). Did the teacher signal this as need-to-know, or is it a bullet that
+See [yield](rules/yield.md). Did the teacher signal this as need-to-know, or is it a bullet that
 happened to be on a slide? **Cards should land where the emphasis is, not where the text is** — a
 lecture's most-carded slide should be the one he stressed, not the one with the most bullets.
 
 ## 3 · Accuracy — is it true and is it in the source
 
-See [accuracy](/rules/accuracy.md).
+See [accuracy](rules/accuracy.md).
 
 - Every fact checked against the slides **and** transcript.
 - **Every `Source:` quote verbatim.** Never join separate cues into one sentence.
@@ -72,14 +72,14 @@ See [accuracy](/rules/accuracy.md).
 
 ## 4 · Style — compare against the corpus, not against prose
 
-See [style.md](/style.md). Put the card next to real cards from
+See [style.md](style.md). Put the card next to real cards from
 `ISF::Test 2::Biochemistry::Amino Acid Structures` and ask whether it looks like them: bold /
 underline / italics doing their jobs, a hint on every cloze that reads as English, lists as a bold
 header plus numbered italics.
 
 ## 5 · Duplicate
 
-See [no-duplicate](/rules/no-duplicate.md). Also: is this fact already sitting unclozed in another
+See [no-duplicate](rules/no-duplicate.md). Also: is this fact already sitting unclozed in another
 card's `Extra`?
 
 ---

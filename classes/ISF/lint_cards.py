@@ -1,4 +1,18 @@
 #!/usr/bin/env python3
+"""⚠ DO NOT RUN THIS AS A STYLE CHECK. It encodes a style the project has REPUDIATED.
+
+Its thresholds were measured from the AnKing Neurogenetics deck, which is no longer the house
+reference (see okf/style.md — style is settled by the owner-reviewed corpus
+`ISF::Test 2::Biochemistry::Amino Acid Structures`, pulled by `build_deck corpus`). Its rules
+DISAGREE with that corpus: it hard-errors on "2+ distinct italic-answer clozes", and 73 of the
+corpus's 84 cards have two clozes — it would fail the reference deck itself.
+
+It survives ONLY because strict_shape.py imports its parsing primitives
+(_strip, _clozes, _markup_balanced, _is_list, CLOZE_RE). Do not delete it; do not take style
+advice from it. For review use check_cards.py plus the read-through in okf/review-checklist.md.
+
+Original docstring follows.
+"""
 """Style-lint Anki card JSONL against the house style contract (SKILL.md).
 
 This is the STYLE linter — a superset of validate_cards.py. It returns structured

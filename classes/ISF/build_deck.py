@@ -13,6 +13,7 @@ step by hand and continue).
     build_deck.py dedupe  <cards.jsonl>                   content_check near-dup report
     build_deck.py media   <out_dir>                       push slide images into Anki media
     build_deck.py insert  <cards.jsonl> --deck "<name>"   add notes via AnkiConnect
+    build_deck.py corpus  [--out <path>]                  pull the style reference corpus
     build_deck.py sync                                    AnkiConnect sync
 
 Anki steps need Anki running with the AnkiConnect add-on (http://127.0.0.1:8765).
@@ -230,6 +231,29 @@ def cmd_insert(a):
         print(f"  FAILED: {ref}")
 
 
+CORPUS_DECK = "ISF::Test 2::Biochemistry::Amino Acid Structures"
+CORPUS_OUT = os.path.join(HERE, "reference", "style_corpus.jsonl")
+
+
+def cmd_corpus(a):
+    """Pull the owner-reviewed style corpus out of Anki.
+
+    okf/style.md makes these cards the authority for every shape question, so they must be
+    re-pullable on demand — they previously lived only in /tmp, one reboot from gone.
+    """
+    out = a.out or CORPUS_OUT
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    notes = invoke("notesInfo", notes=invoke("findNotes", query=f'deck:"{a.deck}"'))
+    if not notes:
+        sys.exit(f"no notes in {a.deck!r} — is Anki open and the deck name right?")
+    with open(out, "w", encoding="utf-8") as f:
+        for n in notes:
+            f.write(json.dumps({"note_id": n["noteId"], "model": n["modelName"],
+                                "fields": {k: v["value"] for k, v in n["fields"].items()},
+                                "tags": n["tags"]}, ensure_ascii=False) + "\n")
+    print(f"{len(notes)} reference cards -> {out}")
+
+
 def cmd_sync(a):
     invoke("sync")
     print("synced")
@@ -264,6 +288,11 @@ def main():
                    help="tag exactly the notes this call adds src::reviewed (use only when the "
                         "cards have actually been through review)")
     p.set_defaults(fn=cmd_insert)
+
+    p = sub.add_parser("corpus", help="pull the style reference corpus from Anki")
+    p.add_argument("--deck", default=CORPUS_DECK)
+    p.add_argument("--out", default=None)
+    p.set_defaults(fn=cmd_corpus)
 
     p = sub.add_parser("sync", help="AnkiConnect sync")
     p.set_defaults(fn=cmd_sync)

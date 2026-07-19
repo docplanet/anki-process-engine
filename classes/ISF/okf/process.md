@@ -95,18 +95,18 @@ were previewed as 'next time' and are NOT carded here."*
 
 **Uncovered slides are not a gap to fill** — they are next session's material and get carded with
 that lecture. Do not card untaught content just because the slide exists; that is exactly the
-over-mining [yield](/rules/yield.md) forbids. Objective-backed material that was deferred still gets
+over-mining [yield](rules/yield.md) forbids. Objective-backed material that was deferred still gets
 carded, tagged `flag::beyond-scope` (see the yield rule).
 
 ## 5 · 🧠 Read the transcript for emphasis
 
 Find what the instructor **stressed** ("you must know", "common exam question") and — just as
 important — what they said **not** to memorize ("that will be given"). An explicit exclusion is a
-direct instruction: do not card it. See [yield](/rules/yield.md).
+direct instruction: do not card it. See [yield](rules/yield.md).
 
 ## 6 · 🧠 Author the gap
 
-Read [`index.md`](/index.md), [`style.md`](/style.md), and the three rules in `rules/` before
+Read [`index.md`](index.md), [`style.md`](style.md), and the three rules in `rules/` before
 writing — then **read the reference corpus itself** (`ISF::Test 2::Biochemistry::Amino Acid
 Structures`, 84 owner-reviewed cards). Shape questions are answered by those cards, not by prose.
 Then author, obeying the governing principle: **faithful transcription, not synthesis** — render the
@@ -135,7 +135,7 @@ capitalized fields:**
 | `week::NN` | source week, zero-padded |
 | `test::N` | which exam block |
 | `slide::<slug>-NN` | the slide the fact came from — **the slug is required** |
-| `src::<origin>` | provenance of the *card* — see [index.md](/index.md) |
+| `src::<origin>` | provenance of the *card* — see [index.md](index.md) |
 | `flag::beyond-scope` | correct + objective-backed, but the lecture deferred it (suspendable) |
 | `wrong-<defect>` | added **by the user during review** to flag a problem — never by the author |
 
@@ -173,7 +173,7 @@ term is missing from the card's own `Extra` — often a provenance problem).
 
 **Every flag must be resolved, but you may resolve it yourself** — merge, cut, or keep-both-with-a-
 written-reason. Escalate only when the call needs course knowledge you don't have. See
-[no-duplicate](/rules/no-duplicate.md).
+[no-duplicate](rules/no-duplicate.md).
 *Manual:* `classes/ISF/content_check.py <cards.jsonl>`.
 
 ## 9 · 🧠 Review
@@ -189,15 +189,22 @@ Review is **two passes, and neither is a subagent fan-out.**
 ### 9a · Mechanical — run the script
 
 ```
-classes/ISF/check_cards.py 'deck:"<deck name>"'          # or a cards.jsonl
+classes/ISF/.venv/bin/python classes/ISF/check_cards.py "<deck>/out/cards.jsonl"
 ```
-Checks every `Source:` quote is a verbatim substring of the sources, every answer cloze carries a
-hint, no card exceeds 3 clozes, every referenced image is in Anki media. **Ten seconds for a whole
-deck.** Run it before reading anything.
+**Use the JSONL form when building a new deck** — this step runs *before* insert, so there is
+nothing in Anki to query. It finds `<deck>/out/sources` automatically; pass `--sources <dir>` if
+your layout differs. For the repair loop on live cards, use
+`--deck "<name>" --sources "<deck>/out/sources"`.
+
+Checks every `Source:` quote is a verbatim substring of **this deck's** sources, every answer cloze
+carries a hint, no card exceeds 3 clozes, every referenced image is in Anki media. **Ten seconds
+for a whole deck.** Run it before reading anything.
+
+Without `--sources` it *skips* the quote check and says so — a clean result then means nothing.
 
 ### 9b · Judgment — read the cards yourself
 
-Then read every card against [`review-checklist.md`](/review-checklist.md), asking only what a
+Then read every card against [`review-checklist.md`](review-checklist.md), asking only what a
 script cannot: is this worth carding, does it read sensibly as a student sees it, is each answer
 recallable as a unit, does anything give away its own answer.
 
@@ -218,8 +225,14 @@ this card match the template."
 
 ## 10 · 🧠 Fix and re-review
 
-**Tag every card that has passed review `src::reviewed`** (in addition to its `src::` origin), and
-do it as the last act of this step. `src::okf-gen` records only *how a card was made*, not whether
+**Mark reviewed cards `src::reviewed`.** *How* depends on where you are:
+> - **Building a new deck** — there is nothing in Anki to tag yet. Do NOT add the tag to your JSONL.
+>   You tag at step 12 with `build_deck insert … --tag-reviewed`, which tags exactly the notes that
+>   call creates.
+> - **Repairing live cards** — tag them here, by explicit note id, as the last act of this step.
+>   Never by a search like `-tag:src::reviewed`; that matches every older untagged card in the deck.
+>
+> Either way the tag means "went through step 9", and `src::okf-gen` records only *how a card was made*, not whether
 anyone checked it — six unreviewed cards once sat in a live deck indistinguishable from reviewed
 ones precisely because nothing recorded the difference. An untagged card in a deck is a bug you can
 now actually find: `tag:src::okf-gen -tag:src::reviewed`.
@@ -237,6 +250,12 @@ Apply findings. Two hard-won rules:
 build_deck media "<deck>/out"
 ```
 Pushes the slide JPEGs into Anki's media collection so `extra` images render. Idempotent.
+
+> **Run it once per slide deck.** `media` globs `<out_dir>/slides/*.jpg` only. A folder with two
+> slide decks renders the second to its own directory (e.g. `out/epi/slides/`), and those images
+> are NOT pushed by a single run — `check_cards.py` will then report `image not in Anki media` for
+> every card citing them. Run `build_deck media "<deck>/out"` **and** `build_deck media
+> "<deck>/out/<slug>"`.
 *Manual:* copy `out/slides/*.jpg` into the Anki profile's `collection.media/`.
 
 ## 12 · Insert

@@ -22,9 +22,14 @@ That is the whole style guide.
 
 **Do not answer a shape question from prose. Read the cards.**
 
-`/tmp/biochem_style_corpus.jsonl` — or re-pull it from the deck
-`ISF::Test 2::Biochemistry::Amino Acid Structures` — is the reference. It is 84 cards the deck
-owner has reviewed and accepted. When you need to know how long an answer runs, how a hint is
+**`classes/ISF/reference/style_corpus.jsonl`** is the reference — pull or refresh it with:
+
+```
+classes/ISF/.venv/bin/python classes/ISF/build_deck.py corpus
+```
+
+It is 84 cards from `ISF::Test 2::Biochemistry::Amino Acid Structures` that the deck owner has
+reviewed and accepted. When you need to know how long an answer runs, how a hint is
 phrased, when to cloze an image, how a list card looks — **look at examples, don't consult a rule.**
 
 Measured on that corpus, for orientation only (not as limits to enforce):
@@ -48,6 +53,6 @@ owner's actual cards contradict. This is why shape is settled by examples.
 
 Judgment — the things a corpus cannot show you:
 
-- [yield](/rules/yield.md) — is this fact worth a card? What did the teacher stress?
-- [accuracy](/rules/accuracy.md) — is it true, is it in the source, did you invent anything?
-- [process.md](/process.md) — scope, what was actually taught, review before insert.
+- [yield](rules/yield.md) — is this fact worth a card? What did the teacher stress?
+- [accuracy](rules/accuracy.md) — is it true, is it in the source, did you invent anything?
+- [process.md](process.md) — scope, what was actually taught, review before insert.
