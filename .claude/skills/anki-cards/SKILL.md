@@ -11,7 +11,7 @@ describing a different pipeline, it is stale — delete it rather than follow it
 **Read these before doing anything:**
 
 1. **[`classes/ISF/okf/index.md`](../../../classes/ISF/okf/index.md)** — the governing principle
-   (*faithful transcription, not synthesis*) and what the five files are.
+   (*faithful transcription, not synthesis*) and what the six files are.
 2. **[`classes/ISF/okf/process.md`](../../../classes/ISF/okf/process.md)** — the step-by-step
    procedure for building a deck, with the driver command *and* the manual fallback for every step.
 3. **[`classes/ISF/okf/style.md`](../../../classes/ISF/okf/style.md)** — the style in five lines

@@ -215,6 +215,17 @@ def cmd_insert(a):
         except RuntimeError as e:
             (dupes if "duplicate" in str(e).lower() else failed).append(ref)
     print(f"added {added}/{len(notes)} note(s) to {a.deck!r}")
+    if a.suspend_flagged and new_ids:
+        # yield.md/no-duplicate.md require flag::* cards to enter SUSPENDED. Nothing could do that,
+        # so the requirement was silently unexecutable — flagged cards landed live and
+        # indistinguishable from reviewed ones.
+        flagged = [nid for nid, c in zip(new_ids, cards)
+                   if any(t.startswith("flag::") for t in c.get("tags", []))]
+        if flagged:
+            cids = invoke("findCards", query=" OR ".join(f"nid:{n}" for n in flagged))
+            invoke("suspend", cards=cids)
+            print(f"  suspended {len(flagged)} note(s) tagged flag::* "
+                  f"({len(cids)} card(s)) — unsuspend in Anki when you want them")
     if a.tag_reviewed and new_ids:
         # Tag EXACTLY the notes this call created. Never tag by a negative query like
         # `-tag:src::reviewed` — that sweeps in every older untagged card in the deck and marks
@@ -284,6 +295,9 @@ def main():
     p = sub.add_parser("insert", help="add notes via AnkiConnect")
     p.add_argument("cards"); p.add_argument("--deck", required=True)
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--suspend-flagged", action="store_true",
+                   help="suspend any note tagged flag::* (low-yield / beyond-scope) as required by "
+                        "okf/rules/yield.md — the owner unsuspends what they want")
     p.add_argument("--tag-reviewed", action="store_true",
                    help="tag exactly the notes this call adds src::reviewed (use only when the "
                         "cards have actually been through review)")

@@ -117,7 +117,7 @@ quote spanning a *speaker boundary*. Quote each cue separately and label them.
   factual reviewer checks *is it true*; this reviewer checks *is it real field language*.
 - **Provenance is a precondition:** a card with no resolvable source (no slide image and no
   verbatim `Source:` line) cannot be accuracy-checked — treat missing provenance as an automatic
-  flag. (See the provenance requirement in the pipeline's fill contract.)
+  flag. 
 
 ## Judgment (generator instructions)
 

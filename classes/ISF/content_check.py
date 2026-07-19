@@ -79,8 +79,21 @@ def check(cards):
 
 
 def _iter(target):
+    """Yield (filename, cards). FAIL LOUDLY on a target that yields nothing useful.
+
+    Pointed at a deck folder this used to print nothing at all and exit 0, which reads as
+    "clean, zero duplicates" — and pointed at <deck>/out it swallowed slides.jsonl and reported
+    154 phantom `None ≈ None` pairs. Both failures were silent. Give it a cards.jsonl.
+    """
     files = ([target] if target.endswith(".jsonl") else
              sorted(glob.glob(os.path.join(target, "*.jsonl"))))
+    if not files:
+        sys.exit(f"no .jsonl found at {target!r} — point this at a cards.jsonl, e.g. "
+                 f"<deck>/out/cards.jsonl (cards live under out/, not the deck folder)")
+    noncard = [f for f in files if os.path.basename(f) in ("slides.jsonl",)]
+    if noncard and len(files) > 1:
+        print(f"!! ignoring {', '.join(os.path.basename(f) for f in noncard)} — not card files")
+        files = [f for f in files if f not in noncard]
     for fn in files:
         cards = [json.loads(l) for l in open(fn, encoding="utf-8") if l.strip()]
         yield fn, cards

@@ -51,7 +51,13 @@ Two things vary by subject and neither is an error:
 build_deck slides "<slides.pdf>" "<deck>/out" <slug>
 ```
 Renders one JPEG per slide + `out/slides.jsonl` (slide number, image name, page text).
-*Manual:* `pdftoppm -jpeg -r 150 slides.pdf out/slides/isf-<slug>-slide` and `pdftotext -layout`.
+*Manual:* if the deck is `.pptx`, convert first —
+`soffice --headless --convert-to pdf --outdir "<deck>/out" "<slides>.pptx"` — then
+`pdftoppm -jpeg -r 150 slides.pdf out/slides/isf-<slug>-slide` and `pdftotext -layout`.
+Note the manual path does **not** produce `slides.jsonl`; write it by hand or re-run the driver.
+
+**Slug:** short and lowercase, naming the *subject deck*, e.g. `ct`, `epi`. Do not put the week in
+it — the tag reads `slide::ct-14`, and the week is already carried by `week::NN`.
 
 ## 3 · Extract sources to text
 
@@ -66,6 +72,10 @@ build_deck sources "<deck>"
 > decisions. What other decks do or don't contain is irrelevant.
 
 ## 4 · 🧠 Scope
+
+Write the scope note to **`<deck>/out/scope.md`** — a few lines, not a document: which slides the
+session covered, where you found the objectives, and anything deferred to next time. It is what a
+later session (or you, after a compaction) reads to know what this deck was supposed to contain.
 
 Read the objectives and the slide titles. State plainly what **this** deck covers — and flag any
 objectives that belong to a *different* lecture (objectives files often span several). Card only
@@ -135,7 +145,8 @@ capitalized fields:**
 | `week::NN` | source week, zero-padded |
 | `test::N` | which exam block |
 | `slide::<slug>-NN` | the slide the fact came from — **the slug is required** |
-| `src::<origin>` | provenance of the *card* — see [index.md](index.md) |
+| `src::okf-gen` | **written by you into the JSONL** — records that an agent authored this card against this rulebook. No script adds it; every card needs it, or the audit query below silently returns nothing |
+| `src::reviewed` | added by `build_deck insert --tag-reviewed`, or by note id in step 10. Never by a search |
 | `flag::beyond-scope` | correct + objective-backed, but the lecture deferred it (suspended) |
 | `flag::low-yield` | shipped suspended because its yield is uncertain — for the owner's end-of-build list |
 | `wrong-<defect>` | added **by the user during review** to flag a problem — never by the author |
@@ -179,11 +190,11 @@ written-reason. Escalate only when the call needs course knowledge you don't hav
 
 ## 9 · 🧠 Review
 
-> **Re-dump the deck before every review round.** Reviewers judge cards against the deck they are
-> handed. A dump taken before the last round of fixes shows *superseded* text, and an agent will
-> build confident arguments on it — one round recommended **deleting a live card** on duplication
-> grounds that were all true of the old text and all false of the current text. Pull fresh from
-> Anki each time, and say in the prompt when the dump was taken.
+> **Work from current text, never a stale copy.** When repairing *live* cards, re-read them from
+> Anki each round — a copy taken before the last round of fixes shows superseded text, and one
+> round recommended **deleting a live card** on duplication grounds that were all true of the old
+> text and all false of the current one. When building a *new* deck there is nothing in Anki yet;
+> your `cards.jsonl` is the current text.
 
 Review is **two passes, and neither is a subagent fan-out.**
 
@@ -281,7 +292,8 @@ Pushes the slide JPEGs into Anki's media collection so `extra` images render. Id
 ## 12 · Insert
 
 ```
-build_deck insert "<deck>/out/cards.jsonl" --deck "ISF::Test 2::Histology::Connective Tissue" [--dry-run]
+build_deck insert "<deck>/out/cards.jsonl" --deck "ISF::Test 2::Histology::Week 4" \
+    [--dry-run] --tag-reviewed --suspend-flagged
 ```
 Adds notes with note type `Custom Cloze` (fields Text/Extra/Source). Use `--dry-run` first.
 *Manual:* `anki` MCP `anki_add_notes`.

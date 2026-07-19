@@ -27,7 +27,7 @@ card's answer text (strips markup and hints) and reports **near-duplicate pairs*
 text similarity ≥ a threshold (currently 0.66), skipping same-note siblings. Run it over the deck:
 
 ```
-classes/ISF/.venv/bin/python classes/ISF/content_check.py <deck-dir> --json
+classes/ISF/.venv/bin/python classes/ISF/content_check.py <deck>/out/cards.jsonl --json
 ```
 
 It also flags **over-carded subjects** (one `<b>` subject appearing in ≥ 3 cards) — a redundancy
