@@ -228,6 +228,16 @@ build_deck insert "<deck>/out/cards.jsonl" --deck "ISF::Test 2::Histology::Conne
 Adds notes with note type `Custom Cloze` (fields Text/Extra/Source). Use `--dry-run` first.
 *Manual:* `anki` MCP `anki_add_notes`.
 
+**Tagging reviewed cards: use `--tag-reviewed`, never a query.**
+
+```
+build_deck insert "<cards.jsonl>" --deck "<name>" --tag-reviewed
+```
+It tags **exactly the notes that call created**. Do not tag by a negative search like
+`-tag:src::reviewed` — that matches every older untagged card in the deck and marks unreviewed
+work as reviewed. This has happened twice, the second time hours after the first was documented,
+which is why the safe path is a flag rather than a note in this file.
+
 **Deck naming — deck by LECTURE, tag by TOPIC.**
 
 `ISF::Test <N>::<Subject>::<Lecture>` — e.g. `ISF::Test 2::Histology::Week 3`. The deck is the

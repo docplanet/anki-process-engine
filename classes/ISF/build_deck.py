@@ -200,17 +200,26 @@ def cmd_insert(a):
     if a.deck not in set(invoke("deckNames")):
         invoke("createDeck", deck=a.deck)
     # addNotes raises if EVERY note fails, so add one at a time and report per-card
-    added, dupes, failed = 0, [], []
+    added, dupes, failed, new_ids = 0, [], [], []
     for i, note in enumerate(notes):
         ref = cards[i].get("id", i)
         try:
             r = invoke("addNote", note=note)
             added += 1 if r else 0
-            if not r:
+            if r:
+                new_ids.append(r)
+            else:
                 failed.append(ref)
         except RuntimeError as e:
             (dupes if "duplicate" in str(e).lower() else failed).append(ref)
     print(f"added {added}/{len(notes)} note(s) to {a.deck!r}")
+    if a.tag_reviewed and new_ids:
+        # Tag EXACTLY the notes this call created. Never tag by a negative query like
+        # `-tag:src::reviewed` — that sweeps in every older untagged card in the deck and marks
+        # unreviewed work as reviewed. That has happened twice; the second time was hours after
+        # documenting the first. Hence a flag that carries the real id list instead of a doc note.
+        invoke("addTags", notes=new_ids, tags="src::reviewed")
+        print(f"  tagged {len(new_ids)} newly added note(s) src::reviewed")
     if dupes:
         print(f"  {len(dupes)} skipped as duplicates (already in the collection): "
               f"{', '.join(map(str, dupes[:8]))}{' …' if len(dupes) > 8 else ''}")
@@ -249,7 +258,11 @@ def main():
 
     p = sub.add_parser("insert", help="add notes via AnkiConnect")
     p.add_argument("cards"); p.add_argument("--deck", required=True)
-    p.add_argument("--dry-run", action="store_true"); p.set_defaults(fn=cmd_insert)
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--tag-reviewed", action="store_true",
+                   help="tag exactly the notes this call adds src::reviewed (use only when the "
+                        "cards have actually been through review)")
+    p.set_defaults(fn=cmd_insert)
 
     p = sub.add_parser("sync", help="AnkiConnect sync")
     p.set_defaults(fn=cmd_sync)
