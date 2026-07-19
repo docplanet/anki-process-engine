@@ -63,5 +63,5 @@ An unresolved flag blocks ship. A *resolved-with-reason* flag does not.
 
 # Related
 
-- [card-structure](/rules/card-structure.md) — two-sided siblings of one note are not duplicates.
+- Two-sided siblings of one note are not duplicates.
 - [yield](/rules/yield.md) — over-carding a subject is also a yield question.

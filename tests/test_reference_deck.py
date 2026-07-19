@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """GOLDEN REGRESSION TEST — the style linter must PASS the reference deck.
 
-The house style is *measured from* the AnKing Neurogenetics deck (okf/mold.md says so
+The house style is *measured from* the AnKing Neurogenetics deck (okf/style.md says so
 explicitly). Therefore the linter must not hard-ERROR on the reference deck's own cards: if it
 does, the linter — not the deck — is miscalibrated. This test is the anchor that would have caught
 the linter drifting away from the real house style.

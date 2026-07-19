@@ -1,73 +1,58 @@
 ---
 type: Review Procedure
-title: Card review checklist
-description: The explicit per-card checks a review pass must run — the loose "does it look right" pass misses defects the rules already forbid.
+title: Per-card review
+description: The checks a review runs on every card, before insert.
 tags: [anki, card-authoring, review, process]
-timestamp: 2026-07-13T00:00:00Z
+timestamp: 2026-07-18T00:00:00Z
 ---
 
-# Why this exists
+# Per-card review
 
-Cards were reviewed and defects still shipped, because the review checked rules *loosely* — it read
-the card and asked "does it look right" instead of running each rule as a concrete check. This file
-is the checklist a review (human or agent) MUST run per card. Reviewers should be given these as
-explicit instructions, not left to apply the rules from memory.
+Run on **every card, before it is inserted.** A rewrite is new material — it re-enters this
+checklist rather than shipping from inside a review.
 
-# Check 0 — does this card make sense, and should it exist?
+**Review reports findings; it does not author replacements.** Compose fixes as a separate step,
+then review those. (A review that both diagnosed and rewrote once shipped five cards nobody had
+ever checked.)
 
-**Run this before the mechanical checks.** Read the card as a student seeing it cold:
+## 1 · Sense — read it as a student, not a linter
 
-- **Does it make basic logical sense?** A card can pass every style and accuracy check and still be
-  nonsense — a header cloze nothing identifies, a hint that doesn't line up with its blank, a
-  sentence that parses but says nothing.
-- **Does the hint match the blank?** Hide the cloze: does the hint ask for *exactly* what's hidden —
-  not a part of it, not something broader?
-- **Is it worth carding at all?** Is this a fact the teacher signalled, or an artifact of a slide's
-  outline (a classification qualifier, a heading, a bullet that exists for layout)? See
-  [yield](/rules/yield.md).
-- **Would a student learn the intended thing from it?** If the insight is real but the structure
-  buries it, the card fails even though nothing is technically "wrong."
+- Does the sentence make basic logical sense?
+- **Is each answer something you can recall as a unit?** A clause with its own subject and verb is
+  a sentence, not an answer.
+- Hide each cloze in turn: does the remaining visible text — *including the sibling answers* — give
+  it away? Watch complement pairs (resident/wandering, regular/irregular), where each answer
+  implies the other.
+- Does the hint read as natural English in the blank?
 
-Defects here are usually *rewrite or cut*, not patch. **If the verdict is low-yield, go back to the
-source** — find the fact that earns a card rather than re-clozing the weak one
-([yield](/rules/yield.md)). If you're editing markup and the *fact* hasn't changed, you're patching
-the wrong layer.
+## 2 · Yield — is it worth knowing
 
-# Run every check, per card
+See [yield](/rules/yield.md). Did the teacher signal this as need-to-know, or is it a bullet that
+happened to be on a slide? **Cards should land where the emphasis is, not where the text is** — a
+lecture's most-carded slide should be the one he stressed, not the one with the most bullets.
 
-For EACH card, tested by hiding each cloze in turn:
+## 3 · Accuracy — is it true and is it in the source
 
-1. **Self-answering** ([card-structure](/rules/card-structure.md) rule 7) — hide each cloze; does the
-   visible text (including the *other* answers) contain or spell out the hidden answer? A structural
-   form (–COO⁻, –NH₃⁺), synonym, or definition counts. If yes → defect.
-2. **Hint present** ([hint](/rules/hint.md)) — does every cloze have a `::hint`? A missing hint is a
-   defect unless a stated exception applies (no non-leaking hint exists; the stem fully determines
-   the answer; or it's a **list item**, which takes no hint). Don't wave it through.
-2b. **Hint leak** ([hint](/rules/hint.md)) — does any hint name the answer, an instance of it, or a
-   property that identifies a small (2–3 member) set? ("acidic AAs" for aspartate/glutamate leaks.)
-   Does a hint echo an adjacent visible word, or share the answer's root? → defect.
-3. **Hint vagueness** — is any hint a bare catch-all (`what/which` + `type/structure/bond/thing…`)? → defect.
-4. **Complete span** ([complete-span](/rules/complete-span.md)) — is the `<i>` answer the WHOLE tested
-   value, or a fragment with the rest trailing as plain text? → defect.
-5. **Every testable role clozed** ([card-structure](/rules/card-structure.md)) — is any word that the
-   card clearly means to test left un-clozed (a condition, a downstream node)? → defect.
-5b. **Whole insight clozed** ([whole-insight](/rules/whole-insight.md)) — on a "because/which/so that"
-   clause, is only the tail clozed while the subject+verb of the explanation stay visible? Hide the
-   cloze: does the stem still reveal the mechanism? If yes, the cloze is too small → defect.
-6. **Facet underlined** ([facet-underline](/rules/facet-underline.md)) — is the aspect/category word
-   (charge state, pH, pKa, the framing noun) marked `<u>`? Missing → defect.
-7. **Cloze content/styling** ([card-structure](/rules/card-structure.md) rule 6) — does any cloze carry
-   context beyond the term, or mix styled + unstyled text? → defect.
-8. **No terminal punctuation** ([no-terminal-period](/rules/no-terminal-period.md)) — does the rendered
-   card end in `.` or `,`? → defect.
-9. **Faithful / no editorializing** ([accuracy](/rules/accuracy.md)) — is every term standard field
-   language, and every fact/qualifier present in the source? Any coined term ("backbone amine"),
-   hedge ("borderline", "most basic"), or added detail → defect.
-10. **≤3 clozes; subject leads; one `<i>` answer** ([card-structure](/rules/card-structure.md),
-    [subject-first](/rules/subject-first.md)).
+See [accuracy](/rules/accuracy.md).
 
-# The edit rule
+- Every fact checked against the slides **and** transcript.
+- **Every `Source:` quote verbatim.** Never join separate cues into one sentence.
+- Every term is language the source actually uses — including in hints.
+- The cited slide image shows what the card claims.
 
-**Any edit re-enters review.** A card changed after its last review is an un-reviewed card — hand-edits
-(styling, terminology, restructuring) must run this checklist again, not be trusted because the card
-"was reviewed once." Several shipped defects came from edits that skipped re-review.
+## 4 · Style — compare against the corpus, not against prose
+
+See [style.md](/style.md). Put the card next to real cards from
+`ISF::Test 2::Biochemistry::Amino Acid Structures` and ask whether it looks like them: bold /
+underline / italics doing their jobs, a hint on every cloze that reads as English, lists as a bold
+header plus numbered italics.
+
+## 5 · Duplicate
+
+See [no-duplicate](/rules/no-duplicate.md). Also: is this fact already sitting unclozed in another
+card's `Extra`?
+
+---
+
+The mechanical gate (`build_deck gate`) runs alongside this and checks shape only. **It cannot see
+anything on this list.** A card that passes the gate has not been reviewed.

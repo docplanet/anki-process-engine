@@ -1,97 +1,34 @@
 ---
 type: Knowledge Bundle Index
-title: ISF Card-Authoring Rules
-description: The rules a generator must follow to produce good ISF Anki cloze cards, one rule per file.
-tags: [anki, card-authoring, isf, rules]
-timestamp: 2026-07-13T00:00:00Z
+title: ISF card authoring
+description: Governing principle, the style guide, and the three judgment rules.
+tags: [anki, card-authoring, isf]
+timestamp: 2026-07-18T00:00:00Z
 ---
 
-# ISF Card-Authoring Rules
+# ISF card authoring
 
-## Governing principle: faithful transcription, not synthesis
+## Governing principle
 
-Card creation is a **faithful rendering of the provided material into card shape — a robust
-copy/paste, not a rewrite.** The generator's job is to take the facts *as the source states them*
-and restructure them into atomic cloze cards: split into one-fact cards, choose what to cloze,
-apply markup and hints, tag provenance. That is the entire transformation.
+Card creation is a **faithful rendering of the source into card shape — a robust copy/paste, not a
+rewrite.** Take the facts as the source states them and restructure them into cloze cards.
 
-**Add nothing.** No outside knowledge, no synthesized framing, no coined or reframed terminology,
-no editorializing. Editorializing is minimized to near-zero: if a fact, term, or qualifier is not
-in the source, it does not go on the card. When a hint or label has no basis in the source's own
-words, leave it out (hints are optional) rather than invent one. The facts are the source's; only
-the *shape* is ours.
+**Add nothing.** No outside knowledge, no synthesized framing, no coined terminology, no
+editorializing. If a fact, term, or qualifier is not in the source, it does not go on the card.
 
-Every rule below serves this principle — the shape rules say how to restructure faithfully; the
-[accuracy](/rules/accuracy.md) rule guards against anything creeping in that the source didn't say.
-
-A vendor-neutral rulebook for generating ISF Anki cloze cards. Each rule is a separate
-OKF file so it can be cited, reviewed, and enforced independently. Rules are derived from
-real defects found in the shipped decks (tagged `wrong-*` in Anki) and stated as crisp,
-testable contracts — the source of truth for any future card generation.
-
-Rules split into two kinds:
-- **judgment** — requires reading comprehension; belongs in the generator's instructions + worked examples.
-- **mechanical** — checkable by code; can be enforced as a hard gate.
-
-Most rules are partly both: as much as possible is pushed to mechanical enforcement, and the
-irreducible taste is stated with worked examples.
-
-# Start here
+# The four files
 
 | File | What it is |
 |---|---|
-| **[process.md](/process.md)** | **How to build a deck** — every step, with the driver command and the manual fallback. Start here to make cards. |
-| [mold.md](/mold.md) | The shape `strict_shape.py` enforces — roles/colors, the three card shapes, the hard rejects |
-| [review-checklist.md](/review-checklist.md) | The explicit per-card checks a review must run |
-| `rules/*.md` | The rules themselves (indexed below) |
+| **[process.md](/process.md)** | **How to build a deck** — the steps. Start here. |
+| **[style.md](/style.md)** | **The card style** — five lines, plus the reference corpus that settles every other shape question |
+| [rules/yield.md](/rules/yield.md) | Is this fact worth a card? What did the teacher stress? |
+| [rules/accuracy.md](/rules/accuracy.md) | Is it true, is it in the source, did you invent anything? |
+| [rules/no-duplicate.md](/rules/no-duplicate.md) | Does this card already exist? |
 
-The driver is `classes/ISF/build_deck.py`. It automates only the deterministic steps — **authoring
-and review are agent work; no script writes cards.**
+**Shape is settled by looking at the reference cards, not by reading rules.** See
+[style.md](/style.md). Eight prose files that described shape were deleted — they drifted from the
+real decks and contradicted them.
 
-# Provenance tags (what `src::` means on a card)
-
-- **`src::regen`** — produced by the original Test-1 pipeline, which has since been **deleted**
-  (superseded by [process.md](/process.md)). These cards are historical; treat them like any other
-  card — if one is wrong, fix it here.
-- **`src::okf-gen`** — **hand-authored by an agent directly against this rulebook.** There is **no
-  `okf-gen` script, prompt, or pipeline** — the name is a provenance label only. The process was:
-  read the deck's sources (`out/slides.jsonl`, lecture transcript, objectives) → author cards inline
-  → gate with `classes/ISF/strict_shape.py` → insert via the `anki` MCP → review with ad-hoc
-  subagents. **The authoring and review prompts were not saved**, so this generation step is *not*
-  reproducible from the repo; only its output (the cards) and these rules survive.
-
-If a card tagged `src::okf-gen` is found in violation, do not go looking for a generator to fix — fix
-the card, and if the defect names a rule this book lacks, add the rule.
-
-# Rules
-
-| Rule | Source defect tags | Status |
-|------|--------------------|--------|
-| [Hints](/rules/hint.md) | `wrong-first-hint`, `wrong-second-hint`, `wrong-undescriptive-hint` | drafted |
-| [Subject leads the card](/rules/subject-first.md) | `wrong-style-off`, `wrong-sentence-structure` | drafted |
-| [Card structure](/rules/card-structure.md) | `wrong-structure`, `wrong-missing-cloze`, `wrong-incorrect-clozes` | drafted |
-| [Yield](/rules/yield.md) | `wrong-low-yield` | review-gated (no firm rule yet) |
-| [Underline the facet](/rules/facet-underline.md) | `wrong-missing-underline` | drafted |
-| [Accuracy](/rules/accuracy.md) | `wrong-information` | review-gated |
-| [No near-duplicates](/rules/no-duplicate.md) | `wrong-duplicate` | drafted |
-| [Recognition & attribute cards](/rules/recognition-and-attribute-cards.md) | (new genre — image⇄name, entity→attributes; mold-exempt) | drafted |
-| [The answer is a complete span](/rules/complete-span.md) | `wrong-style-off` (fragmented answer) | drafted |
-| [No terminal punctuation](/rules/no-terminal-period.md) | `wrong-style-off` (from reference-deck audit) | drafted |
-| [Cloze the whole insight](/rules/whole-insight.md) | `wrong-low-yield` (clause fragment clozed) | drafted |
-
-# Coverage
-
-All 12 `wrong-*` defect classes from the current decks are now turned into rules:
-
-| defect tag | rule |
-|-----------|------|
-| `wrong-first-hint`, `wrong-second-hint`, `wrong-undescriptive-hint` | [hint](/rules/hint.md) |
-| `wrong-style-off` (partial), `wrong-sentence-structure` | [subject-first](/rules/subject-first.md) |
-| `wrong-structure`, `wrong-missing-cloze`, `wrong-incorrect-clozes` | [card-structure](/rules/card-structure.md) |
-| `wrong-low-yield`, `wrong-style-off` (scope-qualifier part) | [yield](/rules/yield.md) |
-| `wrong-missing-underline` | [facet-underline](/rules/facet-underline.md) |
-| `wrong-information` | [accuracy](/rules/accuracy.md) |
-| `wrong-duplicate` | [no-duplicate](/rules/no-duplicate.md) |
-
-The flagged set was not exhaustive (not all cards were reviewed), so new defect classes may still
-appear; each becomes a new rule file here.
+The driver is `classes/ISF/build_deck.py`. It automates only the deterministic steps —
+**authoring and review are agent work; no script writes cards.**

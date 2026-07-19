@@ -106,7 +106,9 @@ direct instruction: do not card it. See [yield](/rules/yield.md).
 
 ## 6 · 🧠 Author the gap
 
-Read [`index.md`](/index.md), [`mold.md`](/mold.md), and **every rule** in `rules/` before writing.
+Read [`index.md`](/index.md), [`style.md`](/style.md), and the three rules in `rules/` before
+writing — then **read the reference corpus itself** (`ISF::Test 2::Biochemistry::Amino Acid
+Structures`, 84 owner-reviewed cards). Shape questions are answered by those cards, not by prose.
 Then author, obeying the governing principle: **faithful transcription, not synthesis** — render the
 source into card shape, add nothing, coin no terminology, and prefer the source's own words.
 
@@ -145,9 +147,10 @@ capitalized fields:**
 ```
 build_deck gate "<deck>/out/cards.jsonl"
 ```
-Must print `N/N conforming (0 rejected)`. Fix every reject and re-run.
-Recognition/attribute cards are **exempt** — see
-[recognition-and-attribute-cards](/rules/recognition-and-attribute-cards.md).
+Must print `N/N conforming (0 rejected)`. Fix every reject and re-run. Image-recognition cards are **exempt** — the gate does not model them.
+
+**The gate is shape-only.** It cannot tell an answer from a clause, or a real fact from an
+invented one. Passing it means nothing about whether a card is good.
 *Manual:* `classes/ISF/strict_shape.py <cards.jsonl>`.
 
 > **Schema trap when repairing existing cards.** The gate reads **lowercase** `text`/`type`. Notes

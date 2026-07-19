@@ -17,9 +17,9 @@ Anki flashcards — against a written rulebook, with a hard shape gate, rather t
 |---|---|
 | **[`okf/process.md`](classes/ISF/okf/process.md)** | **How to build a deck** — every step, with the driver command *and* the manual fallback |
 | [`okf/index.md`](classes/ISF/okf/index.md) | The governing principle, provenance tags, index of all rules |
-| [`okf/mold.md`](classes/ISF/okf/mold.md) | The card shape — roles/colors (`<b>` subject, `<i>` answer, `<u>` facet), the three shapes, the hard rejects |
+| [`okf/style.md`](classes/ISF/okf/style.md) | The card style in five lines, plus the reference corpus that settles every other shape question |
 | [`okf/review-checklist.md`](classes/ISF/okf/review-checklist.md) | The explicit per-card checks a review must run |
-| `okf/rules/*.md` | The rules — hints, subject-first, structure, complete-span, yield, facets, accuracy, duplicates, card genres |
+| `okf/rules/*.md` | The three judgment rules — yield, accuracy, duplicates |
 
 **There is exactly one process.** If you find a document describing a different pipeline, it's stale
 — delete it rather than follow it.

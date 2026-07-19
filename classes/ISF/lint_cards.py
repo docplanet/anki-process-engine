@@ -164,11 +164,11 @@ def lint_card(card, loc):
     subject_outside_cloze = "<b>" in CLOZE_RE.sub("", text)
     if len(nums) == 1 and subject_outside_cloze and DEFINITIONAL_RE.search(_strip(text)) and not _is_list(text):
         warnings.append(f"{loc} ONE-SIDED DEFINITIONAL: <b>subject</b> is not clozed and the definition stays exposed — consider a two-sided cloze (blank the subject too) unless it's a bare label")
-    # under-marked: no role color at all (see okf/mold.md)
+    # under-marked: no role color at all (see okf/style.md)
     if not re.search(r"</?[biu]>", text):
-        warnings.append(f"{loc} UNDER-MARKED: no <b>/<i>/<u> color roles — mark subject <b>, facet <u>, answer <i> (see okf/mold.md)")
+        warnings.append(f"{loc} UNDER-MARKED: no <b>/<i>/<u> color roles — mark subject <b>, facet <u>, answer <i> (see okf/style.md)")
     elif "<i>" not in text and nums:
-        warnings.append(f"{loc} no <i> answer color — the answer/value should be wrapped <i> (see okf/mold.md)")
+        warnings.append(f"{loc} no <i> answer color — the answer/value should be wrapped <i> (see okf/style.md)")
     # LENGTH (warning, list-aware): non-list cards past the measured p90 (~20 words) are likely
     # over-packed. Lists legitimately run long (~96 words), so skip them entirely.
     if not _is_list(text) and _wc(text) > LONG_NOTE_WORDS:

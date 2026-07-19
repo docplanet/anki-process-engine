@@ -15,7 +15,8 @@ describing a different pipeline, it is stale — delete it rather than follow it
    all rules.
 2. **[`classes/ISF/okf/process.md`](../../../classes/ISF/okf/process.md)** — the step-by-step
    procedure for building a deck, with the driver command *and* the manual fallback for every step.
-3. **[`classes/ISF/okf/mold.md`](../../../classes/ISF/okf/mold.md)** — the role/color system
+3. **[`classes/ISF/okf/style.md`](../../../classes/ISF/okf/style.md)** — the style, and the
+   reference corpus that settles every shape question
    (`<b>` subject, `<i>` answer, `<u>` facet) and the three card shapes.
 4. **`classes/ISF/okf/rules/*.md`** — the rules themselves. Read all of them before authoring.
 5. **[`classes/ISF/okf/review-checklist.md`](../../../classes/ISF/okf/review-checklist.md)** — the
