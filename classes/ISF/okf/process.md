@@ -178,6 +178,12 @@ written-reason. Escalate only when the call needs course knowledge you don't hav
 
 ## 9 · 🧠 Review
 
+> **Re-dump the deck before every review round.** Reviewers judge cards against the deck they are
+> handed. A dump taken before the last round of fixes shows *superseded* text, and an agent will
+> build confident arguments on it — one round recommended **deleting a live card** on duplication
+> grounds that were all true of the old text and all false of the current text. Pull fresh from
+> Anki each time, and say in the prompt when the dump was taken.
+
 Run [`review-checklist.md`](/review-checklist.md) — **every check, per card**, not a "looks right"
 pass. Best run as parallel subagents on separate axes:
 
