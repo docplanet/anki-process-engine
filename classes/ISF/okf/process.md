@@ -134,10 +134,15 @@ capitalized fields:**
 | `isf::<subject>::<topic>` | what the card is about — e.g. `isf::histology::connective-tissue` |
 | `week::NN` | source week, zero-padded |
 | `test::N` | which exam block |
-| `slide::NN` | the slide the fact came from |
+| `slide::<slug>-NN` | the slide the fact came from — **the slug is required** |
 | `src::<origin>` | provenance of the *card* — see [index.md](/index.md) |
 | `flag::beyond-scope` | correct + objective-backed, but the lecture deferred it (suspendable) |
 | `wrong-<defect>` | added **by the user during review** to flag a problem — never by the author |
+
+**A deck folder often holds more than one slide deck, and both number from 1.** In the Week 3
+histology folder, connective-tissue slide 14 and epithelium slide 57 are the *same figure*, so a
+bare `slide::14` is ambiguous and provenance silently mis-attributes. Always carry the deck slug:
+`slide::ct-14`, `slide::epi-57`. Use the same slug you passed to `build_deck slides`.
 
 `key::…` appears on older cards; it was an idempotency key for a sync script that no longer exists.
 **Don't add it to new cards.**

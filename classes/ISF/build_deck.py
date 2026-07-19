@@ -107,11 +107,19 @@ def cmd_sources(a):
     dest = os.path.join(a.deck_dir, "out", "sources")
     os.makedirs(dest, exist_ok=True)
     PREF = {".txt": 0, ".vtt": 1, ".srt": 2}          # lower = preferred
-    chosen, skipped = {}, []
+    SLIDES = (".ppt", ".pptx", ".key", ".odp")
+    chosen, skipped, ignored = {}, [], []
     for path in sorted(glob.glob(os.path.join(a.deck_dir, "*"))):
         base, ext = os.path.splitext(os.path.basename(path))
         ext = ext.lower()
-        if ext == ".pdf":
+        if os.path.isdir(path):
+            continue
+        if ext in SLIDES:
+            # A slide deck shipped as .ppt/.pptx is still source text. Converting it here is what
+            # makes `out/sources/` complete — skipping it silently once left a whole lecture's
+            # slides unextracted, and four reviewers verified cards against half the material.
+            chosen[base] = (_as_pdf(path, os.path.join(a.deck_dir, "out")), ".pdf")
+        elif ext == ".pdf":
             chosen[base] = (path, ext)                 # PDFs never collide with transcripts here
         elif ext in PREF:
             cur = chosen.get(base)
@@ -121,6 +129,8 @@ def cmd_sources(a):
                 chosen[base] = (path, ext)
             else:
                 skipped.append(os.path.basename(path))
+        else:
+            ignored.append(os.path.basename(path))     # never drop a file without saying so
 
     n = 0
     for base, (path, ext) in sorted(chosen.items()):
@@ -134,7 +144,11 @@ def cmd_sources(a):
         n += 1
     for s in skipped:
         print(f"  (skipped {s} — same basename, cleaner format kept)")
-    _log(os.path.join(a.deck_dir, "out"), "sources", f"{n} file(s) -> out/sources/")
+    for s in ignored:
+        print(f"  !! NOT EXTRACTED: {s} — unknown type. Extract it by hand; a reviewer reading "
+              f"out/sources/ will not see this material.")
+    _log(os.path.join(a.deck_dir, "out"), "sources",
+         f"{n} file(s) -> out/sources/" + (f"; NOT EXTRACTED: {', '.join(ignored)}" if ignored else ""))
     print(f"{n} source file(s) extracted to {dest}")
     if not n:
         print("  (nothing found — drop the slides PDF, objectives PDF and transcript in the folder)")
