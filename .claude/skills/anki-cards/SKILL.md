@@ -11,20 +11,26 @@ describing a different pipeline, it is stale — delete it rather than follow it
 **Read these before doing anything:**
 
 1. **[`classes/ISF/okf/index.md`](../../../classes/ISF/okf/index.md)** — the governing principle
-   (*faithful transcription, not synthesis*), what the `src::` provenance tags mean, and the index of
-   all rules.
+   (*faithful transcription, not synthesis*) and what the five files are.
 2. **[`classes/ISF/okf/process.md`](../../../classes/ISF/okf/process.md)** — the step-by-step
    procedure for building a deck, with the driver command *and* the manual fallback for every step.
-3. **[`classes/ISF/okf/style.md`](../../../classes/ISF/okf/style.md)** — the style, and the
-   reference corpus that settles every shape question
-   (`<b>` subject, `<i>` answer, `<u>` facet) and the three card shapes.
-4. **`classes/ISF/okf/rules/*.md`** — the rules themselves. Read all of them before authoring.
+3. **[`classes/ISF/okf/style.md`](../../../classes/ISF/okf/style.md)** — the style in five lines
+   (`<b>` subject, `<i>` answer, `<u>` facet), and the **reference corpus that settles every other
+   shape question**. Shape is decided by looking at real cards in
+   `ISF::Test 2::Biochemistry::Amino Acid Structures`, never by reading prose about them — nine
+   prose files describing shape were deleted because they drifted and started generating defects.
+4. **`classes/ISF/okf/rules/*.md`** — three judgment rules (yield, accuracy, no-duplicate).
+   Read all three before authoring.
 5. **[`classes/ISF/okf/review-checklist.md`](../../../classes/ISF/okf/review-checklist.md)** — the
    explicit per-card checks a review must run.
 
 **The driver:** `classes/ISF/build_deck.py` automates only the deterministic steps (render slides,
 extract sources, gate, dedupe, media, insert, sync). **Scope, authoring, and review are your work**
 — no script writes cards. Don't go looking for a generator; there isn't one.
+
+**Reviewing is `classes/ISF/check_cards.py` (mechanical, ~10s for a whole deck) plus reading the
+cards yourself.** Do not fan review out to per-axis subagents — that once turned a ~20-card review
+into two hours. See `process.md` step 9.
 
 **Two things that repeatedly go wrong:**
 - **The deck folder's material is the only input.** Cards come from the slides, transcript and
