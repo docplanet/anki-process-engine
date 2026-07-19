@@ -23,8 +23,10 @@ imagined ideal at the same severity, and a card that is simply *fine* never gets
 Things that are **house style, not defects** (all measured in the corpus):
 
 - **Two-option hints** — `collagen or elastic fibres?`, `protonated or deprotonated?`, `high or low`,
-  `5' or 3'`. A 50/50 hint is the hint doing its job (see [hint rule 9 history]); listing both
-  options is explicitly **not** a leak. Do not call these coin flips or self-answering.
+  `5' or 3'`. A 50/50 hint is the hint doing its job — its purpose is to make recall *fast*, by
+  letting you assemble known pieces instead of decoding what is being asked. Listing both options
+  is **not** a leak; you still have to recall which one. Do not call these coin flips or
+  self-answering.
 - **Question-form hints**, including bare `what?` and `which?` — 107 of 111 corpus hints end in `?`.
 - **Visible bold subjects** outside the cloze braces — the corpus does this constantly.
 - **Two cards on one slide** covering different aspects of one thing. Two is not over-carding.
