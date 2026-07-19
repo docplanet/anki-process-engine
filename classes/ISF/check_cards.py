@@ -106,11 +106,21 @@ def main():
         if NB is not None:
             # strip tags BEFORE finding quotes, else <img src="x.jpg"> reads as a quoted span
             plain = html.unescape(re.sub(r"<[^>]+>", " ", E))
-            for q in re.findall(r'"([^"]{15,})"', plain):
-                if norm(q) and norm(q) not in NB:
+            # Pair quotes strictly left-to-right with NO length floor. A floor made a short
+            # quoted term swallow its own closing quote and invert every pairing after it, so
+            # the real quotes silently went unchecked while label text got reported instead.
+            spans = re.findall(r'"([^"]*)"', plain)
+            for q in spans:
+                nq = norm(q)
+                if len(nq) < 12:
+                    continue                       # a bare term, not a Source quote — skip, quietly
+                if nq not in NB:
                     f.append(f'QUOTE not in sources: "{q[:70]}…"')
-        if re.search(r"cues joined|consecutive cues", E, re.I):
-            f.append("Extra says cues were JOINED — quote each cue separately")
+        # NOTE: there is deliberately no "Extra says cues were joined" check. A previous version
+        # grepped the author's own label and produced 42 of 59 flags on the reference deck, 12 of
+        # them provably false and none genuine — it penalised honest disclosure and could not see
+        # an undisclosed join at all. The verbatim check above is what catches a real join: a
+        # sentence stitched from two cues is not a substring of the source.
         cl = CLOZE.findall(T)
         if len({n for n, _ in cl}) > 3:
             f.append("more than 3 distinct clozes")

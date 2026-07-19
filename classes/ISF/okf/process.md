@@ -27,6 +27,13 @@ Driver: `classes/ISF/.venv/bin/python classes/ISF/build_deck.py <subcommand>`
 agent's shell may reset its working directory between calls, so `cd` to the repo root in the same
 command if unsure.
 
+> **`classes/ISF/Exam 2/Histology/Week 3/out/cards.jsonl` is a live export, not a template.** It is
+> what that deck currently contains, regenerated from Anki, and it is useful for seeing real cards —
+> but do not copy its conventions. It carries `src::reviewed` in the JSONL (step 10 says *not* to do
+> that when building), its `slide::` slugs (`ct`) do not match the slug its images were rendered
+> with (`ct-w3`), and ~half its provenance quotes splice two transcript cues. **Read the style
+> corpus for what a card should look like; read this only for what a real deck looks like.**
+
 **Check `out/` before re-running steps 2–3.** A previous session may have already rendered slides or
 extracted sources. `out/.build_deck.log` records what ran and when. All subcommands are idempotent,
 so re-running is safe — but if `out/` looks half-populated, re-run rather than trust it.
@@ -50,6 +57,16 @@ Two things vary by subject and neither is an error:
 ```
 build_deck slides "<slides.pdf>" "<deck>/out" <slug>
 ```
+
+> **Two slide decks in one folder: give each its own out_dir**, or the second run silently
+> overwrites the first's `slides.jsonl` (the JPEGs survive — the slug is in their filenames — but
+> the page-text index does not, and both runs report success):
+> ```
+> build_deck slides "<ct>.pptx"  "<deck>/out"     ct
+> build_deck slides "<epi>.pptx" "<deck>/out/epi" epi     # then media BOTH dirs, see step 11
+> ```
+> Re-rendering a deck that gained slides also re-pads filenames (`slide-9` → `slide-09`), breaking
+> `<img>` references in cards already authored. Re-render before authoring, not after.
 Renders one JPEG per slide + `out/slides.jsonl` (slide number, image name, page text).
 *Manual:* if the deck is `.pptx`, convert first —
 `soffice --headless --convert-to pdf --outdir "<deck>/out" "<slides>.pptx"` — then
@@ -214,6 +231,12 @@ for a whole deck.** Run it before reading anything.
 
 Without `--sources` it *skips* the quote check and says so — a clean result then means nothing.
 
+**Done = every flag resolved or explained**, same bar as step 8. Exit code is 1 while any flag
+stands. A flag is not automatically a defect: a quote lifted off a slide *image* will not be found
+in the extracted slide text (`pdftotext` misses text inside figures), so verify against the JPEG
+before rewriting anything. What it will not forgive is a quote spliced from two cues with `…` —
+that one is real, and it is the defect [accuracy](rules/accuracy.md) exists to catch.
+
 ### 9b · Judgment — read the cards yourself
 
 Then read every card against [`review-checklist.md`](review-checklist.md), asking only what a
@@ -296,6 +319,12 @@ build_deck insert "<deck>/out/cards.jsonl" --deck "ISF::Test 2::Histology::Week 
     [--dry-run] --tag-reviewed --suspend-flagged
 ```
 Adds notes with note type `Custom Cloze` (fields Text/Extra/Source). Use `--dry-run` first.
+
+> **`insert` is the one subcommand that is NOT idempotent.** Anki dedupes on the first field only.
+> If you edit a card's `text` and re-run, the edited card is no longer a duplicate — you get a
+> **second note beside the stale one**, and the output reads `added 1/N` like a success. After a
+> repair, edit the live note (step 10) rather than re-inserting. `out/.build_deck.log` records
+> every insert so a later session can tell whether this deck has already been written.
 *Manual:* `anki` MCP `anki_add_notes`.
 
 **Tagging reviewed cards: use `--tag-reviewed`, never a query.**
@@ -341,6 +370,17 @@ build_deck sync
 
 Review cards in Anki. Tag anything wrong with **`wrong-<defect>`** (e.g. `wrong-first-hint`,
 `wrong-low-yield`). Then, for each flagged card:
+
+The commands, since no driver subcommand covers this path — use the `anki` MCP:
+
+| Step | Call |
+|---|---|
+| find the flagged cards | `anki_find_notes` with `deck:"<name>" tag:wrong-*` |
+| **read current text before editing** | `anki_get_notes_info` — note-ids are easy to mistake, and editing the wrong one has destroyed a card |
+| fix | `anki_update_note_fields` |
+| it is unreviewed again | `anki_remove_tags` → `src::reviewed`, then re-run step 9 |
+| re-tag once reviewed | `anki_add_tags` by explicit note id — **never** by a `-tag:src::reviewed` search |
+| suspend, if it should not ship | not exposed by the MCP — suspend by hand in Anki, or via AnkiConnect `suspend` |
 
 1. Fix the card, and
 2. **If the defect names a rule the book lacks, add the rule** — so the same class is caught

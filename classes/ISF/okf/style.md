@@ -28,16 +28,20 @@ That is the whole style guide.
 classes/ISF/.venv/bin/python classes/ISF/build_deck.py corpus
 ```
 
-It is 84 cards from `ISF::Test 2::Biochemistry::Amino Acid Structures` that the deck owner has
-reviewed and accepted. When you need to know how long an answer runs, how a hint is
+It is **77 cards** from `ISF::Test 2::Biochemistry::Amino Acid Structures` that the deck owner has
+reviewed and accepted. `build_deck corpus` **excludes** any card the owner tagged `wrong-*` — the
+deck holds 84, seven of which they flagged as defective. Those seven must never be in the corpus:
+[review-checklist.md](review-checklist.md) makes it the "acceptable by definition" bar, so a
+rejected card in it would teach a reviewer to stay silent about the exact defect the owner
+complained of. When you need to know how long an answer runs, how a hint is
 phrased, when to cloze an image, how a list card looks — **look at examples, don't consult a rule.**
 
 Measured on that corpus, for orientation only (not as limits to enforce):
 
 | | |
 |---|---|
-| clozes per card | 1 → 6 cards, 2 → 73, 3 → 5 |
-| hints | 111, mean **1.7 words** |
+| clozes per card | 1 → 6 cards, 2 → 68, 3 → 3 |
+| hints | 98, mean **1.7 words** |
 | hint form | 107 of 111 end in `?` — question-form hints are house style |
 | most common hints | `which AA?` (23), `abbreviations?` (20), `classification?` (20) |
 | bare `what?` / `which?` | present and accepted |

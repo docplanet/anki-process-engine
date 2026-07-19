@@ -202,37 +202,42 @@ def cmd_insert(a):
     if a.deck not in set(invoke("deckNames")):
         invoke("createDeck", deck=a.deck)
     # addNotes raises if EVERY note fails, so add one at a time and report per-card
-    added, dupes, failed, new_ids = 0, [], [], []
+    # Keep (note_id, card) PAIRS. Zipping new_ids against cards afterwards misaligns as soon as
+    # any card is a duplicate or fails — it once suspended an unrelated note and printed success.
+    added, dupes, failed, new_pairs = 0, [], [], []
     for i, note in enumerate(notes):
         ref = cards[i].get("id", i)
         try:
             r = invoke("addNote", note=note)
             added += 1 if r else 0
             if r:
-                new_ids.append(r)
+                new_pairs.append((r, cards[i]))
             else:
                 failed.append(ref)
         except RuntimeError as e:
             (dupes if "duplicate" in str(e).lower() else failed).append(ref)
     print(f"added {added}/{len(notes)} note(s) to {a.deck!r}")
-    if a.suspend_flagged and new_ids:
-        # yield.md/no-duplicate.md require flag::* cards to enter SUSPENDED. Nothing could do that,
-        # so the requirement was silently unexecutable — flagged cards landed live and
-        # indistinguishable from reviewed ones.
-        flagged = [nid for nid, c in zip(new_ids, cards)
-                   if any(t.startswith("flag::") for t in c.get("tags", []))]
+    _log(os.path.dirname(os.path.abspath(a.cards)), "insert",
+         f"{added} added, {len(dupes)} dupes, {len(failed)} failed -> {a.deck}")
+    if a.suspend_flagged and new_pairs:
+        # yield.md/no-duplicate.md require flag::* cards to enter SUSPENDED. Also suspend wrong-*:
+        # a card the owner flagged as defective must never ship live (one such card was suspended
+        # only because a human did it by hand, and a rebuild would have shipped it).
+        flagged = [nid for nid, c in new_pairs
+                   if any(t.startswith("flag::") or t.startswith("wrong-")
+                          for t in c.get("tags", []))]
         if flagged:
             cids = invoke("findCards", query=" OR ".join(f"nid:{n}" for n in flagged))
             invoke("suspend", cards=cids)
             print(f"  suspended {len(flagged)} note(s) tagged flag::* "
                   f"({len(cids)} card(s)) — unsuspend in Anki when you want them")
-    if a.tag_reviewed and new_ids:
+    if a.tag_reviewed and new_pairs:
         # Tag EXACTLY the notes this call created. Never tag by a negative query like
         # `-tag:src::reviewed` — that sweeps in every older untagged card in the deck and marks
         # unreviewed work as reviewed. That has happened twice; the second time was hours after
         # documenting the first. Hence a flag that carries the real id list instead of a doc note.
-        invoke("addTags", notes=new_ids, tags="src::reviewed")
-        print(f"  tagged {len(new_ids)} newly added note(s) src::reviewed")
+        invoke("addTags", notes=[nid for nid, _ in new_pairs], tags="src::reviewed")
+        print(f"  tagged {len(new_pairs)} newly added note(s) src::reviewed")
     if dupes:
         print(f"  {len(dupes)} skipped as duplicates (already in the collection): "
               f"{', '.join(map(str, dupes[:8]))}{' …' if len(dupes) > 8 else ''}")
@@ -257,6 +262,14 @@ def cmd_corpus(a):
     notes = invoke("notesInfo", notes=invoke("findNotes", query=f'deck:"{a.deck}"'))
     if not notes:
         sys.exit(f"no notes in {a.deck!r} — is Anki open and the deck name right?")
+    # EXCLUDE cards the owner flagged as defective. review-checklist.md makes this corpus the
+    # "acceptable by definition" bar, so a wrong-* card in it teaches a reviewer to stay silent
+    # about the very defect the owner complained of.
+    rejected = [n for n in notes if any(t.startswith("wrong-") for t in n["tags"])]
+    notes = [n for n in notes if n not in rejected]
+    if rejected:
+        print(f"  excluded {len(rejected)} card(s) tagged wrong-* — the owner flagged them as "
+              f"defective, so they are not part of the style bar")
     with open(out, "w", encoding="utf-8") as f:
         for n in notes:
             f.write(json.dumps({"note_id": n["noteId"], "model": n["modelName"],
