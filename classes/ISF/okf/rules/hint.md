@@ -76,12 +76,21 @@ A cloze card has a subject and a predicate; the hint's shape depends on which th
    `{{c2::<i>randomly arranged</i>::arranged how?}} large collagen bundles`. Same defect: answer
    `about 90% of the tissue fluid` with hint `what fraction?` — cloze just `about 90%`.
 
-   **A hint that needs a comma is proof the cloze is scoped wrong.** A compound hint
-   (`which cells, arriving how?`, `which fibres, arranged how?`) does not fix a bad answer — it
-   disguises one, by making a clause look like a recallable unit. **Measured: 0 of 288 hints in the
-   Neurogenetics reference deck contain a comma; mean hint length is 1.8 words, max 6.** If you
-   cannot hint the answer in a few words without a comma, the answer is not an answer. Split the
-   card or drop the cloze.
+   **ONE INTERROGATIVE PER HINT.** A hint asking two things (`which cells, arriving how?`,
+   `which filaments, reaching where?`, `how many of which protein?`, `what cells, in what matrix?`)
+   does not fix a bad answer — it disguises one, by making a clause look like a recallable unit.
+   Two questions means two facts: split the card or drop the cloze.
+
+   **Measured on the 368-card reference deck (288 hints):** only **4** hints contain more than one
+   interrogative word; mean hint length is 1.8 words, max 6.
+
+   **This is NOT a ban on commas.** Option-listing hints (requirement 9) are one question and are
+   correct: the reference deck has **30** of them (`increased or decreased`, `5' or 3'`,
+   `hyper or hypo`), and `merocrine, apocrine, or holocrine?` is a good hint. Count
+   *interrogatives*, not punctuation.
+
+   *An earlier version of this fix banned commas outright. That would have rejected the deck's best
+   hints while still permitting `how many of which protein?` — banning the symptom, not the defect.*
 
    *This rule previously offered "widen the hint" as a co-equal remedy and gave
    `which fibres, arranged how?` as an approved example. A review used that example as a template

@@ -84,8 +84,10 @@ would put a flat contradiction inside one deck.
 Slide 7 (Ross) and Junqueira Table 5–6 both class **reticular and adipose as *Specialized***, and
 Junqueira uses **areolar as a synonym** for loose, not a subtype ("Also called areolar tissue, loose
 connective tissue…"). Strip the mis-slotted items and nothing remains — the "subtypes" reduce to the
-word *loose* again. The card was cut; the true fact (CT proper grades loose or dense) was already
-carded from slide 7. The tell: the card's own `Extra` embedded slide 7, the very slide that
+word *loose* again. The card was **suspended and tagged `wrong-contradicts-slide-7`**, not deleted — the true fact
+(CT proper grades loose or dense) was already carded from slide 7. *(An earlier draft of this rule
+said "the card was cut." It was not; it is still in the collection, suspended. A rulebook that
+misreports the deck's actual state is worse than one that says nothing.)* The tell: the card's own `Extra` embedded slide 7, the very slide that
 contradicted its answer — **when a card's provenance image disagrees with its answer, the card is
 wrong**, not the slide.
 

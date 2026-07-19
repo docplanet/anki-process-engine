@@ -53,7 +53,9 @@ Everything below follows from that.
      subject phrase reads bold: `The {{c1::<b>carboxyl</b>}} <b>group</b> of an amino acid has a
      <u>pKa</u> of about {{c2::<i>1.8–2.4</i>}}`. The visible head noun frames the blank and defuses most leaks — but **still give the cloze a
      hint** ([hint](/rules/hint.md)); an option-listing one often fits best here
-     (`regular or irregular?`, `embryonic, proper, or specialized?`).
+     (`regular or irregular?`, `embryonic, proper, or specialized?`). These are ONE question listing
+     options — correct under [hint](/rules/hint.md) requirement 9, and not to be confused with a
+     two-question hint like `which cells, arriving how?`, which is always a defect.
 7. **No cloze reveals another (no self-answering).** On a multi-cloze card, no cloze's *answer* may
    give away a sibling cloze. Watch for a value that IS the other cloze under another name:
    - ❌ `An amino acid's {{c1::<b>carboxyl group</b>}} is {{c2::<i>deprotonated (–COO⁻)</i>}}` — "–COO⁻"
