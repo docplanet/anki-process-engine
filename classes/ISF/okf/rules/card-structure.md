@@ -26,7 +26,16 @@ Everything below follows from that.
    particular, **the condition a fact hinges on is a testable role, not free context** — "the
    carboxyl group is deprotonated at physiological pH" hinges on *physiological pH*, so cloze it;
    leaving it visible tests a peripheral piece and makes the subject unclear.
-3. **Never more than 3 distinct clozes. Default to 2.**
+3. **Never more than 3 distinct clozes. Two is typical.**
+   **"Typical" is an observation, not a quota.** One cloze is a fully legitimate card — 110 of the
+   368 reference cards have exactly one. **Never invent a second cloze to reach the typical count,
+   and never replace a defective cloze just to preserve it.** When review kills a cloze, the
+   default outcome is a one-cloze card; adding new content to fill the slot is authoring, and it
+   re-enters review as new material.
+
+   *Real case: a two-cloze card had a self-answering `c2`. Instead of deleting it, the repair
+   swapped in the nearest adjacent transcript line to keep the count at two — content the source
+   never tied to the card's fact. The count was preserved; the card got worse.*
 4. **If the fact needs more than 3 roles tested, split it into linked cards** — the split is
    *forced by the ceiling*, not a stylistic choice.
 5. **No un-clozed asides.** A parenthetical or qualifier that isn't worth testing should be cut,

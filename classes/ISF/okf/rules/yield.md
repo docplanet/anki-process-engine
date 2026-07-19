@@ -42,7 +42,16 @@ Yield is **not** a property of the card's form. There is no rule against exact n
 definitions, dates, or any other content type — a number is high-yield when it matters and
 low-yield when it doesn't. The test is common sense about the *fact*, never a surface heuristic.
 
-## A low-yield flag sends you back to the SOURCE, not to the markup
+## ANY flag sends you back to the SOURCE, not to the markup
+
+> **This section is written around low-yield flags, but it governs every flag** — self-answering,
+> leaking hint, wrong terminology, all of them. A flag means *this card failed*; it does not mean
+> *edit this text until it passes*. Re-read the source and ask what the teacher wanted known, then
+> card that — even if the flagged card disappears entirely.
+>
+> **The tell is the same in every case: you are editing markup and the fact hasn't changed.**
+
+
 
 When a card is flagged low-yield, **do not fix it by moving the clozes around.** Reframing inside a
 weak fact keeps it weak — you get a better-shaped card testing something still not worth knowing.

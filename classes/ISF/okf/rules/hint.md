@@ -69,12 +69,23 @@ A cloze card has a subject and a predicate; the hint's shape depends on which th
    describes the answer (that leaks).
 6. **Signal count.** If the answer is a set of N items, the hint should say so
    (`two gestational structures`).
-7. **The hint must match the whole answer, not part of it.** If the answer is
-   `randomly arranged large collagen bundles`, the hint `oriented how?` is wrong — it only addresses
-   the arrangement, so the hint and the blank don't line up. Either widen the hint
-   (`which fibres, arranged how?`) or narrow the cloze to just what the hint asks
-   (`{{c2::<i>randomly arranged</i>::arranged how?}} large collagen bundles`). Same defect:
-   answer `about 90% of the tissue fluid` with hint `what fraction?` — cloze just `about 90%`.
+7. **The hint must match the whole answer — and the fix is ALWAYS to narrow the cloze, never to
+   widen the hint.** If the answer is `randomly arranged large collagen bundles`, the hint
+   `oriented how?` only addresses the arrangement, so hint and blank don't line up. Narrow the
+   cloze to exactly what the hint asks:
+   `{{c2::<i>randomly arranged</i>::arranged how?}} large collagen bundles`. Same defect: answer
+   `about 90% of the tissue fluid` with hint `what fraction?` — cloze just `about 90%`.
+
+   **A hint that needs a comma is proof the cloze is scoped wrong.** A compound hint
+   (`which cells, arriving how?`, `which fibres, arranged how?`) does not fix a bad answer — it
+   disguises one, by making a clause look like a recallable unit. **Measured: 0 of 288 hints in the
+   Neurogenetics reference deck contain a comma; mean hint length is 1.8 words, max 6.** If you
+   cannot hint the answer in a few words without a comma, the answer is not an answer. Split the
+   card or drop the cloze.
+
+   *This rule previously offered "widen the hint" as a co-equal remedy and gave
+   `which fibres, arranged how?` as an approved example. A review used that example as a template
+   and shipped a defective card — the rulebook supplied the defect. The branch is deleted.*
 8. **No invented terminology in a hint** — a hint is card text and is bound by
    [accuracy](/rules/accuracy.md): use real field language. `which developmental class?`,
    `which class of organ-forming tissues?`, `which compartment beneath the epithelium?` are coined
