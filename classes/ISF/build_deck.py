@@ -9,6 +9,7 @@ step by hand and continue).
     build_deck.py slides  <slides.pdf|.ppt> <out> <slug>   render slides -> JPEGs + slides.jsonl
     build_deck.py sources <deck_dir>                      extract PDFs/transcript -> out/sources/
     build_deck.py gate    <cards.jsonl>                   strict_shape mold gate (must be N/N)
+    (see also check_cards.py — mechanical review: verbatim quotes, hints, media)
     build_deck.py dedupe  <cards.jsonl>                   content_check near-dup report
     build_deck.py media   <out_dir>                       push slide images into Anki media
     build_deck.py insert  <cards.jsonl> --deck "<name>"   add notes via AnkiConnect

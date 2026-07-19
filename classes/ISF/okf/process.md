@@ -184,18 +184,37 @@ written-reason. Escalate only when the call needs course knowledge you don't hav
 > grounds that were all true of the old text and all false of the current text. Pull fresh from
 > Anki each time, and say in the prompt when the dump was taken.
 
-Run [`review-checklist.md`](/review-checklist.md) — **every check, per card**, not a "looks right"
-pass. Best run as parallel subagents on separate axes:
+Review is **two passes, and neither is a subagent fan-out.**
 
-- **sense & yield** — read each card as a *student*, not a linter: does it make basic logical sense?
-  Does the hint line up with the blank? Is this worth carding at all, or is it a slide-outline
-  artifact? **Run this axis first** — it catches the defects the others structurally miss, because
-  style/accuracy checks can all pass on a card that is simply nonsense or not worth knowing.
-- **accuracy** — each fact against the slides *and* transcript
-- **terminology grounding** — is every term real field language? (catches invented/editorialized
-  wording that a factual check passes) — **this covers hints too**, which are card text
-- **style** — against every rule in `rules/`
-- **coverage** — objectives and transcript emphasis vs. what got carded
+### 9a · Mechanical — run the script
+
+```
+classes/ISF/check_cards.py 'deck:"<deck name>"'          # or a cards.jsonl
+```
+Checks every `Source:` quote is a verbatim substring of the sources, every answer cloze carries a
+hint, no card exceeds 3 clozes, every referenced image is in Anki media. **Ten seconds for a whole
+deck.** Run it before reading anything.
+
+### 9b · Judgment — read the cards yourself
+
+Then read every card against [`review-checklist.md`](/review-checklist.md), asking only what a
+script cannot: is this worth carding, does it read sensibly as a student sees it, is each answer
+recallable as a unit, does anything give away its own answer.
+
+**Read them inline. Do not spawn an agent per axis.**
+
+> **This is the expensive mistake of the project.** Reviewing ~20 cards once took two hours,
+> because every read went into a separate background subagent — each cold-starting by re-reading
+> the rulebook, the corpus and 460KB of sources before evaluating a single card, chained fifteen
+> deep. The reading was seconds per card; the re-orientation and queuing was the two hours. Four
+> separate agents verified the same quotes character-by-character, which is `grep`.
+>
+> Reading a card and judging it is fast. Delegating that read and then reading the agent's report
+> is strictly *more* reading, plus latency.
+
+**Spawn an agent only when the work is genuinely parallel and expensive** — opening slide images to
+identify which micrograph a lecturer meant, or grepping a 460KB textbook for a claim. Not for "does
+this card match the template."
 
 ## 10 · 🧠 Fix and re-review
 
