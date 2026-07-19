@@ -22,7 +22,7 @@ must **not leak** the answer, and must **not echo** a visible neighboring word.
 
 ## When a hint may be omitted
 
-**Almost never.** If nothing better fits, use a simple one — `::why?`, `::what?`, `::how?` — rather
+**Almost never.** If nothing better fits, use a simple one — `::why?`, `::does what?`, `::how?` — rather
 than none. A plain hint beats an absent one; do not reach for an exception because a good hint is
 hard to find.
 
@@ -78,7 +78,17 @@ A cloze card has a subject and a predicate; the hint's shape depends on which th
 8. **No invented terminology in a hint** — a hint is card text and is bound by
    [accuracy](/rules/accuracy.md): use real field language. `which developmental class?`,
    `which class of organ-forming tissues?`, `which compartment beneath the epithelium?` are coined
-   categories nobody says. If you can't name the category in real terms, use a plain `::what?`.
+   categories nobody says. If you can't name the category in real terms, do **not** fall back to a
+   bare `::what?` — the blocklist below rejects it. Use one of these instead, in order:
+   1. a **verb-carrying** minimal hint that reads as a natural blank — `does what?`, `forms what?`,
+      `found where?`, `made of what?`;
+   2. an **options-listing** hint when the fact is a discrimination — `regular or irregular?`,
+      `hydrostatic or colloid osmotic?`;
+   3. a **broader but real** category — the lecturer's own adjective often works
+      (`which biomechanical junction?` where "musculoskeletal junction" would have been coined).
+
+   Real case: the myotendinous-junction card had the coined category "musculoskeletal junction".
+   `::what?` was blocked, so option 3 supplied *biomechanical* — the lecturer's own word.
 9. **Binary / small-set answer → list the options.** When the answer is one of a small, known set
    (especially two), the hint gives the *options*, not a vague category. `protonated or deprotonated?`
    beats `what form?`; `cis or trans?` beats `which geometry?`. This is the hint doing its job — the
@@ -124,6 +134,8 @@ Checks applied to hints that ARE present:
 
 - **Vague blocklist** — reject a hint whose whole text is a bare catch-all:
   `which structure?`, `which cells?`, `which type?`, `which term?`, `which step?`, `what?`, etc.
+  Note the bare `what?` here is deliberate and consistent with rule 8 above: a hint must carry
+  either a verb, an option list, or a real category. `does what?` passes; `what?` does not.
 - **Leak** — reject when the hint's significant tokens appear inside the answer text.
 - **Echo** — reject when a hint word repeats a word immediately adjacent to the blank in the
   visible sentence.

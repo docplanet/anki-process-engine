@@ -63,6 +63,23 @@ never approached, because they never left the card.
 Symptom to watch for: you are editing markup and the *fact* hasn't changed. Stop and re-read the
 source.
 
+## When an objective is itself wrong
+
+The objectives-are-the-contract floor assumes the objective is *correct*. Occasionally an objectives
+slide compresses a list into a false structure, and the primary content slide plus the textbook both
+contradict it. **A contradicted objective does not create a card.** Card the scheme the content
+slide and textbook agree on, and raise the conflict with the course owner — do not ship both, which
+would put a flat contradiction inside one deck.
+
+**Real case.** Objective slide 3 read "loose CT is subdivided into areolar, reticular, adipose."
+Slide 7 (Ross) and Junqueira Table 5–6 both class **reticular and adipose as *Specialized***, and
+Junqueira uses **areolar as a synonym** for loose, not a subtype ("Also called areolar tissue, loose
+connective tissue…"). Strip the mis-slotted items and nothing remains — the "subtypes" reduce to the
+word *loose* again. The card was cut; the true fact (CT proper grades loose or dense) was already
+carded from slide 7. The tell: the card's own `Extra` embedded slide 7, the very slide that
+contradicted its answer — **when a card's provenance image disagrees with its answer, the card is
+wrong**, not the slide.
+
 # Status — no firm rule yet
 
 Yield cannot currently be reduced to a mechanical check, and the common-sense boundary isn't yet

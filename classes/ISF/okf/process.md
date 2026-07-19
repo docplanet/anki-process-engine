@@ -150,6 +150,11 @@ Recognition/attribute cards are **exempt** — see
 [recognition-and-attribute-cards](/rules/recognition-and-attribute-cards.md).
 *Manual:* `classes/ISF/strict_shape.py <cards.jsonl>`.
 
+> **Schema trap when repairing existing cards.** The gate reads **lowercase** `text`/`type`. Notes
+> read back out of Anki come keyed `Text`/`Extra`/`Source` (capitalized) — feed those straight in and
+> every row silently reports `NO_TEMPLATE_MATCH` instead of erroring, which reads as "all rejected"
+> rather than "wrong schema". Down-case the keys on the round trip from Anki.
+
 ## 8 · Dedup check
 
 ```
@@ -179,6 +184,14 @@ pass. Best run as parallel subagents on separate axes:
 - **coverage** — objectives and transcript emphasis vs. what got carded
 
 ## 10 · 🧠 Fix and re-review
+
+**Tag every card that has passed review `src::reviewed`** (in addition to its `src::` origin), and
+do it as the last act of this step. `src::okf-gen` records only *how a card was made*, not whether
+anyone checked it — six unreviewed cards once sat in a live deck indistinguishable from reviewed
+ones precisely because nothing recorded the difference. An untagged card in a deck is a bug you can
+now actually find: `tag:src::okf-gen -tag:src::reviewed`.
+
+An edited card **loses** the tag until it is re-reviewed.
 
 Apply findings. Two hard-won rules:
 - **Any edited card re-enters review.** A card changed after its last review is unreviewed.
