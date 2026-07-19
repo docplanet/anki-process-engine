@@ -70,6 +70,43 @@ A quote presented as verbatim must be **exactly** what was said — do not tidy 
 insert words. (A real defect caught in review: a mnemonic's words were written into a "verbatim"
 transcript quote the lecturer never spoke.)
 
+## Quoting a garbled transcript
+
+Lecture transcripts are machine-generated and **mangle exactly the technical terms cards are made
+of.** Real cases from one lecture:
+
+| transcript says | means |
+|---|---|
+| "the absence of Diane Arms" | dynein arms |
+| "Women for sites" | lymphocytes |
+| "They called it a cirrus demilune" | serous demilune |
+| "Two common epithelial cells" | columnar |
+| "Cartagena syndrome" | Kartagener |
+| "immortal cilia syndrome" | immotile |
+
+This collides with the verbatim rule: quotes must be exact, but the exact text is wrong. **The
+convention:**
+
+1. **Quote verbatim, and put the correction in square brackets immediately after the garble** —
+   `"the absence of Diane [dynein] Arms"`. This is the standard scholarly form: the reader sees
+   both what was said and what was meant, and nothing is silently rewritten.
+2. **Never silently correct a quote.** A cleaned-up quote is indistinguishable from a fabricated
+   one, and a later reviewer grepping the transcript will not find it and will report it as
+   invented.
+3. **Card text uses the correct term**, not the garble. The brackets live in the `Source:` quote
+   in `Extra`; the card face says *dynein arms*.
+4. **If the garble is bad enough that the correction is a guess, cite the slide instead** and say
+   so. Do not reconstruct a sentence you cannot verify — cross-check against the slide text or
+   Junqueira and cite that.
+5. **A cue that is merely inaudible is not a garble.** Do not fill gaps: if the transcript has a
+   silent stretch where a term was clearly spoken, cite the slide that carries it, and note the
+   gap.
+
+Corollary of the verbatim rule, worth stating on its own because it keeps recurring: **never join
+separate transcript cues into one sentence.** Two adjacent cues quoted as a single continuous
+sentence produce something the lecturer never said — this has shipped repeatedly, once as a merged
+quote spanning a *speaker boundary*. Quote each cue separately and label them.
+
 ## Human-review gate
 
 - Compare each card's fact against the `Source:` in its `Extra`. If the card asserts anything the

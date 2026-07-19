@@ -193,6 +193,13 @@ def classify_card(card: dict) -> ShapeResult:
         return ShapeResult(False, None, [Reason.NO_TEMPLATE_MATCH.value],
                            detail=f"type={card.get('type')!r} (only cloze is shape-gated)")
     text = card.get("text", "")
+    # Image-recognition cards (an <img> inside a cloze) are a genre this gate does not model —
+    # 27 of the 84 reference-corpus cards are this shape. Report them EXEMPT, never REJECTED:
+    # NO_TEMPLATE_MATCH reads identically to a real defect, and an author trying to satisfy the
+    # checker will mangle a perfectly good card to make the error go away.
+    if any("<img" in m.group(2) for m in CLOZE_RE.finditer(text)):
+        return ShapeResult(True, "IMG", [], ["EXEMPT_RECOGNITION"],
+                           detail="image-recognition card — shape gate does not model this genre")
     a = _analyze(text)
     vetoes = _vetoes(text, a)
     if vetoes:
