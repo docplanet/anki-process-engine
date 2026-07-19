@@ -14,8 +14,8 @@ checklist rather than shipping from inside a review.
 ## The bar: the corpus is acceptable BY DEFINITION
 
 **Before reporting anything, ask: would this be a defect in the reference deck too?** If the same
-construction appears in `classes/ISF/reference/style_corpus.jsonl` — 77 cards the owner has
-reviewed and accepted, with everything they tagged `wrong-*` excluded — **it is not a finding.**
+construction appears in `classes/ISF/reference/style_corpus.jsonl` — 84 cards the owner has
+reviewed and accepted, with anything they tagged `wrong-*` excluded — **it is not a finding.**
 Say nothing.
 
 This is not a tiebreaker; it is the threshold. A review with no bar reports every deviation from an
@@ -28,7 +28,7 @@ Things that are **house style, not defects** (all measured in the corpus):
   letting you assemble known pieces instead of decoding what is being asked. Listing both options
   is **not** a leak; you still have to recall which one. Do not call these coin flips or
   self-answering.
-- **Question-form hints**, including bare `what?` and `which?` — 95 of 98 corpus hints end in `?`.
+- **Question-form hints**, including bare `what?` and `which?` — 107 of 111 corpus hints end in `?`.
 - **Visible bold subjects** outside the cloze braces — the corpus does this constantly.
 - **Two cards on one slide** covering different aspects of one thing. Two is not over-carding.
 - **A matched pair** on contrasting terms with parallel structure — that similarity is the point.
