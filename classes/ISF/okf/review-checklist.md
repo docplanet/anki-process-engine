@@ -76,12 +76,26 @@ See [accuracy](rules/accuracy.md).
 - Every term is language the source actually uses — including in hints.
 - The cited slide image shows what the card claims.
 
-## 4 · Style — compare against the corpus, not against prose
+## 4 · Style — a per-card conformance check, not a holistic glance
 
-See [style.md](style.md). Put the card next to real cards from
-`ISF::Test 2::Biochemistry::Amino Acid Structures` and ask whether it looks like them: bold /
-underline / italics doing their jobs, a hint on every cloze that reads as English, lists as a bold
-header plus numbered italics.
+See [style.md](style.md). This is **not** "do these look about right" — it is a specific check on
+**every** card, because the two defects below are shape-valid and sail through the gate:
+
+- **Facet not marked (`<u>`).** Does the sentence name the *aspect* being asked about — a pH, a
+  property, a role, a timing, a direction, an axis — sitting as plain prose? That is the facet and
+  takes `<u>`. The corpus marks facets on a large share of cards; a deck that barely uses `<u>` is
+  under-styled. (Real miss: a whole 65-card deck shipped with almost no facets marked because this
+  axis was run as a glance.)
+- **Testable role left as visible prose.** Is there a second distinct node left un-clozed in the
+  trailing text? Cloze it — but respect the ceiling (≤3, two is normal) and never manufacture a
+  cloze to fill a slot.
+
+Then confirm: bold = subject, italics = answer, a hint on every cloze that reads as English, lists
+as a bold header + numbered italics. **The bar is the corpus** — put the card beside real cards from
+`ISF::Test 2::Biochemistry::Amino Acid Structures`; do not invent a denser style than they have.
+
+Because this is a distinct per-card pass and easy to skip under time pressure, an authoring agent
+grading its own output is not enough — run it as its own read, the same way 9a is its own script.
 
 ## 5 · Duplicate
 
