@@ -162,6 +162,11 @@ def cmd_sources(a):
         ext = ext.lower()
         if os.path.isdir(path):
             continue
+        if ext in (".docx", ".doc"):
+            # Objectives often ship as a Word doc (this professor's do). They are the coverage
+            # contract, so extract them rather than dropping them into `ignored`.
+            chosen[base] = (path, ".docx")
+            continue
         if ext in SLIDES:
             # A slide deck shipped as .ppt/.pptx is still source text. Converting it here is what
             # makes `out/sources/` complete — skipping it silently once left a whole lecture's
@@ -185,6 +190,13 @@ def cmd_sources(a):
         if ext == ".pdf":
             txt = subprocess.run(["pdftotext", "-layout", path, "-"],
                                  capture_output=True, text=True).stdout
+        elif ext == ".docx":
+            r = subprocess.run(["textutil", "-convert", "txt", "-stdout", path],
+                               capture_output=True, text=True)
+            if r.returncode != 0 or not r.stdout.strip():
+                ignored.append(os.path.basename(path) + " (textutil failed — convert by hand)")
+                continue
+            txt = r.stdout
         else:
             txt = open(path, encoding="utf-8", errors="replace").read()
         open(os.path.join(dest, base + ".txt"), "w", encoding="utf-8").write(txt)
