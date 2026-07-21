@@ -245,7 +245,11 @@ your layout differs. For the repair loop on live cards, use
 `--deck "<name>" --sources "<deck>/out/sources"`.
 
 Checks every `Source:` quote is a verbatim substring of **this deck's** sources, every answer cloze
-carries a hint, no card exceeds 3 clozes, every referenced image is in Anki media. **Ten seconds
+carries a hint, no card exceeds 3 clozes, every referenced image is in Anki media, **and the deck's
+style distribution against the corpus** (facet-rate on prose cards, multi-cloze share). A clear
+outlier prints `⚠ UNDER-STYLED` and makes the exit non-zero — that is the mechanical catch for the
+under-styling that a per-card glance misses (a deck once shipped at ~6% facets vs the corpus's
+~86%). Resolve it in review step 4, or explain why the deck is legitimately flatter. **Ten seconds
 for a whole deck.** Run it before reading anything.
 
 Without `--sources` it *skips* the quote check and says so — a clean result then means nothing.

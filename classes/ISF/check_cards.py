@@ -6,6 +6,8 @@ Per card:
   * every answer cloze carries a hint (list cards exempt — their items share one cloze)
   * no card exceeds 3 distinct clozes
   * every referenced image exists in Anki's media collection
+Deck-level: the style distribution vs the reference corpus (facet-rate on prose cards, multi-cloze
+share) — a clear outlier prints ⚠ UNDER-STYLED and makes the exit non-zero.
 
 ~10s for a whole deck. What it CANNOT see — is this worth carding, does it read sensibly, is the
 answer recallable — is the read-through in okf/review-checklist.md. Passing this is not a review.
@@ -25,6 +27,36 @@ import argparse, glob, html, json, os, re, sys, urllib.request
 
 ANKI = "http://127.0.0.1:8765"
 CLOZE = re.compile(r"\{\{c(\d+)::(.*?)\}\}", re.S)
+HERE = os.path.dirname(os.path.abspath(__file__))
+CORPUS = os.path.join(HERE, "reference", "style_corpus.jsonl")
+
+
+def _style_dist(texts):
+    """Facet-rate on prose cards + cloze-count shares — the two style distributions that a glance
+    misses. 'prose' = not a numbered-list card and not an image card, i.e. the cards facets and
+    two-cloze structure actually apply to."""
+    # Everything is measured over PROSE cards only — numbered-list cards are single-cloze by design
+    # and image cards have their own shape, so counting them confounds the comparison (a list-heavy
+    # deck would look "under-clozed" for a non-style reason).
+    prose = facet = multi = 0
+    for t in texts:
+        if re.search(r"<br>\s*\d+\.", t) or "<img" in t:
+            continue
+        prose += 1
+        if "<u" in t:
+            facet += 1
+        if len({n for n, _ in CLOZE.findall(t)}) >= 2:
+            multi += 1
+    return {"prose": prose,
+            "facet_rate": (facet / prose) if prose else 0.0,
+            "multicloze_rate": (multi / prose) if prose else 0.0}
+
+
+def _corpus_dist():
+    if not os.path.exists(CORPUS):
+        return None
+    texts = [json.loads(l)["fields"]["Text"] for l in open(CORPUS, encoding="utf-8") if l.strip()]
+    return _style_dist(texts)
 
 
 def invoke(action, **params):
@@ -101,6 +133,7 @@ def main():
     rows = list(cards_from_jsonl(a.cards) if a.cards
                 else cards_from_anki(a.query or f'deck:"{a.deck}"'))
     bad = 0
+    deck_texts = [T for _ref, T, _E, _S in rows]
     for ref, T, E, S in sorted(rows, key=lambda r: str(r[3])):
         f = []
         if NB is not None:
@@ -138,6 +171,35 @@ def main():
             for x in dict.fromkeys(f):
                 print(f"    - {x}")
     print(f"\n{len(rows) - bad}/{len(rows)} clean | {bad} with a mechanical flag")
+
+    # ── style distribution vs the corpus ──────────────────────────────────────────────────────
+    # The durable fix for under-styling: a whole deck once shipped with facets on ~6% of cards
+    # against the corpus's ~86%, and half its cards single-cloze against the corpus's ~7% — a
+    # glaring distribution mismatch a glance missed and a lint catches instantly. This is advisory
+    # (a subject can genuinely be less facet-heavy), so a clear outlier makes the exit non-zero and
+    # you resolve it EITHER by marking the missing facets / clozing the untested roles OR by
+    # explaining why this deck is legitimately flatter. Do not just re-run past it.
+    cd = _corpus_dist()
+    if cd is None:
+        print("!! no style corpus at reference/style_corpus.jsonl — skipping the distribution "
+              "check (run `build_deck corpus`)")
+    else:
+        dd = _style_dist(deck_texts)
+        print("\nstyle distribution vs corpus:")
+        under = []
+        for label, key in (("facet <u> on prose cards", "facet_rate"),
+                           ("multi-cloze (2–3) share", "multicloze_rate")):
+            d, c = dd[key], cd[key]
+            flag = c > 0 and d < 0.6 * c            # a clear outlier, not a small gap
+            mark = "  ⚠ UNDER-STYLED" if flag else ""
+            print(f"  {label:26s} deck {d*100:3.0f}%  |  corpus {c*100:3.0f}%{mark}")
+            if flag:
+                under.append(label)
+        if under:
+            print("  → likely unmarked facets and/or untested second roles. Re-run review step 4 "
+                  "per card, or explain why this deck is legitimately flatter.")
+            bad += 1                                 # make it count: check_cards exits non-zero
+
     return 1 if bad else 0
 
 

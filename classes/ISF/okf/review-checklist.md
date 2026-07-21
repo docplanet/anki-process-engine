@@ -96,6 +96,19 @@ as a bold header + numbered italics. **The bar is the corpus** — put the card 
 
 Because this is a distinct per-card pass and easy to skip under time pressure, an authoring agent
 grading its own output is not enough — run it as its own read, the same way 9a is its own script.
+Three things make it hard to skip:
+
+1. **Grade against same-shape corpus cards, pulled up — not from memory.** For each card, open the
+   2–3 corpus cards of the same template and put them side by side. "Looks about right" from memory
+   is how a whole deck shipped at ~6% facets against the corpus's ~86%.
+2. **`check_cards.py` now reports the deck's style distribution vs the corpus** (facet-rate on prose
+   cards, multi-cloze share) and marks a clear outlier `⚠ UNDER-STYLED`, making the exit non-zero.
+   That is the mechanical backstop for this axis — resolve it by marking the missing facets and
+   clozing the untested roles, **or** by explaining why this deck is legitimately flatter. Do not
+   run past it.
+3. **Look at a rendered card before it is inserted** (front, then reveal). Under-clozing and a bare
+   answer are obvious in the student view and easy to miss in the JSONL. The distribution check is
+   what enforces this when no one renders.
 
 ## 5 · Duplicate
 
