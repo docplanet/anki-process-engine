@@ -10,3 +10,10 @@
 #   libreoffice  ->  soffice  (.ppt/.pptx -> .pdf, done automatically by `build_deck slides`)
 #                    `brew install --cask libreoffice`
 #   Anki + the AnkiConnect add-on (code 2055492159), running, for the media/insert/sync steps.
+#
+# TRANSCRIPTION pre-step only (lecture recording -> the transcript input; see okf/process.md §1) —
+# skip if the transcript already exists in the deck folder:
+#   ffmpeg       ->  decode .mp4/.m4a audio  (`brew install ffmpeg`)
+#   mlx-whisper  ->  recording -> transcript on Apple Silicon; install isolated:
+#                    `uv tool install --python 3.13 mlx-whisper`
+#                    Long lectures REQUIRE `--condition-on-previous-text False` or large-v3 loops.

@@ -25,6 +25,52 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ANKI = "http://127.0.0.1:8765"
 MODEL = "Custom Cloze"          # fields: Text, Extra, Source
 
+# The note type is not standard — it must exist before insert, and a fresh Anki won't have it.
+# Rather than crash and send the user hunting, the driver CREATES it (see _ensure_model). The
+# template renders Extra + Source below the cloze; the CSS is the role colour system the whole
+# rulebook assumes: b = subject (purple), i = answer (red), u = facet (teal), cloze = green.
+MODEL_DEF = {
+    "modelName": MODEL,
+    "inOrderFields": ["Text", "Extra", "Source"],
+    "isCloze": True,
+    "cardTemplates": [{
+        "Name": "Cloze",
+        "Front": "{{cloze:Text}}",
+        "Back": ("{{cloze:Text}}"
+                 "{{#Extra}}<div class=\"extra\">{{Extra}}</div>{{/Extra}}"
+                 "{{#Source}}<div class=\"src\">{{Source}}</div>{{/Source}}"),
+    }],
+    "css": (
+        ".card { font-family: Menlo, baskerville, sans; font-size: 19px; line-height: 1.5;\n"
+        "        max-width: 760px; margin: 0 auto; padding: 8px; text-align: center;\n"
+        "        color: #D7DEE9; background-color: #333B45; }\n"
+        ".nightMode.card, .night_mode .card { color: #D7DEE9 !important;"
+        " background-color: #333B45 !important; }\n"
+        ".cloze { font-weight: bold; color: MediumSeaGreen; }\n"
+        ".nightMode .cloze, .night_mode .cloze { color: MediumSeaGreen !important; }\n"
+        "b { color: #C695C6 !important; }\n"          # subject
+        "i { color: IndianRed !important; }\n"        # answer
+        "u { color: #5EB3B3 !important; }\n"          # facet
+        "img { max-width: 100%; height: auto; border-radius: 6px; margin: 8px 0; }\n"
+        "hr { border: none; border-top: 1px solid #555; margin: 14px 0; }\n"
+        ".btn-reveal { display: inline-block; background: #3b4654; color: #D7DEE9;\n"
+        "              border: 1px solid #51606e; border-radius: 6px; padding: 5px 12px;\n"
+        "              font-size: 14px; cursor: pointer; margin: 12px 0 6px; }\n"
+        ".btn-reveal:hover { background: #45525f; }\n"
+        ".extra { text-align: center; background: #2c343d; border-radius: 8px;"
+        " padding: 10px 14px; margin: 6px 0; }\n"
+        ".src { color: #839496; font-size: 13px; font-style: italic; margin-top: 10px; }\n"
+    ),
+}
+
+
+def _ensure_model():
+    """Create the Custom Cloze note type if the collection lacks it (fresh Anki has no such type)."""
+    if MODEL in set(invoke("modelNames")):
+        return
+    invoke("createModel", **MODEL_DEF)
+    print(f"created note type {MODEL!r} (fields Text/Extra/Source, role-colour template)")
+
 
 def _log(out_dir, step, detail):
     """Record what ran into out/.build_deck.log so a later session can see the state of out/."""
@@ -188,17 +234,18 @@ def cmd_insert(a):
     cards = [json.loads(l) for l in open(a.cards, encoding="utf-8") if l.strip()]
     if not cards:
         sys.exit(f"{a.cards} is empty")
-    if MODEL not in set(invoke("modelNames")):
-        sys.exit(f"note type {MODEL!r} not found in this collection")
     notes = [{"deckName": a.deck, "modelName": MODEL,
               "fields": {"Text": c.get("text", ""), "Extra": c.get("extra", ""),
                          "Source": c.get("source", "")},
               "tags": c.get("tags", [])} for c in cards]
     if a.dry_run:                                # must not touch the collection at all
+        have_model = MODEL in set(invoke("modelNames"))
         exists = a.deck in set(invoke("deckNames"))
         print(f"DRY RUN — would add {len(notes)} note(s) to {a.deck!r}"
-              f"{'' if exists else ' (deck would be created)'}")
+              f"{'' if exists else ' (deck would be created)'}"
+              f"{'' if have_model else f' (note type {MODEL!r} would be created)'}")
         return
+    _ensure_model()
     if a.deck not in set(invoke("deckNames")):
         invoke("createDeck", deck=a.deck)
     # addNotes raises if EVERY note fails, so add one at a time and report per-card

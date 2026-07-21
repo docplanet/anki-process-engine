@@ -52,6 +52,25 @@ Two things vary by subject and neither is an error:
   first few slides instead. Find them wherever they are — slides, a PDF, or the syllabus — and say in
   your scope note where you got them.
 
+**Only a recording, no transcript yet?** The transcript is an input; the driver does not make it.
+Transcribe the lecture (`.mp4`/`.m4a`) into the deck folder with mlx-whisper first:
+
+```
+mlx_whisper "<recording>" --model mlx-community/whisper-large-v3-mlx \
+  --output-dir "<deck>" --output-format all --language English \
+  --condition-on-previous-text False
+```
+
+> `--condition-on-previous-text False` is **mandatory** on a long lecture. Without it large-v3
+> silently collapses into repetition loops — one sentence emitted thousands of times — yet exits 0
+> with the right duration, so the failure is invisible unless you scan for it (it is also ~5× faster
+> with the flag, having no degenerate segments to retry). **Verify every transcript before trusting
+> it:** `sort "<t>.txt" | uniq -c | sort -rn | head` tops out at a few `Okay.`/`All right.` when
+> clean, thousands when looped; and the last `.srt` cue must reach the recording's true length with
+> real content, not a repeated line. Setup once: `brew install ffmpeg` +
+> `uv tool install --python 3.13 mlx-whisper`. `--output-name` is ignored by the current build (it
+> truncates the stem at a dotted date, `_7.20.26` → `_7.20`) — rename the outputs to match the recording.
+
 ## 2 · Slide DB
 
 ```
@@ -318,7 +337,7 @@ Pushes the slide JPEGs into Anki's media collection so `extra` images render. Id
 build_deck insert "<deck>/out/cards.jsonl" --deck "ISF::Test 2::Histology::Week 4" \
     [--dry-run] --tag-reviewed --suspend-flagged
 ```
-Adds notes with note type `Custom Cloze` (fields Text/Extra/Source). Use `--dry-run` first.
+Adds notes with note type `Custom Cloze` (fields Text/Extra/Source). **The driver creates that note type if the collection lacks it** — a fresh Anki has no such type — so no manual setup is needed. Use `--dry-run` first.
 
 > **`insert` is the one subcommand that is NOT idempotent.** Anki dedupes on the first field only.
 > If you edit a card's `text` and re-run, the edited card is no longer a duplicate — you get a
