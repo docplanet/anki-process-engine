@@ -16,7 +16,7 @@ rewrite.** Take the facts as the source states them and restructure them into cl
 **Add nothing.** No outside knowledge, no synthesized framing, no coined terminology, no
 editorializing. If a fact, term, or qualifier is not in the source, it does not go on the card.
 
-# The six files
+# The seven files
 
 | File | What it is |
 |---|---|
@@ -25,6 +25,7 @@ editorializing. If a fact, term, or qualifier is not in the source, it does not 
 | [rules/yield.md](rules/yield.md) | Is this fact worth a card? What did the teacher stress? |
 | [rules/accuracy.md](rules/accuracy.md) | Is it true, is it in the source, did you invent anything? |
 | [rules/no-duplicate.md](rules/no-duplicate.md) | Does this card already exist? |
+| [rules/card-structure.md](rules/card-structure.md) | **What to cloze** — every testable role blanked, ≤3, split beyond, no self-answering |
 | **[review-checklist.md](review-checklist.md)** | **The per-card review** — the bar, and what counts as a finding |
 
 **Shape is settled by looking at the reference cards, not by reading rules.** See

@@ -57,6 +57,7 @@ class Reason(str, Enum):
     MAPPING_LABEL_UNCLOZED = "MAPPING_LABEL_UNCLOZED"  # a mapping list (>=2 un-clozed <u> row-labels)
     FLATTENED_MAPPING     = "FLATTENED_MAPPING"        # 2+ parallel multi-item clozes (a mapping flattened into blobs)
     TRAILING_FACT         = "TRAILING_FACT"            # a dangling 2nd fact appended after the last cloze
+    BURIED_ANSWER         = "BURIED_ANSWER"            # <i> answer isn't last: a cloze follows it, or >2 words trail (ref: corpus prose 56/56 end on the answer)
     BUNDLED_ANSWER        = "BUNDLED_ANSWER"           # a single cloze answer bundling two clauses (semicolon)
     TERMINAL_PERIOD       = "TERMINAL_PERIOD"
     UNBALANCED_MARKUP     = "UNBALANCED_MARKUP"
@@ -116,9 +117,12 @@ def _vetoes(text: str, a: dict) -> list[str]:
         out.append(R.NO_ITALIC_ANSWER.value)
     elif i_plain and not i_clozed:
         out.append(R.UNCLOZED_ANSWER.value)
-    # exactly ONE italic-answer cloze number on a non-list card (else siblings self-answer)
-    if len(a["ital_nums"]) >= 2 and not a["is_list"]:
-        out.append(R.TWO_ANSWER_CLOZES.value)
+    # NOTE: no TWO_ANSWER_CLOZES veto. It hard-rejected any non-list card with two <i> answers on
+    # the theory "siblings self-answer" — measured off a deck whose facts are never chains. It
+    # forbade a legitimate shape the corpus has no example of: a chain fact (A secretes B which
+    # maintains C) genuinely has two answers, and the veto blocked the correct fix for exactly such
+    # a card. Whether two answers give each other away is a JUDGMENT (review_loop.py / card-structure
+    # rule 7), not a mechanical hard-reject. The >3 ceiling still applies.
     # a single cloze must carry ONE role, never mix (e.g. <i>100 g</i> <u>in the liver</u>)
     if any(len(_roles(ans)) >= 2 for (_n, ans, _h, _s) in a["cl"]):
         out.append(R.CHOPPED_ANSWER.value)
@@ -148,6 +152,15 @@ def _vetoes(text: str, a: dict) -> list[str]:
         m = list(CLOZE_RE.finditer(text))
         if m and re.search(r"\s[—–;:]\s+\S+\s+\S", text[m[-1].end():]):
             out.append(R.TRAILING_FACT.value)
+        # the <i> answer must END the card: no cloze may follow it and <=2 words may trail
+        # (ref: corpus prose 56/56 end on the answer). Image-ID cards exempt.
+        if not any("<img" in _m.group(2) for _m in m):
+            _ital = [x for x in m if re.search(r"<i[ >]", x.group(2))]
+            if _ital:
+                _last = _ital[-1]
+                _tail = re.sub(r"<[^>]+>", "", text[_last.end():])
+                if any(x.start() > _last.start() for x in m) or len(re.findall(r"[^\W_]+", _tail)) > 2:
+                    out.append(R.BURIED_ANSWER.value)
         # a semicolon INSIDE a cloze answer bundles two clauses into one blank (ref: ~0)
         if any(";" in _strip(ans) for (_n, ans, _h, _s) in a["cl"]):
             out.append(R.BUNDLED_ANSWER.value)

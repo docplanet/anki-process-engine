@@ -260,13 +260,30 @@ in the extracted slide text (`pdftotext` misses text inside figures), so verify 
 before rewriting anything. What it will not forgive is a quote spliced from two cues with `…` —
 that one is real, and it is the defect [accuracy](rules/accuracy.md) exists to catch.
 
-### 9b · Judgment — read the cards yourself
+### 9b · Judgment — run the review loop
 
-Then read every card against [`review-checklist.md`](review-checklist.md), asking only what a
-script cannot: is this worth carding, does it read sensibly as a student sees it, is each answer
-recallable as a unit, does anything give away its own answer.
+```
+classes/ISF/.venv/bin/python classes/ISF/review_loop.py "<deck>/out/cards.jsonl"
+```
 
-**Read them inline. Do not spawn an agent per axis.**
+This is the actual **check-each-card-against-the-rules loop**: for every card, one model judgment
+(via the authenticated `claude` CLI — no API key, no new dependency) against the rules and the same-
+shape corpus examples, returning `pass` / `fix` / `cut`. Every verdict is logged to `out/review.jsonl`
+(read it — that per-card record is the review, not anyone's assertion), proposed fixes are re-gated
+by `strict_shape`, and `--apply --deck "<name>"` pushes them to Anki. `--limit N` / `--only <ids>`
+for a cheap first pass. This is what a script cannot do mechanically — is every testable role
+clozed, does it read like the corpus, is a facet mismarked as an answer — and it is why it must be
+a real model call per card, not a glance.
+
+> **Why this exists.** "Agent, check each card against the rules" was an instruction every reviewer
+> (agents and the operator) *claimed* to do and skipped — reading a batch and asserting "looks
+> good." A whole deck shipped with a testable node left as visible prose because no program ever
+> laid one card beside the rules and the corpus. `review_loop.py` is that program; nothing is
+> "checked" except what it logs. (It replaced an earlier instruction to "read them inline," which
+> was the same unenforceable glance.)
+
+**Do not fan the loop out into per-axis subagents.** One model call per card is the loop; the
+recurring failure was many agents each re-reading the whole rulebook before judging one card.
 
 > **This is the expensive mistake of the project.** Reviewing ~20 cards once took two hours,
 > because every read went into a separate background subagent — each cold-starting by re-reading

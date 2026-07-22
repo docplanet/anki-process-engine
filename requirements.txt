@@ -17,3 +17,7 @@
 #   mlx-whisper  ->  recording -> transcript on Apple Silicon; install isolated:
 #                    `uv tool install --python 3.13 mlx-whisper`
 #                    Long lectures REQUIRE `--condition-on-previous-text False` or large-v3 loops.
+#
+# REVIEW LOOP (classes/ISF/review_loop.py — process step 9b):
+#   the `claude` CLI, logged in. No pip package, no ANTHROPIC_API_KEY — it drives `claude -p`
+#   (print mode, structured output) using your existing Claude Code auth, one call per card.
