@@ -51,10 +51,14 @@ English; the clozes only choose *which concepts get tested*.
    - ❌ `An amino acid's {{c1::<b>carboxyl group</b>}} is {{c2::<i>deprotonated (–COO⁻)</i>}}` — "–COO⁻"
      is the carboxylate, so c2 hands you c1.
    - Test by hiding each cloze in turn: the visible text (including the *other* answers) must not
-     contain or spell out the hidden one. **Two distinct answers that do NOT give each other away
-     are fine** — a chain (A secretes B which maintains C) genuinely has two answers.
-8. **Distinct clozes are distinctly styled.** Two *different* cloze numbers must not share the same
-   role markup. Same styling is reserved for items sharing ONE cloze number (a list, all `<i>`).
+     contain or spell out the hidden one.
+8. **Distinct clozes are distinctly styled — ONE red answer per card.** Two *different* cloze
+   numbers must not share the same role markup. **The corpus is unambiguous: 0 of 84 cards have two
+   `<i>` answers.** The house style is one bold subject, one red `<i>` answer, one optional teal
+   `<u>` facet — never two reds. A chain fact (A secretes B, which maintains C) does **not** become
+   a second red answer; either the extra node is the subject/context of the sentence, or the fact
+   is **split into two linked cards** (rule 4). Same styling is reserved for the items of ONE list
+   cloze (all `<i>`).
 
 **Complete span.** The `<i>` answer cloze covers the *entire* value tested — do not cloze a fragment
 and leave the rest as trailing prose (❌ `{{c1::<i>ionic bond</i>}} between oppositely charged side
@@ -77,21 +81,30 @@ under-cloze defect. Three is the hard ceiling; beyond it, split.
 Before → after, from real flagged cards. The defect is almost always the same: **a testable role
 was left un-clozed.**
 
-## S1 — subject or downstream node shown but not tested (the recurring one)
+## S1 — a downstream node left untested, fixed WITHOUT a second red answer
 
-- ❌ "The {{c1::<b>syncytiotrophoblast</b>::which layer?}} secretes {{c2::<i>hCG</i>::which hormone?}}, which maintains the corpus luteum"
-  — *"corpus luteum" is a testable node left as visible prose.*
-- ✅ "The {{c1::<b>syncytiotrophoblast</b>::which layer?}} secretes {{c2::<i>hCG</i>::which hormone?}}, which maintains the {{c3::<i>corpus luteum</i>::maintains what?}}"
+A chain "A secretes B, which maintains C" has a subject and two values. The corpus never puts two
+values in red on one card, so you do **not** cloze both B and C as `<i>`. Two correct options:
 
-## S2 — a downstream node left un-clozed → make it a 3-cloze card
+- **Split into two linked cards** (each one red answer):
+  - "The {{c1::<b>syncytiotrophoblast</b>::which layer?}} secretes {{c2::<i>hCG</i>::which hormone?}}"
+  - "{{c1::<b>hCG</b>::which hormone?}} maintains the {{c2::<i>corpus luteum</i>::maintains what?}}"
+- ❌ **Wrong:** "…secretes {{c2::<i>hCG</i>}}, which maintains the {{c3::<i>corpus luteum</i>}}" — two
+  red answers, which the corpus has 0 of. (This was a real mistake: the card was "fixed" this way,
+  and it took a look at the rendered card — two reds — to see the style was wrong.)
 
-- ❌ "The {{c1::<b>hypothalamus</b>}} secretes {{c2::<i>GnRH</i>}}, which stimulates the anterior pituitary"
-- ✅ "The {{c1::<b>hypothalamus</b>}} secretes {{c2::<i>GnRH</i>}}, which stimulates the {{c3::<i>anterior pituitary</i>::stimulates what?}}"
+## S2 — context or subject mis-coloured as an answer
 
-## Ceiling → split
+Often a card has only one real answer and a second span is context or the subject, wrongly wrapped
+in `<i>`:
 
-The full chain hypothalamus → GnRH → anterior pituitary → FSH/LH → ovary would need 5 clozes. Over
-the ceiling, so split into two linked cards overlapping at the shared node.
+- ❌ "{{c2::<i>After gastrulation</i>::when?}}, the <b>primitive streak</b> {{c1::<i>disappears</i>}}"
+  — "After gastrulation" is temporal context, not an answer; colouring it red makes two reds.
+- ✅ "After gastrulation, the <b>primitive streak</b> {{c1::<i>disappears</i>::what happens to it?}}"
+  — one red answer; the context stays plain.
+- ❌ "<b>Gastrulation</b> converts the {{c1::<i>bilaminar disc</i>}} into a {{c2::<i>trilaminar disc</i>}}"
+  — the starting material is context.
+- ✅ "<b>Gastrulation</b> converts the bilaminar disc into a {{c1::<i>trilaminar disc</i>::into what?}}"
 
 # Enforcement
 
