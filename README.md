@@ -11,7 +11,7 @@ rather than a one-shot "generate cards" prompt. Built on Claude Code + MCP.
 
 **[`classes/ISF/okf/`](classes/ISF/okf/)** is the single source of truth for card work — the process
 *and* the rules, in [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
-(plain markdown + YAML frontmatter). Six files, no more:
+(plain markdown + YAML frontmatter). Seven files, no more:
 
 | Read | For |
 |---|---|
@@ -19,7 +19,7 @@ rather than a one-shot "generate cards" prompt. Built on Claude Code + MCP.
 | [`okf/index.md`](classes/ISF/okf/index.md) | The governing principle and the map of the six files |
 | [`okf/style.md`](classes/ISF/okf/style.md) | The card style in five lines; every other shape question is answered by the reference **corpus**, not by prose |
 | [`okf/review-checklist.md`](classes/ISF/okf/review-checklist.md) | The per-card review — the bar, the five axes, what counts as a finding |
-| [`okf/rules/`](classes/ISF/okf/rules/) | The three judgment rules a corpus can't show — [yield](classes/ISF/okf/rules/yield.md), [accuracy](classes/ISF/okf/rules/accuracy.md), [no-duplicate](classes/ISF/okf/rules/no-duplicate.md) |
+| [`okf/rules/`](classes/ISF/okf/rules/) | The four judgment rules a corpus can't show — [yield](classes/ISF/okf/rules/yield.md), [accuracy](classes/ISF/okf/rules/accuracy.md), [no-duplicate](classes/ISF/okf/rules/no-duplicate.md), [card-structure](classes/ISF/okf/rules/card-structure.md) |
 
 **There is exactly one process.** If a document describes a different pipeline, it is stale — delete
 it rather than follow it. The [`anki-cards` skill](.claude/skills/anki-cards/SKILL.md) is the entry
@@ -32,23 +32,43 @@ cloze cards, choose what to cloze, apply markup and hints, tag provenance. **Add
 outside knowledge, no synthesized framing, no coined terminology. If a fact or term isn't in the
 source, it doesn't go on the card.
 
-## The shape of it
+## The shape of it — the harness inverts control
 
-**Deterministic steps are scripted; judgment is agent work — and the two never blur.** No script
-writes cards; there is no "generator." Scope, authoring, and the reading half of review are 🧠 steps.
+**You run a driver; the agent is only ever a constrained sub-call.** This is the difference between
+a harness and a toolbox: the pipeline is not a set of scripts an agent decides to run in order — it
+is a script (`build_deck run`) that *you* (or a scheduler) invoke, which orchestrates every step
+itself and is the only thing that writes to Anki. Claude is called into the line for exactly two
+jobs and cannot reach around them.
 
 ```
-materials → slides → sources → 🧠 scope → 🧠 author → gate → dedupe → 🧠 review → 🧠 fix → media → insert → sync
-                                                        └── nothing unreviewed is ever inserted ──┘
+you run:  build_deck run <deck_dir> --deck "<name>"
+             │   the driver orchestrates; it is the ONLY writer to Anki
+  sources → 🧠 author → gate → dedupe → 🧠 review → commit → sync
+            (read-only)                 (tool-less)    └ ships only signed passes ┘
 ```
+
+- **author** is a sub-process spawned with **read-only tools** (`--allowedTools "Read Grep Glob"`).
+  It reads the slides, images, and transcript and *returns card drafts* — the driver writes them. It
+  has no write/Bash/Anki tools, so it **cannot** edit a rule, touch Anki, run `commit`, or skip a
+  station. "Fixed code the agent can't touch" holds *by construction*, not by a lock.
+- **review** is `review_loop.py` — a fresh, **tool-less** Claude per card returning
+  `pass`/`fix`/`hold`/`cut`. A `fix` re-enters the full loop; nothing ships on the verdict that wrote
+  it.
+- **commit** is the barrier: it re-runs the gate + mechanical review, requires a signed `pass` for
+  each card's exact content (a hash — edit a card after review and its pass is void), and refuses the
+  whole batch if the rules changed since `bless` (checked against `manifest.lock`). It is the sole
+  live-write path; `insert`'s un-gated write was removed.
 
 | Path | Role |
 |---|---|
-| [`classes/ISF/build_deck.py`](classes/ISF/build_deck.py) | **the driver** — `slides · sources · gate · dedupe · media · insert · corpus · sync`. Deterministic only. Creates the note type, converts `.ppt`/`.docx`, tags reviewed cards, suspends flagged ones. |
+| [`classes/ISF/build_deck.py`](classes/ISF/build_deck.py) | **the driver** — `run` (the harness) plus the deterministic steps `slides · sources · gate · dedupe · media · commit · bless · corpus · sync`. `run` orchestrates; `commit` is the barrier; `bless` re-records the ruleset hashes. |
 | [`classes/ISF/strict_shape.py`](classes/ISF/strict_shape.py) | **the gate** — hard pass/fail card shape (image-recognition cards exempt). Shape-valid ≠ reviewed. |
 | [`classes/ISF/check_cards.py`](classes/ISF/check_cards.py) | **mechanical review** — verbatim `Source:` quotes, hints, cloze count, media (~10s for a deck) |
+| [`classes/ISF/review_loop.py`](classes/ISF/review_loop.py) | **the evaluator** — one model verdict per card (`pass`/`fix`/`hold`/`cut`) against the rules + corpus; writes the signed, hash-keyed verdict ledger `commit` reads |
+| [`classes/ISF/_harness.py`](classes/ISF/_harness.py) | shared spine — the card content-hash and the `manifest.lock` integrity check, used by both `commit` and the evaluator |
 | [`classes/ISF/content_check.py`](classes/ISF/content_check.py) | deck-level near-duplicate / over-carding detector |
 | `classes/ISF/reference/style_corpus.jsonl` | the **style authority** — owner-reviewed cards, pulled by `build_deck corpus`; `wrong-*` cards excluded |
+| `classes/ISF/manifest.lock` | blessed SHA-256 of every gate script, rule file, and the corpus — `commit` refuses if any drifted since `bless` |
 | `classes/ISF/lint_cards.py` | parsing primitives the gate imports. **Not a style check** — its thresholds are the retired AnKing calibration; see its header. |
 | [`anki-mcp-server/`](anki-mcp-server/) | TypeScript AnkiConnect MCP server (note CRUD + review stats) |
 | `tests/` | golden tests for the gate; the fixture is the retired AnKing deck, kept only as a structural regression guard — **not** the style authority |
@@ -73,7 +93,10 @@ grading your own output — are written into the docs as prohibitions with the i
 
 Review cards in Anki → tag anything wrong `wrong-<defect>` → each flagged card gets fixed **and**,
 if it names a rule the book lacks, the defect becomes a rule. Every rule came from a real flagged
-card. Any card edited after review re-enters review.
+card. Any card edited after review re-enters review — and because a verdict is bound to the card's
+content hash, the tool enforces that automatically: an edited card no longer matches its old `pass`.
+The evaluator (`review_loop.py`) returns `pass`/`fix`/`hold`/`cut`; a card it can't confidently
+approve becomes **`hold`** (queued for a human in `out/holds.jsonl`), never a silent pass.
 
 ## Setup
 

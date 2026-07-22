@@ -86,6 +86,17 @@ def load_sources(spec):
     return norm(blob)
 
 
+def load_media(no_media=False):
+    """The set of Anki media filenames (empty if unreachable or skipped). Shared with commit."""
+    if no_media:
+        return set(), True
+    try:
+        return set(invoke("getMediaFilesNames", pattern="*")), False
+    except Exception as e:
+        print(f"!! Anki unreachable ({e}) — skipping the media check")
+        return set(), True
+
+
 def cards_from_jsonl(path):
     for i, line in enumerate(open(path, encoding="utf-8"), 1):
         if line.strip():
@@ -98,6 +109,45 @@ def cards_from_anki(query):
         f = n["fields"]
         yield (n["noteId"], f["Text"]["value"], f.get("Extra", {}).get("value", ""),
                f.get("Source", {}).get("value", ""))
+
+
+def check_card(T, E, S, NB, media, no_media=False):
+    """Every mechanical per-card flag for one card, as a list of strings (empty = clean).
+
+    This is exactly the logic main() runs per card, factored out so `build_deck commit` can
+    call it in-process. NB is the normalized source blob (or None to skip the quote check);
+    `media` is the set of Anki media filenames (empty + no_media=True to skip the media check)."""
+    f = []
+    if NB is not None:
+        # strip tags BEFORE finding quotes, else <img src="x.jpg"> reads as a quoted span
+        plain = html.unescape(re.sub(r"<[^>]+>", " ", E))
+        # Pair quotes strictly left-to-right with NO length floor. A floor made a short
+        # quoted term swallow its own closing quote and invert every pairing after it, so
+        # the real quotes silently went unchecked while label text got reported instead.
+        spans = re.findall(r'"([^"]*)"', plain)
+        for q in spans:
+            nq = norm(q)
+            if len(nq) < 12:
+                continue                       # a bare term, not a Source quote — skip, quietly
+            if nq not in NB:
+                f.append(f'QUOTE not in sources: "{q[:70]}…"')
+    # NOTE: there is deliberately no "Extra says cues were joined" check. A previous version
+    # grepped the author's own label and produced 42 of 59 flags on the reference deck, 12 of
+    # them provably false and none genuine — it penalised honest disclosure and could not see
+    # an undisclosed join at all. The verbatim check above is what catches a real join: a
+    # sentence stitched from two cues is not a substring of the source.
+    cl = CLOZE.findall(T)
+    if len({n for n, _ in cl}) > 3:
+        f.append("more than 3 distinct clozes")
+    if not re.search(r"<br>\s*\d+\.", T):          # list items share a cloze and take no hints
+        for _, body in cl:
+            if "<i" in body and "::" not in body:
+                f.append("answer cloze with no hint")
+    if not no_media:
+        for img in re.findall(r'<img src="([^"]+)"', T + E):
+            if img not in media:
+                f.append(f"image not in Anki media: {img}")
+    return list(dict.fromkeys(f))                  # de-dup, preserve order
 
 
 def main():
@@ -122,53 +172,18 @@ def main():
         print("!! NO --sources GIVEN: skipping the verbatim-quote check, which is the main one.\n"
               "!! A clean result below does NOT mean the quotes were checked.")
 
-    media = set()
-    if not a.no_media:
-        try:
-            media = set(invoke("getMediaFilesNames", pattern="*"))
-        except Exception as e:
-            print(f"!! Anki unreachable ({e}) — skipping the media check")
-            a.no_media = True
+    media, a.no_media = load_media(a.no_media)
 
     rows = list(cards_from_jsonl(a.cards) if a.cards
                 else cards_from_anki(a.query or f'deck:"{a.deck}"'))
     bad = 0
     deck_texts = [T for _ref, T, _E, _S in rows]
     for ref, T, E, S in sorted(rows, key=lambda r: str(r[3])):
-        f = []
-        if NB is not None:
-            # strip tags BEFORE finding quotes, else <img src="x.jpg"> reads as a quoted span
-            plain = html.unescape(re.sub(r"<[^>]+>", " ", E))
-            # Pair quotes strictly left-to-right with NO length floor. A floor made a short
-            # quoted term swallow its own closing quote and invert every pairing after it, so
-            # the real quotes silently went unchecked while label text got reported instead.
-            spans = re.findall(r'"([^"]*)"', plain)
-            for q in spans:
-                nq = norm(q)
-                if len(nq) < 12:
-                    continue                       # a bare term, not a Source quote — skip, quietly
-                if nq not in NB:
-                    f.append(f'QUOTE not in sources: "{q[:70]}…"')
-        # NOTE: there is deliberately no "Extra says cues were joined" check. A previous version
-        # grepped the author's own label and produced 42 of 59 flags on the reference deck, 12 of
-        # them provably false and none genuine — it penalised honest disclosure and could not see
-        # an undisclosed join at all. The verbatim check above is what catches a real join: a
-        # sentence stitched from two cues is not a substring of the source.
-        cl = CLOZE.findall(T)
-        if len({n for n, _ in cl}) > 3:
-            f.append("more than 3 distinct clozes")
-        if not re.search(r"<br>\s*\d+\.", T):          # list items share a cloze and take no hints
-            for _, body in cl:
-                if "<i" in body and "::" not in body:
-                    f.append("answer cloze with no hint")
-        if not a.no_media:
-            for img in re.findall(r'<img src="([^"]+)"', T + E):
-                if img not in media:
-                    f.append(f"image not in Anki media: {img}")
+        f = check_card(T, E, S, NB, media, a.no_media)
         if f:
             bad += 1
             print(f"[{ref}] {S}")
-            for x in dict.fromkeys(f):
+            for x in f:
                 print(f"    - {x}")
     print(f"\n{len(rows) - bad}/{len(rows)} clean | {bad} with a mechanical flag")
 

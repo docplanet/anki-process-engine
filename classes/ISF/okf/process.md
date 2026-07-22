@@ -15,9 +15,18 @@ pipeline, it is stale — delete it rather than follow it.
 are **agent work** — marked 🧠 below. *No script writes cards.* There is no "generator" to find; if a
 card is wrong, fix the card and (if it names a rule the book lacks) add the rule.
 
-**Nothing unreviewed goes into the deck.** Cards are authored, gated, reviewed and fixed *before*
-they are inserted. If a card has not been through step 9, it does not get inserted — no exceptions,
-including cards drafted as a byproduct of some other task.
+**Nothing unreviewed goes into the deck — and a script enforces it, not discipline.** Shipping is
+`build_deck commit` (step 12): it re-runs the shape gate and mechanical review and **refuses any
+card without a signed `pass` verdict for its exact content**. A card that has not been through step
+9 is refused by the tool. The un-gated `insert` was removed; `commit` is the only live-write path.
+
+**The whole pipeline is one command — `build_deck run` — and it inverts control.** `run` is a
+driver *you* invoke; it orchestrates every step below itself and is the only thing that writes to
+Anki. Claude is never the orchestrator — `run` calls it as two constrained sub-processes: **authoring**
+(spawned with read-only tools — it returns card drafts, the driver writes them; it cannot edit a
+rule, touch Anki, or skip a station) and **review** (the tool-less reviewer, step 9b). The numbered
+steps below are what `run` does internally, and remain the manual fallback if you run them by hand.
+See [The harness](#the-harness).
 
 Every step lists the **driver command** and the **manual fallback**. The subcommands are
 independent — if the driver fails on one step, do that step by hand and continue.
@@ -26,6 +35,14 @@ Driver: `classes/ISF/.venv/bin/python classes/ISF/build_deck.py <subcommand>`
 (abbreviated `build_deck` below). **Run it from the repo root** — the paths are relative, and an
 agent's shell may reset its working directory between calls, so `cd` to the repo root in the same
 command if unsure.
+
+**The whole harness in one command** (render slides first — it needs a slug):
+```
+build_deck slides "<slides.pdf>" "<deck>/out" <slug>     # once, to render + index slides
+build_deck run "<deck>" --deck "ISF::Test 2::<Subject>::Week N" --slug <slug> [--dry-run]
+```
+`run` extracts sources, authors (read-only sub-agent), gates, dedupes, reviews, and commits — and is
+the only writer to Anki. `--dry-run` does everything except write. Holds land in `<deck>/out/holds.jsonl`.
 
 > **`classes/ISF/Exam 2/Histology/Week 3/out/cards.jsonl` is a live export, not a template.** It is
 > what that deck currently contains, regenerated from Anki, and it is useful for seeing real cards —
@@ -182,7 +199,7 @@ capitalized fields:**
 | `test::N` | which exam block |
 | `slide::<slug>-NN` | the slide the fact came from — **the slug is required** |
 | `src::okf-gen` | **written by you into the JSONL** — records that an agent authored this card against this rulebook. No script adds it; every card needs it, or the audit query below silently returns nothing |
-| `src::reviewed` | added by `build_deck insert --tag-reviewed`, or by note id in step 10. Never by a search |
+| `src::reviewed` | added by `build_deck commit --tag-reviewed`, or by note id in step 10. Never by a search |
 | `flag::beyond-scope` | correct + objective-backed, but the lecture deferred it (suspended) |
 | `flag::low-yield` | shipped suspended because its yield is uncertain — for the owner's end-of-build list |
 | `wrong-<defect>` | added **by the user during review** to flag a problem — never by the author |
@@ -239,7 +256,7 @@ Review is **two passes, and neither is a subagent fan-out.**
 ```
 classes/ISF/.venv/bin/python classes/ISF/check_cards.py "<deck>/out/cards.jsonl"
 ```
-**Use the JSONL form when building a new deck** — this step runs *before* insert, so there is
+**Use the JSONL form when building a new deck** — this step runs *before* commit, so there is
 nothing in Anki to query. It finds `<deck>/out/sources` automatically; pass `--sources <dir>` if
 your layout differs. For the repair loop on live cards, use
 `--deck "<name>" --sources "<deck>/out/sources"`.
@@ -267,13 +284,18 @@ classes/ISF/.venv/bin/python classes/ISF/review_loop.py "<deck>/out/cards.jsonl"
 ```
 
 This is the actual **check-each-card-against-the-rules loop**: for every card, one model judgment
-(via the authenticated `claude` CLI — no API key, no new dependency) against the rules and the same-
-shape corpus examples, returning `pass` / `fix` / `cut`. Every verdict is logged to `out/review.jsonl`
-(read it — that per-card record is the review, not anyone's assertion), proposed fixes are re-gated
-by `strict_shape`, and `--apply --deck "<name>"` pushes them to Anki. `--limit N` / `--only <ids>`
-for a cheap first pass. This is what a script cannot do mechanically — is every testable role
-clozed, does it read like the corpus, is a facet mismarked as an answer — and it is why it must be
-a real model call per card, not a glance.
+(a fresh, *tool-less* `claude` call — no API key, no new dependency) against the rules and the
+same-shape corpus examples, returning **`pass` / `fix` / `hold` / `cut`**. A `fix` re-enters the
+full loop (gate + a fresh review) under a new content hash — a rewrite is never approved by the pass
+that produced it; unresolved after `--max-rounds` (default 3) becomes `hold`. A `hold` is genuine
+uncertainty ("needs a human") and is written to `out/holds.jsonl` — uncertainty resolves to hold,
+never to a silent pass. Outputs land in `out/`: **`cards.reviewed.jsonl`** (the committable pass set —
+feed this to `commit`), `review.jsonl` (every verdict — read it; that record is the review, not
+anyone's assertion), `holds.jsonl`, and the signed `.review_ledger.json` that `commit` trusts.
+`--limit N` / `--only <ids>` for a cheap first pass; `--deck "<name>" --apply` pushes reviewed fixes
+to live cards. This is what a script cannot do mechanically — is every testable role clozed, does it
+read like the corpus, is a facet mismarked as an answer — and it is why it must be a real model call
+per card, not a glance.
 
 > **Why this exists.** "Agent, check each card against the rules" was an instruction every reviewer
 > (agents and the operator) *claimed* to do and skipped — reading a batch and asserting "looks
@@ -302,7 +324,7 @@ this card match the template."
 
 **Mark reviewed cards `src::reviewed`.** *How* depends on where you are:
 > - **Building a new deck** — there is nothing in Anki to tag yet. Do NOT add the tag to your JSONL.
->   You tag at step 12 with `build_deck insert … --tag-reviewed`, which tags exactly the notes that
+>   You tag at step 12 with `build_deck commit … --tag-reviewed`, which tags exactly the notes that
 >   call creates.
 > - **Repairing live cards** — tag them here, by explicit note id, as the last act of this step.
 >   Never by a search like `-tag:src::reviewed`; that matches every older untagged card in the deck.
@@ -352,25 +374,33 @@ Pushes the slide JPEGs into Anki's media collection so `extra` images render. Id
 > "<deck>/out/<slug>"`.
 *Manual:* copy `out/slides/*.jpg` into the Anki profile's `collection.media/`.
 
-## 12 · Insert
+## 12 · Commit — the barrier
 
 ```
-build_deck insert "<deck>/out/cards.jsonl" --deck "ISF::Test 2::Histology::Week 4" \
+build_deck commit "<deck>/out/cards.reviewed.jsonl" --deck "ISF::Test 2::Histology::Week 4" \
     [--dry-run] --tag-reviewed --suspend-flagged
 ```
-Adds notes with note type `Custom Cloze` (fields Text/Extra/Source). **The driver creates that note type if the collection lacks it** — a fresh Anki has no such type — so no manual setup is needed. Use `--dry-run` first.
+`commit` is the **only** path that writes cards to a live deck. Per card it: (1) verifies
+`manifest.lock` — refuses the whole batch if any gate script, rule file, or the corpus changed since
+`bless`; (2) re-runs the shape gate + mechanical review; (3) requires a **signed `pass` verdict for
+the card's exact content** in `out/.review_ledger.json` (from step 9b). Cards that clear all three are
+added (note type `Custom Cloze`, created if missing); the rest are refused per-card and it exits
+non-zero. Feed it `cards.reviewed.jsonl` (the committable set review writes), not the raw drafts. Use
+`--dry-run` first.
 
-> **`insert` is the one subcommand that is NOT idempotent.** Anki dedupes on the first field only.
-> If you edit a card's `text` and re-run, the edited card is no longer a duplicate — you get a
-> **second note beside the stale one**, and the output reads `added 1/N` like a success. After a
-> repair, edit the live note (step 10) rather than re-inserting. `out/.build_deck.log` records
-> every insert so a later session can tell whether this deck has already been written.
-*Manual:* `anki` MCP `anki_add_notes`.
+> **`commit` is not idempotent** (Anki dedupes on the first field only). If you edit a card's `text`
+> and re-commit, the edited card is no longer a duplicate — you get a **second note beside the stale
+> one**. After a repair, edit the live note (step 10) rather than re-committing. `out/.build_deck.log`
+> records every commit.
+
+> The old `insert` subcommand no longer writes to a live deck (that was the un-gated door around the
+> barrier) — it is `--dry-run` preview only. *Manual write:* `anki` MCP `anki_add_notes` — but then
+> you own the "nothing unreviewed ships" guarantee by hand.
 
 **Tagging reviewed cards: use `--tag-reviewed`, never a query.**
 
 ```
-build_deck insert "<cards.jsonl>" --deck "<name>" --tag-reviewed
+build_deck commit "<cards.reviewed.jsonl>" --deck "<name>" --tag-reviewed
 ```
 It tags **exactly the notes that call created**. Do not tag by a negative search like
 `-tag:src::reviewed` — that matches every older untagged card in the deck and marks unreviewed
@@ -403,6 +433,30 @@ inventing a sibling.
 build_deck sync
 ```
 *Manual:* `anki` MCP sync, or the Sync button.
+
+---
+
+# The harness
+
+What makes this a harness and not a toolbox: **a script drives, and the agent is only ever a
+constrained sub-call.** `build_deck run` is the orchestrator and the only writer to Anki. It calls
+Claude for exactly two jobs — **authoring** (read-only tools: it reads slides/sources/images and
+returns drafts, and cannot write files, reach Anki, or run `commit`) and **review** (tool-less). So
+the agent cannot edit the rules or reach the output except through the line. "Fixed code the agent
+can't touch" holds *by construction* — the driver spawns the author with no write tools — not by a
+lock bolted on.
+
+The rulebook and gates are also **tamper-evident**. `manifest.lock` records the SHA-256 of every
+gate script, every `okf/**` file (this one included), and the corpus; `commit` refuses if any drifted
+since `bless`. To change a rule, a gate, or this process doc, edit it, then:
+
+```
+build_deck bless
+```
+
+`bless` re-records the hashes — a deliberate, visible act. Then **re-review any affected cards**:
+their prior verdicts were made under the old ruleset (each verdict is stamped with the manifest hash),
+and `commit` will not honor a pass made under a different ruleset.
 
 ---
 
