@@ -19,6 +19,7 @@
 !/classes/
 !/.claude/
 !/anki-mcp-server/
+!/recaps/
 
 # 3) classes/  →  ONLY the ISF Python tooling + the OKF rulebook
 #    (this excludes Week*/, Exam*/, textbooks/, .venv/, course-map.yaml, the syllabus, __pycache__)
