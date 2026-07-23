@@ -24,13 +24,17 @@ describing a different pipeline, it is stale — delete it rather than follow it
 5. **[`classes/ISF/okf/review-checklist.md`](../../../classes/ISF/okf/review-checklist.md)** — the
    explicit per-card checks a review must run.
 
-**The driver:** `classes/ISF/build_deck.py` automates only the deterministic steps (render slides,
-extract sources, gate, dedupe, media, insert, sync). **Scope, authoring, and review are your work**
-— no script writes cards. Don't go looking for a generator; there isn't one.
+**Building a deck is one command:** `classes/ISF/build_deck.py run <deck_dir> --deck "<name>"
+[--slug S] [--dry-run]`. It runs the whole pipeline as four steps over one status-tracked
+`out/cards.jsonl` — **create → review → fix → re-review** — where the author (a read-only claude
+sub-call) and the reviewer (a tool-less sub-call) do the judgment, and the driver is the only writer
+to Anki. Render slides first (`build_deck slides <pdf> <deck>/out <slug>`). Ship the reviewed result
+with `build_deck commit <deck>/out/cards.jsonl --deck "<name>"`.
 
-**Reviewing is `classes/ISF/check_cards.py` (mechanical, ~10s for a whole deck) plus reading the
-cards yourself.** Do not fan review out to per-axis subagents — that once turned a ~20-card review
-into two hours. See `process.md` step 9.
+**Every card is tracked, nothing is dropped.** Each card in `cards.jsonl` carries a `status`
+(draft/approved/needs-fix/cut/held) + a `note`. After a run, read that file (`grep '"status"'`) to
+see what landed where and why. Read the okf rulebook not to hand-author, but to understand and refine
+the rules the author/reviewer follow — the rulebook IS their prompt.
 
 **Two things that repeatedly go wrong:**
 - **The deck folder's material is the only input.** Cards come from the slides, transcript and

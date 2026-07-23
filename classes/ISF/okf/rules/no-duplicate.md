@@ -20,22 +20,10 @@ prefix before `::` and are expected.
 
 # Enforcement
 
-## Mechanical (surface candidates)
-
-The existing detector `classes/ISF/content_check.py` already implements this: it reveals each
-card's answer text (strips markup and hints) and reports **near-duplicate pairs** whose revealed
-text similarity ≥ a threshold (currently 0.66), skipping same-note siblings. Run it over the deck:
-
-```
-classes/ISF/.venv/bin/python classes/ISF/content_check.py <deck>/out/cards.jsonl --json
-```
-
-It also flags **over-carded subjects** (one `<b>` subject appearing in ≥ 3 cards) — a redundancy
-signal adjacent to duplication.
-
-## What the detector reports
-
-`content_check.py` prints three advisory signals — none of them auto-reject:
+Duplicate/redundancy detection is the **reviewer's** job in the `run` pipeline: it flags a card
+that restates another as `needs-fix` (merge/differentiate) or `cut`, with the reason in the card's
+`note`. An automated near-duplicate detector (revealed-text similarity, over-carded subjects) is a
+planned follow-up to fold back into the review step. Until then, the signals to watch are:
 
 | Signal | Means |
 |---|---|

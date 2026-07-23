@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """STRICT card-shape gate — the mechanical "mold".
 
-Unlike lint_cards.py (which is calibrated to *accept* the reference deck at <2% error and
-is deliberately permissive), this module is a hard PASS/FAIL classifier: it sorts a card into
-exactly ONE allowed template (T1–T5 or LIST) or REJECTS it with enumerated reason codes. A card
-"conforms" iff it matches exactly one template AND trips zero vetoes.
+A hard PASS/FAIL classifier: it sorts a card into exactly ONE allowed template (T1–T5 or LIST) or
+REJECTS it with enumerated reason codes. A card "conforms" iff it matches exactly one template AND
+trips zero vetoes. `classify_card` is called by `build_deck run` (review step) and by the tests.
 
 The allowed templates were measured from the AnKing Neurogenetics deck (368 cards). NOTE: that
 deck is NO LONGER the house-style reference — see okf/style.md. Card STYLE is settled by the
@@ -33,8 +32,41 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
-# Reuse the exact parsing primitives from the legacy linter — no regex duplication.
-from lint_cards import _strip, _clozes, _markup_balanced, _is_list, CLOZE_RE
+# ── card-parsing primitives (were in the retired lint_cards.py; moved here, its only consumer) ──
+CLOZE_RE = re.compile(r"\{\{c(\d+)::(.*?)\}\}", re.S)
+
+
+def _strip(s):
+    s = re.sub(r"<br\s*/?>", " ", s)
+    s = re.sub(r"<[^>]+>", "", s)
+    s = s.replace("&nbsp;", " ").replace("&amp;", "&")
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _clozes(text):
+    """Return [(num, answer, hint_or_None, span_start)] for each cloze occurrence."""
+    out = []
+    for m in CLOZE_RE.finditer(text):
+        parts = m.group(2).split("::")
+        hint = parts[-1] if len(parts) > 1 else None
+        out.append((int(m.group(1)), parts[0], hint, m.start()))
+    return out
+
+
+def _markup_balanced(text):
+    # Attribute-aware: real Anki markup carries attributes (<u style="">, <b class=...>), so an
+    # opening tag is "<b>" OR "<b ...>". Counting only the bare "<b>" mis-flags valid HTML.
+    for tag in ("b", "i", "u"):
+        if len(re.findall(rf"<{tag}(\s[^>]*)?>", text)) != text.count(f"</{tag}>"):
+            return False
+    return True
+
+
+def _is_list(text):
+    """A numbered/multi-line list card — legitimately long and multi-<i>. Matches '1.'/'2)' item
+    markers or 3+ line breaks."""
+    return bool(re.search(r"(^|>)\s*\d+[.\)]\s", text)) or len(re.findall(r"<br", text)) >= 3
+
 
 ARROW_RE = re.compile(r"→|&rarr;|-&gt;|->")
 MAKES_IT_RE = re.compile(r"\bmakes it (?:a |an |the )?\w+", re.I)

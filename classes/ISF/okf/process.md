@@ -42,7 +42,8 @@ build_deck slides "<slides.pdf>" "<deck>/out" <slug>     # once, to render + ind
 build_deck run "<deck>" --deck "ISF::Test 2::<Subject>::Week N" --slug <slug> [--dry-run]
 ```
 `run` extracts sources, authors (read-only sub-agent), gates, dedupes, reviews, and commits — and is
-the only writer to Anki. `--dry-run` does everything except write. Holds land in `<deck>/out/holds.jsonl`.
+the only writer to Anki. `--dry-run` does everything except write. Every card ends up in
+`<deck>/out/cards.jsonl` with a `status` (draft/approved/needs-fix/cut/held) + a `note` — nothing is dropped.
 
 > **`classes/ISF/Exam 2/Histology/Week 3/out/cards.jsonl` is a live export, not a template.** It is
 > what that deck currently contains, regenerated from Anki, and it is useful for seeing real cards —
@@ -199,7 +200,7 @@ capitalized fields:**
 | `test::N` | which exam block |
 | `slide::<slug>-NN` | the slide the fact came from — **the slug is required** |
 | `src::okf-gen` | **written by you into the JSONL** — records that an agent authored this card against this rulebook. No script adds it; every card needs it, or the audit query below silently returns nothing |
-| `src::reviewed` | added by `build_deck commit --tag-reviewed`, or by note id in step 10. Never by a search |
+| `src::reviewed` | added automatically by `build_deck commit` to every `approved` card it writes. Never tag by a search |
 | `flag::beyond-scope` | correct + objective-backed, but the lecture deferred it (suspended) |
 | `flag::low-yield` | shipped suspended because its yield is uncertain — for the owner's end-of-build list |
 | `wrong-<defect>` | added **by the user during review** to flag a problem — never by the author |
@@ -212,36 +213,20 @@ bare `slide::14` is ambiguous and provenance silently mis-attributes. Always car
 `key::…` appears on older cards; it was an idempotency key for a sync script that no longer exists.
 **Don't add it to new cards.**
 
-## 7 · Gate
+## 7 · Gate + review + fix — all inside `build_deck run`
 
-```
-build_deck gate "<deck>/out/cards.jsonl"
-```
-Must print `N/N conforming (0 rejected)`. Fix every reject and re-run. Image-recognition cards are **exempt** — the gate does not model them.
+Steps 7–10 are not run by hand any more — **`build_deck run` does them**, over the one status file.
+The pieces (understand them; you don't invoke them separately):
 
-**The gate is shape-only.** It cannot tell an answer from a clause, or a real fact from an
-invented one. Passing it means nothing about whether a card is good.
-*Manual:* `classes/ISF/strict_shape.py <cards.jsonl>`.
+- **Shape gate** (`strict_shape`) — sorts each card into one allowed template or marks it `needs-fix`
+  with the reason. Shape-only: it cannot tell an answer from a clause or a real fact from an invented
+  one. (`classify_card` is importable; `strict_shape.py <cards.jsonl>` still runs standalone for dev.)
+- **Mechanical checks** (`check_cards`) — every `Source:` quote is a verbatim substring of the deck's
+  own sources, every answer cloze carries a hint, ≤3 clozes, images present. A miss → `needs-fix`.
+- **Reviewer** (tool-less claude, one call per batch) — flags `approved` / `needs-fix` / `cut` + a
+  note, judging against `review-checklist.md` and the corpus. It does not rewrite; the author fixes.
 
-> **Schema trap when repairing existing cards.** The gate reads **lowercase** `text`/`type`. Notes
-> read back out of Anki come keyed `Text`/`Extra`/`Source` (capitalized) — feed those straight in and
-> every row silently reports `NO_TEMPLATE_MATCH` instead of erroring, which reads as "all rejected"
-> rather than "wrong schema". Down-case the keys on the round trip from Anki.
-
-## 8 · Dedup check
-
-```
-build_deck dedupe "<deck>/out/cards.jsonl"
-```
-Advisory worklist: near-duplicate pairs, over-carded subjects, and "suspicious extra" (the subject
-term is missing from the card's own `Extra` — often a provenance problem).
-
-**Every flag must be resolved, but you may resolve it yourself** — merge, cut, or keep-both-with-a-
-written-reason. Escalate only when the call needs course knowledge you don't have. See
-[no-duplicate](rules/no-duplicate.md).
-*Manual:* `classes/ISF/content_check.py <cards.jsonl>`.
-
-## 9 · 🧠 Review
+## 9 · 🧠 Review (what the reviewer judges)
 
 > **Work from current text, never a stale copy.** When repairing *live* cards, re-read them from
 > Anki each round — a copy taken before the last round of fixes shows superseded text, and one
@@ -249,99 +234,35 @@ written-reason. Escalate only when the call needs course knowledge you don't hav
 > text and all false of the current one. When building a *new* deck there is nothing in Anki yet;
 > your `cards.jsonl` is the current text.
 
-Review is **two passes, and neither is a subagent fan-out.**
+The reviewer (inside `run`) checks **what a script cannot** — is every testable role clozed, does the
+card read like the corpus, is a facet mismarked as an answer, is a chain crammed into one card, is it
+worth knowing. It judges against [`review-checklist.md`](review-checklist.md) + the [rules](rules/)
++ the corpus, and flags `approved` / `needs-fix` / `cut` + a note. The mechanical checks (§7) run
+first and mark shape/quote defects; the reviewer never re-does those.
 
-### 9a · Mechanical — run the script
+The verbatim-quote check compares against the extracted sources **plus** the OCR'd slide-image text
+(`run` OCRs the slides into `out/sources/slides-ocr.txt`), so a quote lifted off a figure the
+`pdftotext` layer misses still verifies. A quote spliced from two cues with `…` will not verify —
+that is the defect [accuracy](rules/accuracy.md) exists to catch, and it becomes `needs-fix`.
 
-```
-classes/ISF/.venv/bin/python classes/ISF/check_cards.py "<deck>/out/cards.jsonl"
-```
-**Use the JSONL form when building a new deck** — this step runs *before* commit, so there is
-nothing in Anki to query. It finds `<deck>/out/sources` automatically; pass `--sources <dir>` if
-your layout differs. For the repair loop on live cards, use
-`--deck "<name>" --sources "<deck>/out/sources"`.
-
-Checks every `Source:` quote is a verbatim substring of **this deck's** sources, every answer cloze
-carries a hint, no card exceeds 3 clozes, every referenced image is in Anki media, **and the deck's
-style distribution against the corpus** (facet-rate on prose cards, multi-cloze share). A clear
-outlier prints `⚠ UNDER-STYLED` and makes the exit non-zero — that is the mechanical catch for the
-under-styling that a per-card glance misses (a deck once shipped at ~6% facets vs the corpus's
-~86%). Resolve it in review step 4, or explain why the deck is legitimately flatter. **Ten seconds
-for a whole deck.** Run it before reading anything.
-
-Without `--sources` it *skips* the quote check and says so — a clean result then means nothing.
-
-**Done = every flag resolved or explained**, same bar as step 8. Exit code is 1 while any flag
-stands. A flag is not automatically a defect: a quote lifted off a slide *image* will not be found
-in the extracted slide text (`pdftotext` misses text inside figures), so verify against the JPEG
-before rewriting anything. What it will not forgive is a quote spliced from two cues with `…` —
-that one is real, and it is the defect [accuracy](rules/accuracy.md) exists to catch.
-
-### 9b · Judgment — run the review loop
-
-```
-classes/ISF/.venv/bin/python classes/ISF/review_loop.py "<deck>/out/cards.jsonl"
-```
-
-This is the actual **check-each-card-against-the-rules loop**: for every card, one model judgment
-(a fresh, *tool-less* `claude` call — no API key, no new dependency) against the rules and the
-same-shape corpus examples, returning **`pass` / `fix` / `hold` / `cut`**. A `fix` re-enters the
-full loop (gate + a fresh review) under a new content hash — a rewrite is never approved by the pass
-that produced it; unresolved after `--max-rounds` (default 3) becomes `hold`. A `hold` is genuine
-uncertainty ("needs a human") and is written to `out/holds.jsonl` — uncertainty resolves to hold,
-never to a silent pass. Outputs land in `out/`: **`cards.reviewed.jsonl`** (the committable pass set —
-feed this to `commit`), `review.jsonl` (every verdict — read it; that record is the review, not
-anyone's assertion), `holds.jsonl`, and the signed `.review_ledger.json` that `commit` trusts.
-`--limit N` / `--only <ids>` for a cheap first pass; `--deck "<name>" --apply` pushes reviewed fixes
-to live cards. This is what a script cannot do mechanically — is every testable role clozed, does it
-read like the corpus, is a facet mismarked as an answer — and it is why it must be a real model call
-per card, not a glance.
-
-> **Why this exists.** "Agent, check each card against the rules" was an instruction every reviewer
-> (agents and the operator) *claimed* to do and skipped — reading a batch and asserting "looks
-> good." A whole deck shipped with a testable node left as visible prose because no program ever
-> laid one card beside the rules and the corpus. `review_loop.py` is that program; nothing is
-> "checked" except what it logs. (It replaced an earlier instruction to "read them inline," which
-> was the same unenforceable glance.)
-
-**Do not fan the loop out into per-axis subagents.** One model call per card is the loop; the
-recurring failure was many agents each re-reading the whole rulebook before judging one card.
-
-> **This is the expensive mistake of the project.** Reviewing ~20 cards once took two hours,
-> because every read went into a separate background subagent — each cold-starting by re-reading
-> the rulebook, the corpus and 460KB of sources before evaluating a single card, chained fifteen
-> deep. The reading was seconds per card; the re-orientation and queuing was the two hours. Four
-> separate agents verified the same quotes character-by-character, which is `grep`.
->
-> Reading a card and judging it is fast. Delegating that read and then reading the agent's report
-> is strictly *more* reading, plus latency.
-
-**Spawn an agent only when the work is genuinely parallel and expensive** — opening slide images to
-identify which micrograph a lecturer meant, or grepping a 460KB textbook for a claim. Not for "does
-this card match the template."
+> **Why the reviewer is a separate program, not a glance.** "Agent, check each card against the
+> rules" was an instruction every reviewer *claimed* to do and skipped — reading a batch and
+> asserting "looks good," while a testable node shipped as visible prose. The reviewer is a fresh,
+> tool-less model call per batch, judged in isolation; nothing is "checked" except what it returns.
+> **Do not** fan review out into per-axis subagents (one re-reading the whole rulebook per card
+> turned a 20-card review into two hours). One controlled call per batch is the loop.
 
 ## 10 · 🧠 Fix and re-review
 
-**Mark reviewed cards `src::reviewed`.** *How* depends on where you are:
-> - **Building a new deck** — there is nothing in Anki to tag yet. Do NOT add the tag to your JSONL.
->   You tag at step 12 with `build_deck commit … --tag-reviewed`, which tags exactly the notes that
->   call creates.
-> - **Repairing live cards** — tag them here, by explicit note id, as the last act of this step.
->   Never by a search like `-tag:src::reviewed`; that matches every older untagged card in the deck.
->
-> Either way the tag means "went through step 9", and `src::okf-gen` records only *how a card was made*, not whether
-anyone checked it — six unreviewed cards once sat in a live deck indistinguishable from reviewed
-ones precisely because nothing recorded the difference. An untagged card in a deck is a bug you can
-now actually find: `tag:src::okf-gen -tag:src::reviewed`.
+Inside `run` this is automatic: a `needs-fix` card is re-authored from its note and **re-reviewed**
+before it can become `approved`; a rewrite is never approved by the pass that flagged it. A card the
+loop can't resolve within `--max-author-rounds` (default 2) becomes `held` — surfaced in the status
+file, and shipped to Anki suspended under `flag::held`, never silently passed. `commit` tags every
+`approved` card `src::reviewed` automatically. When you repair a **live** card by hand (the ongoing
+loop below), **read the note's current text before editing it** — note-ids are easy to mistake, and
+editing the wrong one has silently destroyed a card before.
 
-An edited card **loses** the tag until it is re-reviewed.
-
-Apply findings. Two hard-won rules:
-- **Any edited card re-enters review.** A card changed after its last review is unreviewed.
-- **Read a note's current text before editing it.** Note-ids are easy to mistake; editing the wrong
-  note has silently destroyed a card before.
-
-### When to stop — two attempts, then ask
+### When to stop — two attempts, then hold
 
 **A card gets two authoring attempts. If the second is also rejected, do not write a third.** Stop,
 and put the original text and both attempts in front of the owner. Ask which they prefer.
@@ -374,38 +295,25 @@ Pushes the slide JPEGs into Anki's media collection so `extra` images render. Id
 > "<deck>/out/<slug>"`.
 *Manual:* copy `out/slides/*.jpg` into the Anki profile's `collection.media/`.
 
-## 12 · Commit — the barrier
+## 12 · Ship to Anki — `commit` by status
+
+`build_deck run` writes nothing when `--dry-run`. To ship the reviewed deck (push slide images
+first so `<img>` renders):
 
 ```
-build_deck commit "<deck>/out/cards.reviewed.jsonl" --deck "ISF::Test 2::Histology::Week 4" \
-    [--dry-run] --tag-reviewed --suspend-flagged
+build_deck media  "<deck>/out"
+build_deck commit "<deck>/out/cards.jsonl" --deck "ISF::Test 2::Histology::Week 4" [--approved-only]
 ```
-`commit` is the **only** path that writes cards to a live deck. Per card it: (1) verifies
-`manifest.lock` — refuses the whole batch if any gate script, rule file, or the corpus changed since
-`bless`; (2) re-runs the shape gate + mechanical review; (3) requires a **signed `pass` verdict for
-the card's exact content** in `out/.review_ledger.json` (from step 9b). Cards that clear all three are
-added (note type `Custom Cloze`, created if missing); the rest are refused per-card and it exits
-non-zero. Feed it `cards.reviewed.jsonl` (the committable set review writes), not the raw drafts. Use
-`--dry-run` first.
+`commit` is the **only** path that writes cards to a live deck, and it writes **by status**:
+`approved` cards are added and tagged `src::reviewed`; `held` cards are added tagged `flag::held` and
+**suspended** (so you can find them with `tag:flag::held` and finish them in Anki); `cut` cards are
+never written. `--approved-only` skips the held cards. The note type `Custom Cloze` is created if
+missing.
 
 > **`commit` is not idempotent** (Anki dedupes on the first field only). If you edit a card's `text`
 > and re-commit, the edited card is no longer a duplicate — you get a **second note beside the stale
-> one**. After a repair, edit the live note (step 10) rather than re-committing. `out/.build_deck.log`
-> records every commit.
-
-> The old `insert` subcommand no longer writes to a live deck (that was the un-gated door around the
-> barrier) — it is `--dry-run` preview only. *Manual write:* `anki` MCP `anki_add_notes` — but then
-> you own the "nothing unreviewed ships" guarantee by hand.
-
-**Tagging reviewed cards: use `--tag-reviewed`, never a query.**
-
-```
-build_deck commit "<cards.reviewed.jsonl>" --deck "<name>" --tag-reviewed
-```
-It tags **exactly the notes that call created**. Do not tag by a negative search like
-`-tag:src::reviewed` — that matches every older untagged card in the deck and marks unreviewed
-work as reviewed. This has happened twice, the second time hours after the first was documented,
-which is why the safe path is a flag rather than a note in this file.
+> one**. After a repair, edit the live note in Anki rather than re-committing. `out/.build_deck.log`
+> records every write.
 
 **Deck naming — deck by LECTURE, tag by TOPIC.**
 
@@ -436,27 +344,15 @@ build_deck sync
 
 ---
 
-# The harness
+# Why it holds together
 
-What makes this a harness and not a toolbox: **a script drives, and the agent is only ever a
-constrained sub-call.** `build_deck run` is the orchestrator and the only writer to Anki. It calls
-Claude for exactly two jobs — **authoring** (read-only tools: it reads slides/sources/images and
-returns drafts, and cannot write files, reach Anki, or run `commit`) and **review** (tool-less). So
-the agent cannot edit the rules or reach the output except through the line. "Fixed code the agent
-can't touch" holds *by construction* — the driver spawns the author with no write tools — not by a
-lock bolted on.
-
-The rulebook and gates are also **tamper-evident**. `manifest.lock` records the SHA-256 of every
-gate script, every `okf/**` file (this one included), and the corpus; `commit` refuses if any drifted
-since `bless`. To change a rule, a gate, or this process doc, edit it, then:
-
-```
-build_deck bless
-```
-
-`bless` re-records the hashes — a deliberate, visible act. Then **re-review any affected cards**:
-their prior verdicts were made under the old ruleset (each verdict is stamped with the manifest hash),
-and `commit` will not honor a pass made under a different ruleset.
+**A script drives, and the agent is only ever a constrained sub-call.** `build_deck run` is the
+orchestrator and the only writer to Anki. It calls Claude for exactly two jobs — **authoring**
+(read-only `Read/Grep/Glob` tools: it reads slides/sources/images and returns drafts, and cannot
+write files, reach Anki, or skip a step) and **review** (tool-less: sees only the card + rules +
+corpus). The author cannot edit the rules — "fixed code the agent can't touch" holds *by
+construction*, because the driver spawns it with no write tools, not by a lock. To change a rule or
+the style, edit the `okf/` files directly; the next `run` picks them up.
 
 ---
 

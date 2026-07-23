@@ -108,9 +108,9 @@ in `<i>`:
 
 # Enforcement
 
-- **Mechanical (gate):** `strict_shape.py` rejects > 3 distinct clozes and a `<b>` subject not
+- **Mechanical (gate):** `strict_shape` rejects > 3 distinct clozes and a `<b>` subject not
   inside a cloze (except list headers). It does **not** see an un-clozed testable *value* left as
-  prose, self-answering, complete-span, or whole-insight — **those are the review loop's job**
-  (`review_loop.py`, process step 9b).
+  prose, self-answering, complete-span, or whole-insight — **those are the reviewer's job** (the
+  tool-less review step inside `build_deck run`).
 - **Judgment:** identify every testable role and cloze it up to the ceiling; split a chain that
   exceeds 3; cut non-testable asides rather than leaving them un-clozed.

@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
 """build_deck — the one driver for building an Anki deck from lecture material.
 
-It automates ONLY the deterministic steps. Scope, authoring, and review judgment are
-AGENT work — no script writes cards. See classes/ISF/okf/process.md for the full procedure and
-the manual fallback for every step below (each subcommand is independent; if one fails, do that
-step by hand and continue).
+`run` is the whole pipeline as four visible steps over ONE status-tracked cards.jsonl:
+create -> review -> fix -> re-review. The author and reviewer are constrained claude sub-calls
+(the author is read-only; the reviewer is tool-less); the driver is the only writer to Anki.
+Nothing is ever deleted — every card keeps a status (draft/approved/needs-fix/cut/held) + a note.
+See classes/ISF/okf/process.md for the full procedure.
 
-    build_deck.py slides  <slides.pdf|.ppt> <out> <slug>   render slides -> JPEGs + slides.jsonl
-    build_deck.py sources <deck_dir>                      extract PDFs/transcript -> out/sources/
-    build_deck.py gate    <cards.jsonl>                   strict_shape mold gate (must be N/N)
-    (see also check_cards.py — mechanical review: verbatim quotes, hints, media)
-    build_deck.py dedupe  <cards.jsonl>                   content_check near-dup report
-    build_deck.py media   <out_dir>                       push slide images into Anki media
-    build_deck.py insert  <cards.jsonl> --deck "<name>"   add notes via AnkiConnect
-    build_deck.py corpus  [--out <path>]                  pull the style reference corpus
-    build_deck.py sync                                    AnkiConnect sync
+    build_deck.py run    <deck_dir> --deck "<name>" [--slug S] [--dry-run]   THE pipeline
+    build_deck.py commit <cards.jsonl> --deck "<name>" [--approved-only]      write by status to Anki
+    build_deck.py slides <slides.pdf|.ppt> <out> <slug>                       render slides -> JPEGs
+    build_deck.py sources <deck_dir>                                          extract PDFs/transcript
+    build_deck.py media  <out_dir>                                            push slide images to Anki
+    build_deck.py corpus [--out <path>]                                       pull the style corpus
+    build_deck.py sync                                                        AnkiConnect sync
 
 Anki steps need Anki running with the AnkiConnect add-on (http://127.0.0.1:8765).
 Slide rendering needs poppler (pdftoppm, pdftotext, pdfinfo); .ppt/.pptx also needs LibreOffice.
@@ -215,21 +214,6 @@ def cmd_sources(a):
         print("  (nothing found — drop the slides PDF, objectives PDF and transcript in the folder)")
 
 
-# ── gate / dedupe ─────────────────────────────────────────────────────────────
-def _run(script, *args):
-    r = subprocess.run([sys.executable, os.path.join(HERE, script), *args])
-    return r.returncode
-
-
-def cmd_gate(a):
-    """The mold. Must print N/N conforming. Recognition/attribute cards are exempt."""
-    sys.exit(_run("strict_shape.py", a.cards))
-
-
-def cmd_dedupe(a):
-    sys.exit(_run("content_check.py", a.cards))
-
-
 # ── media ─────────────────────────────────────────────────────────────────────
 def cmd_media(a):
     """Push rendered slide images into Anki's media collection (idempotent)."""
@@ -241,31 +225,11 @@ def cmd_media(a):
     print(f"stored {len(imgs)} image(s) in Anki media")
 
 
-# ── insert ────────────────────────────────────────────────────────────────────
-def cmd_insert(a):
-    """Preview only. The un-gated live write was REMOVED: it was the door around the barrier —
-    a card could reach a deck without passing review. Shipping goes through `commit` (which gates
-    per card) or `run` (the full harness). `insert` now only supports --dry-run for inspection."""
-    cards = [json.loads(l) for l in open(a.cards, encoding="utf-8") if l.strip()]
-    if not cards:
-        sys.exit(f"{a.cards} is empty")
-    if not a.dry_run:
-        sys.exit("`insert` no longer writes to a live deck — that was the un-gated door around the "
-                 "barrier.\nShip with `build_deck commit <cards.jsonl> --deck \"<name>\"` (gated per "
-                 "card) or `build_deck run <deck_dir> --deck \"<name>\"` (full harness).\n"
-                 "Re-run with --dry-run to preview.")
-    have_model = MODEL in set(invoke("modelNames"))
-    exists = a.deck in set(invoke("deckNames"))
-    print(f"DRY RUN — would add {len(cards)} note(s) to {a.deck!r}"
-          f"{'' if exists else ' (deck would be created)'}"
-          f"{'' if have_model else f' (note type {MODEL!r} would be created)'}"
-          f"\n(to actually ship, use `commit` or `run` — see above)")
-
-
-def _write_notes(deck, cards, notes, out_dir, suspend_flagged, tag_reviewed, step="insert"):
+# ── the Anki writer ─────────────────────────────────────────────────────────────
+def _write_notes(deck, cards, notes, out_dir, suspend_flagged, tag_reviewed, step="commit"):
     """The audited write path: create the model/deck, add notes one at a time (per-card
-    reporting), then suspend-flagged / tag-reviewed. Shared by `insert` and `commit` so the
-    barrier reuses exactly the writer that was hardened over many incidents — not a copy."""
+    reporting), then suspend-flagged / tag-reviewed. Shared by `commit` and `run` so both reuse
+    exactly the writer that was hardened over many incidents — not a copy."""
     _ensure_model()
     if deck not in set(invoke("deckNames")):
         invoke("createDeck", deck=deck)
@@ -316,12 +280,8 @@ def _write_notes(deck, cards, notes, out_dir, suspend_flagged, tag_reviewed, ste
 
 
 # ── commit — the hard barrier ───────────────────────────────────────────────────
-# The ONLY path that writes cards to a live deck. It re-runs the mechanical gates in-process
-# and refuses any card that (a) fails the shape gate, (b) fails mechanical review, or (c) lacks
-# a trusted `pass` verdict for its EXACT content. Before writing anything it verifies the
-# rulebook/gate integrity lock — a mid-build edit to a check or a rule blocks the whole commit
-# until `build_deck bless`. `insert` still exists for --dry-run and internal use, but the process
-# runs `commit`; nothing reaches a deck without clearing all four checks.
+# Writes a reviewed cards.jsonl to Anki by status. `run` reviews every card to a status first;
+# `commit` just ships the result (approved + held). It is the only path that writes cards.
 def cmd_commit(a):
     """Write a reviewed deck to Anki from a status-tracked cards.jsonl. Ships `approved` cards
     (tagged src::reviewed) and, unless --approved-only, `held` cards too (tagged flag::held and
@@ -362,26 +322,6 @@ def cmd_commit(a):
     print("· synced")
 
 
-def cmd_bless(a):
-    """Re-bless the ruleset: record the SHA-256 of every gate script, rule file, and the corpus
-    into manifest.lock. A deliberate, owner-visible act — the ONLY way to change what the barrier
-    treats as 'acceptable'. Run it after an intended rule/gate change (and then re-review, since
-    old verdicts were made under the old ruleset)."""
-    from _harness import read_manifest, verify_manifest, write_manifest, MANIFEST
-    existed = read_manifest() is not None
-    before_ok, changed = verify_manifest()
-    m = write_manifest()
-    rel = os.path.relpath(MANIFEST, HERE)
-    if not existed:
-        print(f"created {rel} — blessed {len(m)} files.")
-    elif before_ok:
-        print(f"{rel} is up to date ({len(m)} files) — nothing changed.")
-    else:
-        print(f"re-blessed {len(m)} files -> {rel}")
-        for path, status in changed:
-            print(f"    {status:9s} {path}")
-
-
 CORPUS_DECK = "ISF::Test 2::Biochemistry::Amino Acid Structures"
 CORPUS_OUT = os.path.join(HERE, "reference", "style_corpus.jsonl")
 
@@ -418,11 +358,11 @@ def cmd_sync(a):
     print("synced")
 
 
-# ── run — THE harness driver ────────────────────────────────────────────────────
+# ── run — THE pipeline driver ────────────────────────────────────────────────────
 # A human (or scheduler) runs `build_deck run`. It orchestrates the whole pipeline itself and is
 # the ONLY writer to Anki. Claude is never the orchestrator here — it is called as two CONSTRAINED
-# sub-processes: authoring (read-only tools, returns drafts) and review (tool-less, via review_loop).
-# Neither sub-call can edit the rules, reach Anki, or skip a station, because the driver spawns them
+# sub-processes: authoring (read-only tools, returns drafts; author_create/author_fix) and review
+# (tool-less; review_all). Neither can edit the rules, reach Anki, or skip a step — the driver spawns them
 # without those tools. That inversion — script drives, agent is a sub-call — is what makes this a
 # harness rather than a toolbox the agent picks up.
 
@@ -443,10 +383,33 @@ AUTHOR_SCHEMA = {
 }
 
 
+def corpus_by_template():
+    """Group the owner-reviewed corpus cards by their strict_shape template, so prompts can show
+    the author/reviewer real examples of each shape."""
+    from strict_shape import classify_card
+    buckets = {}
+    if not os.path.exists(CORPUS_OUT):
+        return buckets
+    for line in open(CORPUS_OUT, encoding="utf-8"):
+        if line.strip():
+            rec = json.loads(line)
+            r = classify_card({"type": "cloze", "text": rec["fields"]["Text"]})
+            if r.ok:
+                buckets.setdefault(r.template, []).append(rec["fields"]["Text"])
+    return buckets
+
+
+def examples_block(buckets):
+    out = ["\n\n===== reference-corpus examples, by shape (a card should look like these) ====="]
+    for tpl in sorted(buckets):
+        out.append(f"\n-- {tpl} --")
+        out += ["  " + t.replace("\n", " ") for t in buckets[tpl][:3]]
+    return "\n".join(out)
+
+
 def _author_system_prompt():
     """Authoring standards: the okf rulebook + corpus examples, oriented to WRITING cards. The
     sub-call reads the sources itself (read-only tools); we hand it the rules it must obey."""
-    from review_loop import corpus_by_template, examples_block          # reuse, no divergence
     okf = os.path.join(HERE, "okf")
     parts = ["You are a flashcard AUTHOR for an Anki cloze deck. Turn the deck's OWN source material "
              "into cloze cards that obey the rules below and look like the reference corpus.\n"
@@ -565,7 +528,6 @@ REVIEW_SCHEMA = {
 
 
 def _review_system_prompt():
-    from review_loop import corpus_by_template, examples_block
     okf = os.path.join(HERE, "okf")
     parts = ["You are a strict flashcard REVIEWER. For EACH card, compare it to the style guide and "
              "the corpus examples below, and return one verdict:\n"
@@ -771,7 +733,7 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("run", help="THE harness: author -> gate -> review -> commit, end to end")
+    p = sub.add_parser("run", help="THE pipeline: create -> review -> fix -> re-review (one status file)")
     p.add_argument("deck_dir", help="the deck folder (with slides rendered + sources extractable)")
     p.add_argument("--deck", required=True, help="target Anki deck name")
     p.add_argument("--slug", help="slide slug for slide::<slug>-NN tags")
@@ -790,25 +752,8 @@ def main():
     p = sub.add_parser("sources", help="extract PDFs/transcripts -> out/sources/*.txt")
     p.add_argument("deck_dir"); p.set_defaults(fn=cmd_sources)
 
-    p = sub.add_parser("gate", help="strict_shape mold gate")
-    p.add_argument("cards"); p.set_defaults(fn=cmd_gate)
-
-    p = sub.add_parser("dedupe", help="content_check near-duplicate report")
-    p.add_argument("cards"); p.set_defaults(fn=cmd_dedupe)
-
     p = sub.add_parser("media", help="push slide images into Anki media")
     p.add_argument("out_dir"); p.set_defaults(fn=cmd_media)
-
-    p = sub.add_parser("insert", help="[preview only] the un-gated write was removed — use commit/run")
-    p.add_argument("cards"); p.add_argument("--deck", required=True)
-    p.add_argument("--dry-run", action="store_true")
-    p.add_argument("--suspend-flagged", action="store_true",
-                   help="suspend any note tagged flag::* (low-yield / beyond-scope) as required by "
-                        "okf/rules/yield.md — the owner unsuspends what they want")
-    p.add_argument("--tag-reviewed", action="store_true",
-                   help="tag exactly the notes this call adds src::reviewed (use only when the "
-                        "cards have actually been through review)")
-    p.set_defaults(fn=cmd_insert)
 
     p = sub.add_parser("commit", help="write a reviewed cards.jsonl to Anki (approved + held by status)")
     p.add_argument("cards"); p.add_argument("--deck", required=True)
@@ -816,9 +761,6 @@ def main():
                    help="ship only status==approved; skip the held cards")
     p.add_argument("--dry-run", action="store_true", help="report what would be written; touch nothing")
     p.set_defaults(fn=cmd_commit)
-
-    p = sub.add_parser("bless", help="record gate/rule/corpus hashes into manifest.lock (deliberate)")
-    p.set_defaults(fn=cmd_bless)
 
     p = sub.add_parser("corpus", help="pull the style reference corpus from Anki")
     p.add_argument("--deck", default=CORPUS_DECK)

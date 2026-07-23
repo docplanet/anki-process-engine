@@ -32,46 +32,44 @@ cloze cards, choose what to cloze, apply markup and hints, tag provenance. **Add
 outside knowledge, no synthesized framing, no coined terminology. If a fact or term isn't in the
 source, it doesn't go on the card.
 
-## The shape of it — the harness inverts control
+## The shape of it — one driver, four steps, nothing dropped
 
-**You run a driver; the agent is only ever a constrained sub-call.** This is the difference between
-a harness and a toolbox: the pipeline is not a set of scripts an agent decides to run in order — it
-is a script (`build_deck run`) that *you* (or a scheduler) invoke, which orchestrates every step
-itself and is the only thing that writes to Anki. Claude is called into the line for exactly two
-jobs and cannot reach around them.
+**You run a driver; the agent is only ever a constrained sub-call.** `build_deck run` is a script
+*you* (or a scheduler) invoke; it orchestrates the whole pipeline and is the only thing that writes
+to Anki. It works over **one status-tracked `cards.jsonl`** — every card carries a `status`
+(`draft`/`approved`/`needs-fix`/`cut`/`held`) + a `note`, and **no card is ever deleted**: a card
+that fails is *marked* with the reason, so you can follow any card through the steps by reading one
+file.
 
 ```
 you run:  build_deck run <deck_dir> --deck "<name>"
              │   the driver orchestrates; it is the ONLY writer to Anki
-  sources → 🧠 author → gate → dedupe → 🧠 review → commit → sync
-            (read-only)                 (tool-less)    └ ships only signed passes ┘
+  1 create → 2 review → 3 fix → 4 re-review     (loop 2–3 until nothing is needs-fix)
+  🧠 author    gate + 🧠 reviewer   🧠 author       then commit approved → Anki
+  (read-only)  (tool-less)          (read-only)
 ```
 
-- **author** is a sub-process spawned with **read-only tools** (`--allowedTools "Read Grep Glob"`).
-  It reads the slides, images, and transcript and *returns card drafts* — the driver writes them. It
-  has no write/Bash/Anki tools, so it **cannot** edit a rule, touch Anki, run `commit`, or skip a
-  station. "Fixed code the agent can't touch" holds *by construction*, not by a lock.
-- **review** is `review_loop.py` — a fresh, **tool-less** Claude per card returning
-  `pass`/`fix`/`hold`/`cut`. A `fix` re-enters the full loop; nothing ships on the verdict that wrote
-  it.
-- **commit** is the barrier: it re-runs the gate + mechanical review, requires a signed `pass` for
-  each card's exact content (a hash — edit a card after review and its pass is void), and refuses the
-  whole batch if the rules changed since `bless` (checked against `manifest.lock`). It is the sole
-  live-write path; `insert`'s un-gated write was removed.
+- **create** — the author is a sub-process spawned with **read-only tools** (`Read Grep Glob`). It
+  reads slides, images, and transcript and *returns card drafts* — the driver writes them. With no
+  write/Bash/Anki tools it **cannot** edit a rule, touch Anki, or skip a step. "Fixed code the agent
+  can't touch" holds *by construction*.
+- **review** — the mechanical shape check (`strict_shape`) + verbatim-quote check (`check_cards`)
+  **mark** a bad card `needs-fix` *with the reason* (never delete it); then a fresh **tool-less**
+  reviewer flags each remaining card `approved` / `needs-fix` / `cut` + a note. The reviewer does not
+  rewrite.
+- **fix** — the author rewrites `needs-fix` cards from the notes, back to `draft`.
+- **re-review** — loop until nothing is `needs-fix`; anything unresolved after the round budget
+  becomes `held` (surfaced, in the file). `commit` then writes `approved` (tagged `src::reviewed`)
+  and `held` (tagged `flag::held`, suspended) to Anki.
 
 | Path | Role |
 |---|---|
-| [`classes/ISF/build_deck.py`](classes/ISF/build_deck.py) | **the driver** — `run` (the harness) plus the deterministic steps `slides · sources · gate · dedupe · media · commit · bless · corpus · sync`. `run` orchestrates; `commit` is the barrier; `bless` re-records the ruleset hashes. |
-| [`classes/ISF/strict_shape.py`](classes/ISF/strict_shape.py) | **the gate** — hard pass/fail card shape (image-recognition cards exempt). Shape-valid ≠ reviewed. |
-| [`classes/ISF/check_cards.py`](classes/ISF/check_cards.py) | **mechanical review** — verbatim `Source:` quotes, hints, cloze count, media (~10s for a deck) |
-| [`classes/ISF/review_loop.py`](classes/ISF/review_loop.py) | **the evaluator** — one model verdict per card (`pass`/`fix`/`hold`/`cut`) against the rules + corpus; writes the signed, hash-keyed verdict ledger `commit` reads |
-| [`classes/ISF/_harness.py`](classes/ISF/_harness.py) | shared spine — the card content-hash and the `manifest.lock` integrity check, used by both `commit` and the evaluator |
-| [`classes/ISF/content_check.py`](classes/ISF/content_check.py) | deck-level near-duplicate / over-carding detector |
-| `classes/ISF/reference/style_corpus.jsonl` | the **style authority** — owner-reviewed cards, pulled by `build_deck corpus`; `wrong-*` cards excluded |
-| `classes/ISF/manifest.lock` | blessed SHA-256 of every gate script, rule file, and the corpus — `commit` refuses if any drifted since `bless` |
-| `classes/ISF/lint_cards.py` | parsing primitives the gate imports. **Not a style check** — its thresholds are the retired AnKing calibration; see its header. |
+| [`classes/ISF/build_deck.py`](classes/ISF/build_deck.py) | **the driver** — `run` (the pipeline) + `commit` (write by status) + the deterministic steps `slides · sources · media · corpus · sync`. Holds the author/review sub-call logic. |
+| [`classes/ISF/strict_shape.py`](classes/ISF/strict_shape.py) | **the shape gate** — hard pass/fail card shape (`classify_card`; image-recognition cards exempt). Shape-valid ≠ reviewed. |
+| [`classes/ISF/check_cards.py`](classes/ISF/check_cards.py) | **mechanical checks** — verbatim `Source:` quotes, hints, cloze count, media (`check_card`) |
+| `classes/ISF/reference/style_corpus.jsonl` | the **style authority** — owner-reviewed cards, pulled by `build_deck corpus`; `wrong-*` cards excluded. Loaded (as examples) into the author + reviewer prompts. |
 | [`anki-mcp-server/`](anki-mcp-server/) | TypeScript AnkiConnect MCP server (note CRUD + review stats) |
-| `tests/` | golden tests for the gate; the fixture is the retired AnKing deck, kept only as a structural regression guard — **not** the style authority |
+| `tests/` | golden tests for `strict_shape` |
 
 **Card style is settled by looking at real cards**, not by reading prose. The reference corpus is
 the owner-reviewed deck `ISF::Test 2::Biochemistry::Amino Acid Structures`; `build_deck corpus`
@@ -81,22 +79,24 @@ pulls it to `classes/ISF/reference/style_corpus.jsonl`.
 classes/ISF/.venv/bin/python classes/ISF/build_deck.py --help
 ```
 
-## Review is a script plus a read — never a subagent fan-out
+## Review: mechanical checks + a fresh reviewer per card
 
-`check_cards.py` catches everything mechanical in ~10 seconds; the rest is reading each card against
-the checklist, inline. Fanning review out across per-axis agents once turned a 20-card review into
-two hours (each agent re-read the whole rulebook before judging one card). That anti-pattern, and
-the others earned the hard way — insert-before-review, deck-by-topic, tagging by negative query,
-grading your own output — are written into the docs as prohibitions with the incident attached.
+The mechanical checks (`strict_shape` shape, `check_cards` verbatim quotes) run first and **mark**
+what they catch. The reviewer is a fresh, **tool-less** Claude that sees only the card + the rules +
+corpus examples — separate from the author, so it isn't grading its own work — and flags
+`approved`/`needs-fix`/`cut`. It runs one call per small batch, not a per-axis fan-out (each agent
+re-reading the whole rulebook to judge one card once turned a 20-card review into two hours). The
+hard-won anti-patterns — grading your own output, tagging by negative query, deck-by-topic — are
+written into the rulebook as prohibitions with the incident attached.
 
 ## The working loop
 
 Review cards in Anki → tag anything wrong `wrong-<defect>` → each flagged card gets fixed **and**,
 if it names a rule the book lacks, the defect becomes a rule. Every rule came from a real flagged
-card. Any card edited after review re-enters review — and because a verdict is bound to the card's
-content hash, the tool enforces that automatically: an edited card no longer matches its old `pass`.
-The evaluator (`review_loop.py`) returns `pass`/`fix`/`hold`/`cut`; a card it can't confidently
-approve becomes **`hold`** (queued for a human in `out/holds.jsonl`), never a silent pass.
+card. Inside `build_deck run` the same discipline is mechanical: a `needs-fix` card is re-authored
+and **re-reviewed** before it can be `approved`; a card the reviewer can't confidently pass becomes
+`held` (surfaced in the status file, and shipped to Anki suspended under `flag::held`), never a
+silent pass.
 
 ## Setup
 

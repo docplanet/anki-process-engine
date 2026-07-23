@@ -117,5 +117,6 @@ card's `Extra`?
 
 ---
 
-The mechanical gate (`build_deck gate`) runs alongside this and checks shape only. **It cannot see
-anything on this list.** A card that passes the gate has not been reviewed.
+The mechanical shape gate (`strict_shape`, run inside the review step of `build_deck run`) checks
+shape only. **It cannot see anything on this list** — a card that clears the gate has not been
+reviewed. Everything above is the reviewer's job.
