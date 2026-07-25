@@ -24,11 +24,17 @@ English; the clozes only choose *which concepts get tested*.
 # Rule
 
 1. **The card is a complete sentence stating one fact (or one short causal chain).**
-2. **Cloze every testable role in that fact** — the subject, the value, and each node of a
-   relationship. A role that matters is a role you test; do not leave it as un-clozed prose. In
-   particular, **the condition a fact hinges on is a testable role, not free context** — "the
-   carboxyl group is deprotonated at physiological pH" hinges on *physiological pH*, so cloze it;
-   leaving it visible tests a peripheral piece.
+2. **Cloze every testable TERM in that fact** — the subject when it is a term to recall, the answer,
+   and each node of a relationship. A term that matters is one you test; do not leave a testable term
+   as un-clozed prose. In particular, **the condition a fact hinges on is a testable value, not free
+   context** — "the carboxyl group is deprotonated at physiological pH" hinges on *physiological pH*,
+   so cloze it; leaving it visible tests a peripheral piece.
+   **Cloze the `<b>` subject when it is itself a named term the student must recall** ('lacunae',
+   'osteon') — the corpus's most common card clozes both the subject and the answer. **Leave the
+   subject visible only when it is the general FRAME**, not a word being tested (like 'amino acids' in
+   "`<b>`amino acids`</b>` have {{c1::(S)}} configuration"). It is a JUDGMENT, never a blanket rule
+   either way — a past rulebook wrongly required ALL subjects clozed (see [style.md](../style.md)); the
+   fix is not to swing to never-cloze, but to ask: **would the student need to produce this word?**
 3. **Never more than 3 distinct clozes. Two is typical.**
    **"Typical" is an observation, not a quota.** One cloze is a fully legitimate card. **Never
    invent a second cloze to reach the typical count, and never replace a defective cloze just to
@@ -108,9 +114,11 @@ in `<i>`:
 
 # Enforcement
 
-- **Mechanical (gate):** `strict_shape` rejects > 3 distinct clozes and a `<b>` subject not
-  inside a cloze (except list headers). It does **not** see an un-clozed testable *value* left as
-  prose, self-answering, complete-span, or whole-insight — **those are the reviewer's job** (the
-  tool-less review step inside `build_deck run`).
+- **No mechanical shape gate.** Shape is judged by the tool-less reviewer against the corpus cards
+  (style.md: the corpus is the authority, its stats are "not limits to enforce"). `strict_shape.py`
+  never rejected a visible bold subject (it always allowed templates T2/T3), and as of this change it
+  no longer governs `run`/`insert` at all — it survives only as an optional diagnostic
+  (`build_deck review-deck`). Un-clozed testable *values*, self-answering, complete-span and
+  whole-insight are the reviewer's job.
 - **Judgment:** identify every testable role and cloze it up to the ceiling; split a chain that
   exceeds 3; cut non-testable asides rather than leaving them un-clozed.

@@ -13,6 +13,8 @@ See classes/ISF/okf/process.md for the full procedure.
     build_deck.py sources <deck_dir>                                          extract PDFs/transcript
     build_deck.py media  <out_dir>                                            push slide images to Anki
     build_deck.py corpus [--out <path>]                                       pull the style corpus
+    build_deck.py baseline [--root ISF]                                       snapshot every card (diff base)
+    build_deck.py wrap    [--dry-run]                                         capture your edits -> corrections
     build_deck.py sync                                                        AnkiConnect sync
 
 Anki steps need Anki running with the AnkiConnect add-on (http://127.0.0.1:8765).
@@ -353,6 +355,132 @@ def cmd_corpus(a):
     print(f"{len(notes)} reference cards -> {out}")
 
 
+# ── continuity: baseline snapshot + edit capture ────────────────────────────────
+# The learning signal is your OWN edits. `baseline` snapshots every card's current state to
+# anki_baseline.jsonl; `wrap` re-pulls, diffs each field against that snapshot, records every
+# change (before + after) to corrections.jsonl, then advances the baseline so each edit is
+# captured once. No wrong-* tagging needed — an inline edit IS the correction, and the diff is
+# grounded by construction (it's a change you actually made). Both pulls come live from Anki, so
+# nothing has to be persisted at commit; the note id join key comes from the pull itself.
+BASELINE_ROOT = "ISF"
+BASELINE_OUT = os.path.join(HERE, "reference", "anki_baseline.jsonl")
+CORRECTIONS_OUT = os.path.join(HERE, "corrections.jsonl")  # tracked — the ONE artifact Anki
+# can't regenerate (once the baseline advances, the "before" is gone), so it must NOT live in the
+# git-ignored reference/ dir. The baseline itself stays in reference/: it's rebuildable any time.
+
+
+def _write_jsonl(path, rows):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        for r in rows:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+
+def _load_jsonl(path):
+    if not os.path.exists(path):
+        return []
+    return [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()]
+
+
+def _pull_all(root):
+    """One row per note under `root`: {note_id, deck, model, fields, tags}. `deck` is the note's
+    real (leaf) deck, resolved from its cards (notesInfo doesn't carry it). Unlike `corpus`, this
+    KEEPS wrong-* cards — the whole point is to catch every edit, defect flags included."""
+    nids = invoke("findNotes", query=f'deck:"{root}"')
+    if not nids:
+        return []
+    note_deck = {}
+    for c in invoke("cardsInfo", cards=invoke("findCards", query=f'deck:"{root}"')):
+        note_deck.setdefault(c["note"], c["deckName"])
+    return [{"note_id": n["noteId"], "deck": note_deck.get(n["noteId"], root),
+             "model": n["modelName"],
+             "fields": {k: v["value"] for k, v in n["fields"].items()},
+             "tags": n["tags"]}
+            for n in invoke("notesInfo", notes=nids)]
+
+
+def cmd_baseline(a):
+    """Snapshot every ISF card's current state -> reference/anki_baseline.jsonl — the 'last known
+    state' that `wrap` diffs your edits against. Run once to start (gets every card in); re-run to
+    refresh. Cull by narrowing --root or deleting rows from the file."""
+    snap = _pull_all(a.root)
+    if not snap:
+        sys.exit(f"no notes under {a.root!r} — is Anki open and the deck name right?")
+    from collections import Counter
+    _write_jsonl(a.out or BASELINE_OUT, snap)
+    print(f"baseline: {len(snap)} card(s) -> {a.out or BASELINE_OUT}")
+    for deck, n in sorted(Counter(c["deck"] for c in snap).items()):
+        print(f"  {n:4d}  {deck}")
+
+
+def _norm(s):
+    # Anki stores fields as HTML; ignore only surrounding whitespace so a trivial resave isn't
+    # logged as an edit. Any real content change still differs.
+    return (s or "").strip()
+
+
+def cmd_wrap(a):
+    """Capture the edits you've made in Anki since the last baseline: pull every card now, diff
+    each field against reference/anki_baseline.jsonl, and append every change to a PIPELINE-made
+    card (before + after) to corrections.jsonl (tracked). Edits to imported AnKing/Pixorize decks
+    are skipped — not our content, and copyrighted. Then advance the baseline so each edit is
+    recorded once. Run `baseline` first."""
+    base_path = a.baseline or BASELINE_OUT
+    old = {c["note_id"]: c for c in _load_jsonl(base_path)}
+    if not old:
+        sys.exit(f"no baseline at {base_path} — run `build_deck baseline` first")
+    now = _pull_all(a.root)
+    now_by_id = {c["note_id"]: c for c in now}
+    ts = datetime.datetime.now().isoformat(timespec="seconds")
+
+    corrections, skipped = [], 0
+    for nid, cur in now_by_id.items():
+        prev = old.get(nid)
+        if prev is None:
+            continue  # new card since baseline — not an edit; it joins the advanced baseline
+        changed = [f for f in set(prev["fields"]) | set(cur["fields"])
+                   if _norm(prev["fields"].get(f, "")) != _norm(cur["fields"].get(f, ""))]
+        if not changed:
+            continue
+        # Learn ONLY from cards the pipeline made (the Custom Cloze model). Edits to imported
+        # AnKing/Pixorize decks teach the author/reviewer nothing about OUR generation and are
+        # copyrighted — the baseline still tracks them (so they advance and don't re-surface),
+        # but they never enter the memory, which keeps corrections.jsonl safe to commit.
+        if cur.get("model") != MODEL:
+            skipped += 1
+            continue
+        corrections.append({"note_id": nid, "deck": cur.get("deck"), "kind": "edit",
+                            "changed": changed, "before": prev["fields"],
+                            "after": cur["fields"], "ts": ts})
+    for nid in (n for n in old if n not in now_by_id):           # deletions
+        if old[nid].get("model") != MODEL:
+            skipped += 1
+            continue
+        corrections.append({"note_id": nid, "deck": old[nid].get("deck"), "kind": "deleted",
+                            "changed": list(old[nid]["fields"]), "before": old[nid]["fields"],
+                            "after": None, "ts": ts})
+    new = [nid for nid in now_by_id if nid not in old]
+    n_edit = sum(c["kind"] == "edit" for c in corrections)
+    n_del = len(corrections) - n_edit
+
+    if a.dry_run:
+        print(f"DRY RUN — {n_edit} edit(s) + {n_del} deletion(s) would log, {len(new)} new, "
+              f"{skipped} non-pipeline skipped. Nothing written; baseline unchanged.")
+        for c in corrections[:15]:
+            print(f"  {c['kind']:7} {c['deck']}  fields={c['changed']}  nid={c['note_id']}")
+        return
+
+    if corrections:
+        with open(CORRECTIONS_OUT, "a", encoding="utf-8") as f:
+            for c in corrections:
+                f.write(json.dumps(c, ensure_ascii=False) + "\n")
+    _write_jsonl(base_path, now)   # advance the baseline to now
+    print(f"wrap: logged {n_edit} edit(s) + {n_del} deletion(s) -> "
+          + (CORRECTIONS_OUT if corrections else "(nothing to log)")
+          + f"  |  {len(new)} new, {skipped} non-pipeline skipped")
+    print(f"  baseline advanced to {len(now)} card(s)")
+
+
 def cmd_sync(a):
     invoke("sync")
     print("synced")
@@ -383,28 +511,19 @@ AUTHOR_SCHEMA = {
 }
 
 
-def corpus_by_template():
-    """Group the owner-reviewed corpus cards by their strict_shape template, so prompts can show
-    the author/reviewer real examples of each shape."""
-    from strict_shape import classify_card
-    buckets = {}
+def examples_block():
+    """The owner-reviewed corpus cards themselves, dropped into the prompt as the STYLE AUTHORITY.
+    style.md is explicit: shape is settled by these cards, NOT by a rule or a template classifier —
+    'read the cards, don't consult a rule.' So we present the raw cards, ungrouped, no strict_shape."""
     if not os.path.exists(CORPUS_OUT):
-        return buckets
-    for line in open(CORPUS_OUT, encoding="utf-8"):
-        if line.strip():
-            rec = json.loads(line)
-            r = classify_card({"type": "cloze", "text": rec["fields"]["Text"]})
-            if r.ok:
-                buckets.setdefault(r.template, []).append(rec["fields"]["Text"])
-    return buckets
-
-
-def examples_block(buckets):
-    out = ["\n\n===== reference-corpus examples, by shape (a card should look like these) ====="]
-    for tpl in sorted(buckets):
-        out.append(f"\n-- {tpl} --")
-        out += ["  " + t.replace("\n", " ") for t in buckets[tpl][:3]]
-    return "\n".join(out)
+        return ""
+    cards = [json.loads(l)["fields"]["Text"].replace("\n", " ")
+             for l in open(CORPUS_OUT, encoding="utf-8") if l.strip()]
+    header = ("\n\n===== REFERENCE CORPUS — your cards must look like these =====\n"
+              "These owner-reviewed cards DEFINE the house style. Match them. Where a written rule "
+              "and these cards disagree, THE CARDS WIN. Note they do NOT all cloze the bold subject "
+              "— a visible <b> subject is normal here; never force-cloze it.\n")
+    return header + "\n".join("  " + c for c in cards)
 
 
 def _author_system_prompt():
@@ -420,7 +539,7 @@ def _author_system_prompt():
     for rel in ("index.md", "style.md", "review-checklist.md", "rules/card-structure.md",
                 "rules/yield.md", "rules/accuracy.md", "rules/no-duplicate.md"):
         parts.append(f"\n\n===== {rel} =====\n" + open(os.path.join(okf, rel), encoding="utf-8").read())
-    return "".join(parts) + examples_block(corpus_by_template())
+    return "".join(parts) + examples_block()
 
 
 def _author_call(task, deck_dir, model, kind, audit_round):
@@ -486,12 +605,17 @@ def author_create(deck_dir, model, slug=None, audit_round=0):
         f"Author cloze flashcards for this lecture. Read its sources with the Read tool (absolute "
         f"paths): the .txt files in {base}/sources/ (objectives, transcript, slide text) and the slide "
         f"images {base}/slides/*.jpg.\n\n"
-        f"THE CARD SHAPE — copy the corpus examples in your instructions EXACTLY. Every card looks like:\n"
-        f"  {{{{c1::<b>SUBJECT</b>::hint?}}}} …sentence… {{{{c2::<i>ANSWER</i>::hint?}}}}\n"
-        f"  • Cloze the SUBJECT (bold <b>) as c1 AND the ANSWER (italic <i>) as c2 — two clozes is the norm.\n"
+        f"THE CARD SHAPE — make your cards LOOK LIKE the reference-corpus examples in your instructions. "
+        f"Roles: <b> = subject, <i> = answer, <u> = facet.\n"
+        f"  • CLOZE EVERY TESTABLE TERM. If the <b> subject is itself a term the student must RECALL "
+        f"(a named structure/entity — 'lacunae', 'osteon', 'canaliculi'), cloze it as c1 — the corpus's "
+        f"single most common card clozes BOTH the subject and the answer. Leave the subject VISIBLE only "
+        f"when it is the general FRAME of the question, not a word being tested (e.g. '<b>amino acids</b> "
+        f"have {{{{c1::<i>(S)</i>}}}} configuration' — 'amino acids' is the frame). Ask: would the student "
+        f"need to PRODUCE this word? If yes, cloze it — never leave a testable term as visible prose.\n"
         f"  • The <i> answer is the LAST thing on the card. Nothing testable comes after it.\n"
         f"  • Exactly ONE <i> answer, ONE fact per card. A chain (A→B→C) becomes SEPARATE one-answer cards.\n"
-        f"  • Optional teal <u> facet for the aspect being asked. A list of ≤3 items = one inline comma cloze.\n\n"
+        f"  • Every cloze gets a hint, phrased as an English question.\n\n"
         f"COVERAGE: every numbered objective below must get at least one card.\n"
         f"SOURCE: each card's `extra` = the slide <img> + a VERBATIM `<b>Source:</b> \"quote\"` copied "
         f"from a source you read. If you can't find a real quote for a fact, skip it — never a placeholder.\n"
@@ -500,18 +624,35 @@ def author_create(deck_dir, model, slug=None, audit_round=0):
     return _author_call(task, deck_dir, model, "author", audit_round)
 
 
-def author_fix(deck_dir, model, needs_fix, audit_round):
-    """STEP 3 — the author rewrites each flagged card given the reviewer's/​gate's `note`. Same fact,
-    fix only the named problem, match the corpus shape. Returns ({id: corrected_card}, cost)."""
-    lines = ["Revise these cards. Each has a PROBLEM to fix. Return the corrected card with the SAME "
-             "id and the SAME fact — fix ONLY the flagged problem, and match the corpus card shape "
-             "(cloze the <b> subject as c1 and the <i> answer as c2, the <i> answer LAST, exactly one "
-             "<i> answer per card, keep a verbatim Source quote in extra).\n"]
+def author_fix(deck_dir, model, needs_fix, audit_round, source_hint=None):
+    """STEP 3 — the author rewrites each flagged card. Two powers beyond a plain rewrite:
+      • SPLIT — a chain / compound / buried-answer card becomes SEVERAL one-answer cards (never
+        resolve a compound by deleting a real fact).
+      • VERIFY — when a source is given, check a flagged 'not in source' fact against the lecture
+        before removing it; if the lecture supports it, keep the fact and fix the citation instead.
+    Returns (list_of_cards, cost). A split reuses the original id for the first card and '<id>-b',
+    '<id>-c' for the rest, so the loop can map results back to the card they came from."""
+    lines = ["Revise these cards. Each has a PROBLEM to fix. Rules:\n"
+             "• Fix ONLY the flagged problem, keep the SAME fact(s), and match the corpus shape: "
+             "the <i> answer is the LAST thing (exactly one <i> answer per card), every cloze has an "
+             "English-question hint, a verbatim Source quote in `extra`. CLOZE the <b> subject when it "
+             "is a term the student must recall (a named structure/entity — 'lacunae', 'osteon'); "
+             "leave it visible only when it is the general frame, not a word being tested.\n"
+             "• SPLIT when the problem is a CHAIN / COMPOUND / BURIED ANSWER (more than one fact, or "
+             "a trailing testable detail): return SEVERAL one-answer cards, not one. Reuse the given "
+             "id for the first and ids '<id>-b', '<id>-c' for the rest. NEVER resolve a compound by "
+             "DELETING a real fact — split it out instead.\n"]
+    if source_hint:
+        lines.append(f"• VERIFY, don't delete: the lecture source is at {source_hint} — Read/Grep "
+                     f"it. Before removing a fact the note calls 'added' or 'not in source', CHECK "
+                     f"the lecture. If the lecture supports the fact, KEEP it and REPLACE the "
+                     f"verbatim Source quote in `extra` with a real line from the lecture that "
+                     f"covers it. Only drop a fact the lecture genuinely does not support.\n")
     for c in needs_fix:
         lines.append(f"\n--- id {c.get('id')} ---\nText: {c.get('text','')}\nExtra: {c.get('extra','')}"
                      f"\nPROBLEM: {c.get('note','')}")
     cards, cost = _author_call("\n".join(lines), deck_dir, model, "fix", audit_round)
-    return {c.get("id"): c for c in cards}, cost
+    return cards, cost
 
 
 # ── review sub-call (STEP 2 — tool-less; FLAGS a status + note, never rewrites) ───────────────────
@@ -529,21 +670,24 @@ REVIEW_SCHEMA = {
 
 def _review_system_prompt():
     okf = os.path.join(HERE, "okf")
-    parts = ["You are a strict flashcard REVIEWER. For EACH card, compare it to the style guide and "
-             "the corpus examples below, and return one verdict:\n"
-             "  approved — matches the corpus shape and is worth knowing. Approve ONLY what you would "
-             "not change.\n"
-             "  needs-fix — it breaks a nameable rule (subject not clozed, <i> answer not last, two red "
-             "answers, a chain fact that must be split, an unmarked facet, under-clozed, a fragmented "
-             "enumeration). Put the SPECIFIC fix in `note` (e.g. 'cloze the subject <b>catalytic site</b> "
-             "as c1'). Do NOT rewrite the card — the author fixes it from your note.\n"
+    parts = ["You are a strict flashcard REVIEWER. For EACH card, compare it to the REFERENCE CORPUS "
+             "cards below (the style authority) and return one verdict:\n"
+             "  approved — it looks like the corpus cards and is worth knowing. Approve ONLY what you "
+             "would not change. A visible (un-clozed) <b> subject is fine WHEN it is the general FRAME "
+             "of the question (like 'amino acids'); it is a DEFECT when the subject is itself a term the "
+             "student must recall (a named structure — 'lacunae', 'osteon') left un-clozed.\n"
+             "  needs-fix — it breaks a rule the CORPUS actually follows (a TESTABLE-TERM subject left "
+             "un-clozed, <i> answer not last, two red <i> answers, a chain fact that must be split, "
+             "under-clozed answer, a fragmented enumeration). Put the SPECIFIC fix in `note`. Do NOT "
+             "rewrite the card — the author fixes it from your note.\n"
              "  cut — low yield (restates a bullet, vacuous filler) OR the fact is wrong/unsupported. "
              "Say why in `note`.\n"
-             "Grade STYLE against the corpus, not on whether the card 'reads okay'.\n"]
+             "Grade STYLE against the corpus CARDS, not a remembered rule, and not on whether the card "
+             "'reads okay'. If a written rule and the cards disagree, the cards win.\n"]
     for rel in ("index.md", "style.md", "review-checklist.md", "rules/card-structure.md",
                 "rules/yield.md", "rules/accuracy.md", "rules/no-duplicate.md"):
         parts.append(f"\n\n===== {rel} =====\n" + open(os.path.join(okf, rel), encoding="utf-8").read())
-    return "".join(parts) + examples_block(corpus_by_template())
+    return "".join(parts) + examples_block()
 
 
 def review_all(cards, model, batch=10):
@@ -572,6 +716,51 @@ def review_all(cards, model, batch=10):
         for c in chunk:
             out.setdefault(c["id"], {"verdict": "needs-fix", "note": "no verdict returned — re-review"})
     return out, total
+
+
+def _slug(s):
+    return "".join(ch if ch.isalnum() else "-" for ch in s).strip("-").lower()
+
+
+def cmd_review_deck(a):
+    """Feed an EXISTING Anki deck through the harness's tool-less reviewer (read-only). Pulls every
+    pipeline card (Custom Cloze) in --deck, runs strict_shape + the reviewer over it, and writes a
+    punch-list (verdict + fix-note per card) to --out. Anki is NOT touched — this only assesses. Use
+    it to triage a hand-made deck; then fix cards in Anki and `wrap` captures the fixes."""
+    from strict_shape import classify_card
+    allc = _pull_all(a.deck)
+    snap = [c for c in allc if c.get("model") == MODEL]
+    if not snap:
+        sys.exit(f"no Custom-Cloze cards in {a.deck!r} — is the deck name right, and Anki open?")
+    cards = [{"id": str(c["note_id"]), "text": c["fields"].get("Text", ""),
+              "extra": c["fields"].get("Extra", ""), "source": c["fields"].get("Source", "")}
+             for c in snap]
+    print(f"reviewing {len(cards)} Custom-Cloze card(s) from {a.deck!r} "
+          f"— {(len(cards) + 9) // 10} tool-less reviewer batch(es)…")
+    verdicts, cost = review_all(cards, a.model)
+    rows = []
+    for c in cards:
+        v = verdicts.get(c["id"], {"verdict": "needs-fix", "note": "no verdict returned"})
+        shape = classify_card({"type": "cloze", "text": c["text"]})
+        rows.append({"note_id": c["id"], "verdict": v["verdict"], "note": v["note"],
+                     "shape_ok": bool(shape.ok), "text": c["text"]})
+    order = {"cut": 0, "needs-fix": 1, "approved": 2}
+    rows.sort(key=lambda r: (order.get(r["verdict"], 1), r["shape_ok"]))
+    out = a.out or os.path.join(HERE, "out", f"review-{_slug(a.deck)}.jsonl")
+    _write_jsonl(out, rows)
+    from collections import Counter
+    t = Counter(r["verdict"] for r in rows)
+    bad_shape = sum(1 for r in rows if not r["shape_ok"])
+    print(f"\n  approved {t.get('approved', 0)}  |  needs-fix {t.get('needs-fix', 0)}  |  "
+          f"cut {t.get('cut', 0)}   ·   {bad_shape} fail strict_shape   ·   ${cost:.2f}")
+    print(f"  full punch-list -> {out}\n")
+    for r in rows:
+        if r["verdict"] != "approved":
+            flag = "" if r["shape_ok"] else " [shape]"
+            print(f"  [{r['verdict']:9}]{flag} {r['note']}")
+    skipped = len(allc) - len(snap)
+    if skipped:
+        print(f"\n  ({skipped} non-Custom-Cloze card(s) skipped — not pipeline-shaped)")
 
 
 def ocr_slides(deck_dir, model):
@@ -609,6 +798,77 @@ def ocr_slides(deck_dir, model):
     return total
 
 
+def review_fix_loop(cards, deck_dir, model, max_rounds, mechanical, save=None, source_hint=None):
+    """STEPS 2–4 of the pipeline — review → fix → re-review over a list of status-carrying cards,
+    IN PLACE, bounded by `max_rounds`. Shared by `run` (after it authors drafts) and `insert`
+    (after it seeds drafts from an existing Anki deck) so there is ONE loop, not two.
+    `mechanical(card) -> [reasons]` is the deterministic gate (shape, plus verbatim-source when
+    sources exist); `save(cards)` persists after each mutation if given. Nothing is dropped — a
+    card the author can't resolve becomes `held`. Returns (cards, total_cost)."""
+    total = 0.0
+    def _save():
+        if save:
+            save(cards)
+    for rnd in range(1, max_rounds + 2):
+        drafts = [c for c in cards if c.get("status") == "draft"]
+        if not drafts:
+            break
+        # 2a mechanical marking — flags needs-fix with the exact reason; NEVER deletes a card
+        to_review = []
+        for c in drafts:
+            m = mechanical(c)
+            if m:
+                c["status"] = "needs-fix"; c["note"] = "; ".join(m)
+            else:
+                to_review.append(c)
+        # 2b tool-less reviewer on the mechanically-clean drafts -> approved / needs-fix / cut
+        if to_review:
+            print(f"· step 2 — round {rnd}: reviewing {len(to_review)} card(s)…")
+            verdicts, cost = review_all(to_review, model); total += cost
+            for c in to_review:
+                v = verdicts.get(c["id"], {"verdict": "needs-fix", "note": "no verdict — re-review"})
+                c["status"] = v["verdict"]; c["note"] = v.get("note", "")
+        _save()
+        need = [c for c in cards if c.get("status") == "needs-fix"]
+        if not need:
+            break
+        if rnd > max_rounds:
+            for c in need:
+                c["status"] = "held"                 # ran out of fix rounds — surfaced, not dropped
+            break
+        # 3 the author rewrites needs-fix cards (may SPLIT one -> several). Map every returned card
+        #   back onto the deck by id: a known id UPDATES that card; a new '<id>-b' APPENDS a split-
+        #   off. Re-fixing a card that already split thus updates its split-off in place instead of
+        #   spawning a duplicate each round.
+        print(f"· step 3 — round {rnd}: author fixing {len(need)} card(s)…")
+        returned, cost = author_fix(deck_dir, model, need, audit_round=rnd, source_hint=source_hint)
+        total += cost
+        by_id = {c["id"]: c for c in cards}
+        for c in need:
+            oid = c["id"]
+            got = [rc for rc in returned if rc.get("text") and
+                   (str(rc.get("id")) == oid or str(rc.get("id", "")).startswith(oid + "-"))]
+            for rc in got:
+                rid = str(rc["id"])
+                tgt = by_id.get(rid)
+                if tgt is None:                           # a genuinely new split-off
+                    tgt = {"id": rid, "source": c.get("source", ""), "tags": c.get("tags", []),
+                           "extra": c.get("extra", "")}
+                    cards.append(tgt); by_id[rid] = tgt
+                tgt["text"] = rc["text"]
+                if rc.get("extra"):
+                    tgt["extra"] = rc["extra"]
+                tgt["status"] = "draft"; tgt["note"] = ""
+            # if nothing mapped to this card, it stays needs-fix (retried next round or held)
+        _save()
+    # any card still needs-fix (author couldn't resolve it) -> held: surfaced, never dropped
+    for c in cards:
+        if c.get("status") == "needs-fix":
+            c["status"] = "held"
+    _save()
+    return cards, total
+
+
 def cmd_run(a):
     """THE driver — your 4 steps over ONE status-tracked cards.jsonl. NOTHING is ever deleted:
     every card stays in the file with a status (draft / approved / needs-fix / cut / held) + a note
@@ -619,7 +879,6 @@ def cmd_run(a):
       3 fix      the author rewrites needs-fix cards from the note, back to draft
       4 re-review  loop 2-3 until nothing is needs-fix (bounded; leftovers -> held, still in the file)
     """
-    from strict_shape import classify_card
     from check_cards import load_sources, load_media, check_card
     from collections import Counter
     deck_dir = a.deck_dir
@@ -648,14 +907,11 @@ def cmd_run(a):
                 f.write(json.dumps(c, ensure_ascii=False) + "\n")
 
     def mechanical(c):
-        """Deterministic checks (shape + verbatim source) -> reasons list (empty = clean)."""
-        reasons = []
-        sr = classify_card({"type": "cloze", "text": c.get("text", "")})
-        if not sr.ok:
-            reasons.append("shape: " + ", ".join(sr.reasons))
-        reasons += check_card(c.get("text", ""), c.get("extra", ""), c.get("source", ""),
-                              NB, media, no_media)
-        return reasons
+        """Deterministic checks — PROVENANCE only (verbatim source). SHAPE is judged by the tool-less
+        reviewer against the corpus cards; style.md says the corpus stats are 'not limits to enforce',
+        so there is NO mechanical shape/template gate (strict_shape no longer governs the process)."""
+        return check_card(c.get("text", ""), c.get("extra", ""), c.get("source", ""),
+                          NB, media, no_media)
 
     # ── STEP 1 — create ─────────────────────────────────────────────────────────
     print("· step 1 — authoring draft cards…")
@@ -664,52 +920,10 @@ def cmd_run(a):
     save(cards)
     print(f"  {len(cards)} drafted -> {cards_path}")
 
-    # ── STEPS 2–4 — review / fix / re-review, looping ───────────────────────────
-    for rnd in range(1, a.max_author_rounds + 2):
-        drafts = [c for c in cards if c.get("status") == "draft"]
-        if not drafts:
-            break
-        # 2a mechanical marking — flags needs-fix with the exact reason; NEVER deletes a card
-        to_review = []
-        for c in drafts:
-            m = mechanical(c)
-            if m:
-                c["status"] = "needs-fix"; c["note"] = "; ".join(m)
-            else:
-                to_review.append(c)
-        # 2b tool-less reviewer on the mechanically-clean drafts -> approved / needs-fix / cut
-        if to_review:
-            print(f"· step 2 — round {rnd}: reviewing {len(to_review)} card(s)…")
-            verdicts, cost = review_all(to_review, a.model); total += cost
-            for c in to_review:
-                v = verdicts.get(c["id"], {"verdict": "needs-fix", "note": "no verdict — re-review"})
-                c["status"] = v["verdict"]; c["note"] = v.get("note", "")
-        save(cards)
-        need = [c for c in cards if c.get("status") == "needs-fix"]
-        if not need:
-            break
-        if rnd > a.max_author_rounds:
-            for c in need:
-                c["status"] = "held"                 # ran out of fix rounds — surfaced, not dropped
-            break
-        # 3 the author rewrites needs-fix cards from their notes, back to draft for re-review
-        print(f"· step 3 — round {rnd}: author fixing {len(need)} card(s)…")
-        fixed, cost = author_fix(deck_dir, a.model, need, audit_round=rnd); total += cost
-        for c in need:
-            nc = fixed.get(c["id"])
-            if nc and nc.get("text"):
-                c["text"] = nc["text"]
-                if nc.get("extra"):
-                    c["extra"] = nc["extra"]
-                c["status"] = "draft"; c["note"] = ""    # re-enters review next round
-            # else: no rewrite returned — stays needs-fix, retried next round or held
-        save(cards)
-
-    # any card still needs-fix (author couldn't resolve it) -> held: surfaced to a human, never dropped
-    for c in cards:
-        if c.get("status") == "needs-fix":
-            c["status"] = "held"
-    save(cards)
+    # ── STEPS 2–4 — review / fix / re-review (the shared loop, also used by `insert`) ──────────
+    cards, cost = review_fix_loop(cards, deck_dir, a.model, a.max_author_rounds, mechanical, save,
+                                  source_hint=src_dir if os.path.isdir(src_dir) else None)
+    total += cost
     st = Counter(c.get("status") for c in cards)
     print(f"\n── done | {dict(st)} | ${total:.2f}")
     print(f"  every card is accounted for in {cards_path} — grep by status; nothing was dropped")
@@ -725,6 +939,93 @@ def cmd_run(a):
                          "Source": c.get("source", "")}, "tags": c.get("tags", [])} for c in approved]
     _write_notes(a.deck, approved, notes, out_dir, suspend_flagged=True, tag_reviewed=True, step="run")
     invoke("sync"); print("· synced")
+
+
+def cmd_insert(a):
+    """Insert an EXISTING Anki deck into the harness's review → fix → re-review loop — the SAME
+    loop `run` uses, minus `create` (the cards already exist). Pulls the deck's pipeline cards
+    (Custom Cloze), seeds them as drafts, and runs review_fix_loop with a SHAPE-ONLY gate (verbatim-
+    source checking needs the rendered sources — a follow-up via --deck-dir). Writes the reviewed/
+    fixed result to <work>/out/cards.jsonl, one status per card. Anki is NOT touched — inspect the
+    result, then decide about writing the fixes back into the notes."""
+    from collections import Counter
+    allc = _pull_all(a.deck)
+    snap = [c for c in allc if c.get("model") == MODEL]
+    if not snap:
+        sys.exit(f"no Custom-Cloze cards in {a.deck!r} — is the deck name right, and Anki open?")
+    cards = [{"id": str(c["note_id"]), "text": c["fields"].get("Text", ""),
+              "extra": c["fields"].get("Extra", ""), "source": c["fields"].get("Source", ""),
+              "tags": c.get("tags", []), "status": "draft", "note": ""} for c in snap]
+    work = a.deck_dir or os.path.join(HERE, "out", f"insert-{_slug(a.deck)}")
+    out_dir = os.path.join(work, "out")
+    os.makedirs(out_dir, exist_ok=True)
+    cards_path = os.path.join(out_dir, "cards.jsonl")
+    open(os.path.join(out_dir, "author.audit.jsonl"), "w").close()
+
+    def save(cs):
+        with open(cards_path, "w", encoding="utf-8") as f:
+            for c in cs:
+                f.write(json.dumps(c, ensure_ascii=False) + "\n")
+
+    def mechanical(c):
+        return []   # no mechanical shape/template gate — the tool-less reviewer judges shape vs the corpus
+
+    src = os.path.abspath(a.source) if a.source else None
+    print(f"inserting {len(cards)} card(s) from {a.deck!r} into review→fix→re-review "
+          f"({'source-verified' if src else 'shape-only'} gate, split enabled, "
+          f"{a.max_author_rounds} fix round(s))…")
+    cards, cost = review_fix_loop(cards, work, a.model, a.max_author_rounds, mechanical, save,
+                                  source_hint=src)
+    st = Counter(c.get("status") for c in cards)
+    print(f"\n── {dict(st)}  ·  ${cost:.2f}  ·  {cards_path}")
+    print("  Anki untouched — this is the harness's verdict + fixes, not yet written back.\n")
+    for c in cards:
+        if c.get("status") != "approved":
+            print(f"  [{c.get('status'):8}] nid {c['id']}: {(c.get('note') or '')[:150]}")
+
+
+def cmd_apply(a):
+    """Write a reviewed cards.jsonl (from `insert` or `run`) back to Anki: UPDATE existing notes in
+    place (approved cards whose id is a real note id), ADD approved split-offs / new cards as new
+    notes, and LEAVE held/cut untouched — held originals stay and get tagged flag::needs-human.
+    Updating OVERWRITES a note's current fields, so anything hand-edited since the cards.jsonl was
+    produced is replaced. --dry-run prints the plan and writes nothing."""
+    cards = [json.loads(l) for l in open(a.cards, encoding="utf-8") if l.strip()]
+    dedup = {}
+    for c in cards:
+        dedup[str(c["id"])] = c                    # last row wins — drops any stale duplicate id
+    cards = list(dedup.values())
+    approved = [c for c in cards if c.get("status") == "approved"]
+    held = [c for c in cards if c.get("status") == "held"]
+    existing = set(str(n) for n in invoke("findNotes", query=f'deck:"{a.deck}"'))
+    update = [c for c in approved if str(c["id"]).isdigit() and str(c["id"]) in existing]
+    add = [c for c in approved if c not in update]
+    held_real = [int(c["id"]) for c in held if str(c["id"]).isdigit() and str(c["id"]) in existing]
+    print(f"apply plan for {a.deck!r}:")
+    print(f"  correct (update in place): {len(update)}")
+    print(f"  add (new split-offs/cards): {len(add)}")
+    print(f"  held left untouched: {len(held)}  ({len(held_real)} originals will be flagged)")
+    if a.dry_run:
+        print("DRY RUN — Anki not touched.")
+        return
+    for c in update:
+        invoke("updateNoteFields", note={"id": int(c["id"]),
+               "fields": {"Text": c.get("text", ""), "Extra": c.get("extra", ""),
+                          "Source": c.get("source", "")}})
+    if update:
+        invoke("addTags", notes=[int(c["id"]) for c in update], tags="src::harness-fixed")
+    if add:
+        notes = [{"deckName": a.deck, "modelName": MODEL,
+                  "fields": {"Text": c.get("text", ""), "Extra": c.get("extra", ""),
+                             "Source": c.get("source", "")},
+                  "tags": list(dict.fromkeys((c.get("tags") or []) + ["src::harness-fixed"]))}
+                 for c in add]
+        _write_notes(a.deck, add, notes, os.path.dirname(os.path.abspath(a.cards)),
+                     suspend_flagged=False, tag_reviewed=False, step="apply")
+    if held_real:
+        invoke("addTags", notes=held_real, tags="flag::needs-human")
+    invoke("sync")
+    print(f"· corrected {len(update)} · added {len(add)} · flagged {len(held_real)} held · synced")
 
 
 # ── cli ───────────────────────────────────────────────────────────────────────
@@ -766,6 +1067,38 @@ def main():
     p.add_argument("--deck", default=CORPUS_DECK)
     p.add_argument("--out", default=None)
     p.set_defaults(fn=cmd_corpus)
+
+    p = sub.add_parser("baseline", help="snapshot every ISF card (the diff base wrap compares against)")
+    p.add_argument("--root", default=BASELINE_ROOT, help="top deck to snapshot under (default ISF)")
+    p.add_argument("--out", default=None)
+    p.set_defaults(fn=cmd_baseline)
+
+    p = sub.add_parser("wrap", help="capture your Anki edits since baseline -> corrections.jsonl")
+    p.add_argument("--root", default=BASELINE_ROOT)
+    p.add_argument("--baseline", default=None, help="baseline file (default reference/anki_baseline.jsonl)")
+    p.add_argument("--dry-run", action="store_true",
+                   help="show edits found; write nothing, don't advance the baseline")
+    p.set_defaults(fn=cmd_wrap)
+
+    p = sub.add_parser("insert", help="insert an existing Anki deck into review→fix→re-review (no create)")
+    p.add_argument("--deck", required=True, help="Anki deck to pull the cards from")
+    p.add_argument("--deck-dir", default=None, help="optional working dir / deck folder with rendered sources")
+    p.add_argument("--source", default=None, help="lecture source file/dir the fixer verifies facts against")
+    p.add_argument("--model", default="claude-sonnet-4-5")
+    p.add_argument("--max-author-rounds", type=int, default=2)
+    p.set_defaults(fn=cmd_insert)
+
+    p = sub.add_parser("review-deck", help="feed an existing Anki deck through the tool-less reviewer (read-only)")
+    p.add_argument("--deck", required=True, help="Anki deck name to audit")
+    p.add_argument("--model", default="claude-sonnet-4-5", help="reviewer model")
+    p.add_argument("--out", default=None)
+    p.set_defaults(fn=cmd_review_deck)
+
+    p = sub.add_parser("apply", help="write a reviewed cards.jsonl back to Anki (update existing + add splits)")
+    p.add_argument("cards", help="the cards.jsonl to apply (e.g. out/insert-…/out/cards.jsonl)")
+    p.add_argument("--deck", required=True, help="the Anki deck")
+    p.add_argument("--dry-run", action="store_true", help="print the plan; write nothing")
+    p.set_defaults(fn=cmd_apply)
 
     p = sub.add_parser("sync", help="AnkiConnect sync")
     p.set_defaults(fn=cmd_sync)

@@ -27,6 +27,10 @@
 !/classes/ISF/
 /classes/ISF/*
 !/classes/ISF/*.py
+# the learning memory: the author/reviewer feedback loop (build_deck wrap). Tracked on purpose —
+# it's the ONE artifact Anki can't regenerate (once the baseline advances, the "before" is gone).
+# Scoped in code to Custom-Cloze pipeline cards, so no imported AnKing/Pixorize content lands here.
+!/classes/ISF/corrections.jsonl
 !/classes/ISF/okf/
 !/classes/ISF/okf/**
 
