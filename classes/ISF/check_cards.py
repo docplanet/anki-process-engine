@@ -139,10 +139,13 @@ def check_card(T, E, S, NB, media, no_media=False):
     cl = CLOZE.findall(T)
     if len({n for n, _ in cl}) > 3:
         f.append("more than 3 distinct clozes")
-    if not re.search(r"<br>\s*\d+\.", T):          # list items share a cloze and take no hints
-        for _, body in cl:
-            if "<i" in body and "::" not in body:
-                f.append("answer cloze with no hint")
+    # NOTE: there is deliberately no "answer cloze with no hint" check. It flagged 40 of the 84
+    # reference cards (48%) — 44 hintless <i> answer clozes, spread across c1/c2/c3, and 15 corpus
+    # cards carry no hint at all. Its <br>N. list exemption fired on ZERO corpus cards. It was
+    # style.md's prose line "Always have hints" made mechanical, and the corpus contradicts it on
+    # half its cards. Worse, the gate ran BEFORE the reviewer and short-circuited it, so the one
+    # judge told "if a written rule and the cards disagree, the cards win" never saw these cards.
+    # Hint quality is the reviewer's call against the corpus. ">3 distinct clozes" stays: 0 of 84.
     if not no_media:
         for img in re.findall(r'<img src="([^"]+)"', T + E):
             if img not in media:

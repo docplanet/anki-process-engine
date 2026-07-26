@@ -29,12 +29,23 @@ English; the clozes only choose *which concepts get tested*.
    as un-clozed prose. In particular, **the condition a fact hinges on is a testable value, not free
    context** — "the carboxyl group is deprotonated at physiological pH" hinges on *physiological pH*,
    so cloze it; leaving it visible tests a peripheral piece.
-   **Cloze the `<b>` subject when it is itself a named term the student must recall** ('lacunae',
-   'osteon') — the corpus's most common card clozes both the subject and the answer. **Leave the
-   subject visible only when it is the general FRAME**, not a word being tested (like 'amino acids' in
-   "`<b>`amino acids`</b>` have {{c1::(S)}} configuration"). It is a JUDGMENT, never a blanket rule
-   either way — a past rulebook wrongly required ALL subjects clozed (see [style.md](../style.md)); the
-   fix is not to swing to never-cloze, but to ask: **would the student need to produce this word?**
+   **The subject is clozed unless it is a class the card is merely scoped to.** Apply the purpose
+   ([index.md](../index.md)): *what must the student produce for this card to be doing its job?*
+   - `<b>Parathyroid hormone</b> acts on bone to {{c1::raise blood calcium}}` — the exam question is
+     **"which hormone raises blood calcium?"**, so PTH is the answer. **Cloze it.**
+   - `<b>amino acids</b> have {{c1::(S)}} configuration` — nobody is being asked "which molecule
+     class has a configuration?" The class scopes the sentence. **Leave it visible.**
+
+   **The test: write down the question this card asks. Is the subject its answer?** If yes, cloze it.
+   That question has a wrong answer, which is the point — the previous wording ("is it a term the
+   student must recall?") did not, so a reviewer could call PTH a "general FRAME" and no rule could
+   contradict it.
+
+   Class vs named instance is a useful proxy — a category ('amino acids', 'bone cells') usually
+   scopes, a named thing ('lacunae', 'osteon', 'PTH', 'calcitonin') is usually the answer — but it is
+   only a proxy. **The question test decides.** Never apply a blanket rule either way: a past rulebook
+   required ALL subjects clozed (see [style.md](../style.md)), and the correction to it swung to
+   "never force-cloze", which is how four hormone cards shipped with the hormone visible.
 3. **Never more than 3 distinct clozes. Two is typical.**
    **"Typical" is an observation, not a quota.** One cloze is a fully legitimate card. **Never
    invent a second cloze to reach the typical count, and never replace a defective cloze just to
@@ -114,11 +125,20 @@ in `<i>`:
 
 # Enforcement
 
-- **No mechanical shape gate.** Shape is judged by the tool-less reviewer against the corpus cards
-  (style.md: the corpus is the authority, its stats are "not limits to enforce"). `strict_shape.py`
-  never rejected a visible bold subject (it always allowed templates T2/T3), and as of this change it
-  no longer governs `run`/`insert` at all — it survives only as an optional diagnostic
-  (`build_deck review-deck`). Un-clozed testable *values*, self-answering, complete-span and
-  whole-insight are the reviewer's job.
+- **A mechanical gate, but only for rules the corpus never breaks.** `style_check.py` measures its
+  predicates against the corpus on every call; only those with **zero** counterexamples block. That
+  is what makes gating safe here — the earlier gates were unsafe because they were *authored*
+  (`strict_shape`'s templates came from a deprecated AnKing deck; an "every cloze needs a hint" rule
+  flagged 48% of the corpus). `strict_shape.py` has since been **deleted** — `build_deck review-deck`
+  now audits an existing deck with the same corpus-derived invariants the pipeline enforces.
+- **What blocks:** the corpus-zero invariants — role order, >3 clozes, two same-styled clozes,
+  trailing prose after the answer, unstyled text inside the braces. Plus verbatim `Source:` quotes
+  and media (`check_cards`).
+- **Judgment — the reviewer's, never the checker's:** whether a `<b>` subject is a term to recall or
+  the scope; yield; self-answering; whether a hint reads like English in its gap. `style_check`
+  returns these as *questions* and refuses to answer them.
+- **Backstop:** `commit` re-checks every approved card and refuses to write one that breaks an
+  invariant. It runs on the output, deliberately *after* review — a gate placed before the judge
+  outranks the judge, which is how a wrong rule once held cards the reviewer never saw.
 - **Judgment:** identify every testable role and cloze it up to the ceiling; split a chain that
   exceeds 3; cut non-testable asides rather than leaving them un-clozed.

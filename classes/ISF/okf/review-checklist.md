@@ -117,6 +117,13 @@ card's `Extra`?
 
 ---
 
-The mechanical shape gate (`strict_shape`, run inside the review step of `build_deck run`) checks
-shape only. **It cannot see anything on this list** — a card that clears the gate has not been
-reviewed. Everything above is the reviewer's job.
+Every card you review arrives with its **style report already inlined** — the corpus-measured
+findings, the four structurally closest corpus cards, and a set of judgment questions. Read it: a
+`BLOCKING` line means the corpus has **zero** cards doing that, so the verdict is `needs-fix` and
+there is nothing to weigh.
+
+**But the report cannot see anything on this list.** It measures markup and structure; it does not
+know whether a fact is true, worth knowing, already carded, self-answering, or whether the blanked
+word is the one the student must produce. A card with no findings has not been reviewed —
+everything above is your job, and the report says so by returning those as questions rather than
+answers.

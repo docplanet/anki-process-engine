@@ -20,7 +20,9 @@ See classes/ISF/okf/process.md for the full procedure.
 Anki steps need Anki running with the AnkiConnect add-on (http://127.0.0.1:8765).
 Slide rendering needs poppler (pdftoppm, pdftotext, pdfinfo); .ppt/.pptx also needs LibreOffice.
 """
-import argparse, datetime, glob, json, os, subprocess, sys, urllib.request
+import argparse, datetime, glob, json, os, re, subprocess, sys, urllib.parse, urllib.request
+
+CLOZE_RE = re.compile(r"\{\{c\d+::([\s\S]*?)\}\}")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -228,10 +230,40 @@ def cmd_media(a):
 
 
 # ── the Anki writer ─────────────────────────────────────────────────────────────
+def _style_backstop(cards):
+    """Last line of defence before anything reaches Anki: no card may ship breaking a property the
+    corpus violates ZERO times.
+
+    This is NOT the old pre-review gate. It runs on the OUTPUT, after the reviewer has had its say
+    — a gate that runs BEFORE the judge outranks the judge, which is exactly how a rule the corpus
+    contradicted ('always have hints') once held 40-odd cards the reviewer never got to see. Here
+    the reviewer has already decided; this only refuses to write a card whose defect is measurable
+    and absolute. If it ever fires, the harness has a bug: the reviewer had the same tool and
+    should have caught it."""
+    try:
+        import style_check
+    except ImportError:
+        return []
+    bad = []
+    for c in cards:
+        v = style_check.check(c.get("text", ""))["blocking"]
+        if v:
+            bad.append((c.get("id"), [x["problem"] for x in v]))
+    return bad
+
+
 def _write_notes(deck, cards, notes, out_dir, suspend_flagged, tag_reviewed, step="commit"):
     """The audited write path: create the model/deck, add notes one at a time (per-card
     reporting), then suspend-flagged / tag-reviewed. Shared by `commit` and `run` so both reuse
     exactly the writer that was hardened over many incidents — not a copy."""
+    blocked = _style_backstop(cards)
+    if blocked:
+        print(f"\n!! REFUSING TO WRITE — {len(blocked)} card(s) break a corpus invariant:")
+        for cid, probs in blocked:
+            print(f"   {cid}: {'; '.join(probs)}")
+        print("   The reviewer approved these and should not have — it has the same checker.")
+        print("   Inspect with:  style_check.py --deck <cards.jsonl> --status approved")
+        sys.exit(1)
     _ensure_model()
     if deck not in set(invoke("deckNames")):
         invoke("createDeck", deck=deck)
@@ -519,10 +551,24 @@ def examples_block():
         return ""
     cards = [json.loads(l)["fields"]["Text"].replace("\n", " ")
              for l in open(CORPUS_OUT, encoding="utf-8") if l.strip()]
+    # This header is the LAST thing before the corpus dump, ~79% through a 52k-char prompt, and it
+    # carries "THE CARDS WIN" authority — so whatever it says outranks everything above it in
+    # practice. It used to end "a visible <b> subject is normal here; never force-cloze it", and
+    # that one clause is why four hormone cards shipped with the hormone left visible: the reviewer
+    # obeyed it and wrote "'Parathyroid hormone' serves as the general FRAME". State the MEASUREMENT
+    # and the test here; never an absolute.
+    n = len(cards)
+    clozed = sum(1 for c in cards
+                 if any("<b" in m.group(1) for m in CLOZE_RE.finditer(c)))
     header = ("\n\n===== REFERENCE CORPUS — your cards must look like these =====\n"
               "These owner-reviewed cards DEFINE the house style. Match them. Where a written rule "
-              "and these cards disagree, THE CARDS WIN. Note they do NOT all cloze the bold subject "
-              "— a visible <b> subject is normal here; never force-cloze it.\n")
+              "and these cards disagree, THE CARDS WIN.\n"
+              f"On clozing the <b> subject the corpus is SPLIT: {clozed} of {n} cards cloze it, "
+              f"{n - clozed} leave it visible. So neither is the default and neither is forbidden — "
+              "decide per card with the test in index.md: WRITE DOWN THE QUESTION THIS CARD ASKS, "
+              "AND CHECK WHETHER THE SUBJECT IS ITS ANSWER. 'Which hormone raises blood calcium?' "
+              "makes PTH the answer — cloze it. 'Amino acids have (S) configuration' asks nothing "
+              "about the class — leave it visible.\n")
     return header + "\n".join("  " + c for c in cards)
 
 
@@ -532,10 +578,24 @@ def _author_system_prompt():
     okf = os.path.join(HERE, "okf")
     parts = ["You are a flashcard AUTHOR for an Anki cloze deck. Turn the deck's OWN source material "
              "into cloze cards that obey the rules below and look like the reference corpus.\n"
+             "WHAT A CARD IS FOR: to make the student PRODUCE a key term or phrase FROM MEMORY, "
+             "inside a complete thought. That is what reinforces recall — not re-reading a fact, not "
+             "recognising it, but having to say it. So the question that decides every cloze is: "
+             "WHAT MUST THE STUDENT PRODUCE FOR THIS CARD TO BE DOING ITS JOB? That word is the "
+             "blank; everything else is there to make the sentence a complete, natural thought "
+             "around it. If a card can be answered without recalling the thing it is about, it is "
+             "not doing its job.\n"
              "Governing principle: FAITHFUL TRANSCRIPTION, NOT SYNTHESIS — render the source into "
              "card shape, add nothing, coin no terminology, prefer the source's own words. If a fact "
              "or term is not in the source, it does not go on a card.\n"
-             "You have READ-ONLY tools and cannot write files — return every card via the schema.\n"]
+             "You have READ-ONLY tools and cannot write files — return every card via the schema.\n"
+             "\nRUN `check_card` ON EVERY CARD YOU WRITE, BEFORE YOU RETURN IT. It measures the card "
+             "against the owner's corpus and reports what the corpus NEVER does. A card with a "
+             "BLOCKING finding is broken — fix it and re-check until the finding is gone. Do not "
+             "return a card you have not checked.\n"
+             "When you are FIXING a card, change ONLY what the note asks for. A fix that restructures "
+             "the card usually trades one defect for another — re-check the result and confirm you "
+             "have not introduced a finding the original did not have.\n"]
     for rel in ("index.md", "style.md", "review-checklist.md", "rules/card-structure.md",
                 "rules/yield.md", "rules/accuracy.md", "rules/no-duplicate.md"):
         parts.append(f"\n\n===== {rel} =====\n" + open(os.path.join(okf, rel), encoding="utf-8").read())
@@ -548,7 +608,9 @@ def _author_call(task, deck_dir, model, kind, audit_round):
     out_dir = os.path.join(deck_dir, "out")
     cmd = ["claude", "-p", task, "--system-prompt", _author_system_prompt(),
            "--json-schema", json.dumps(AUTHOR_SCHEMA), "--output-format", "stream-json", "--verbose",
-           "--model", model, "--allowedTools", "Read Grep Glob", "--strict-mcp-config"]
+           "--model", model, "--strict-mcp-config",
+           "--mcp-config", _style_mcp_config(),
+           "--allowedTools", "Read Grep Glob mcp__style__check_card mcp__style__invariants"]
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
         raise RuntimeError(f"author sub-call failed ({r.returncode}): {r.stderr[:300]}")
@@ -592,19 +654,30 @@ def _author_call(task, deck_dir, model, kind, audit_round):
     return cards, cost
 
 
-def author_create(deck_dir, model, slug=None, audit_round=0):
+def author_create(deck_dir, model, slug=None, audit_round=0, sources=None):
     """STEP 1 — author cloze cards from the deck's sources. Short, examples-led prompt: the full
     style guide + real corpus examples are already in the system prompt; the task just points to the
-    sources and states the card SHAPE plainly."""
+    sources and states the card SHAPE plainly.
+
+    `sources` is the explicit in-scope file list (from --sources). Naming the files beats pointing
+    at a directory: the author cards what it was told to card instead of deciding for itself which
+    of whatever is lying in the folder looks relevant."""
     out_dir = os.path.join(deck_dir, "out")
     base = os.path.abspath(out_dir)
     obj_files = glob.glob(os.path.join(out_dir, "sources", "*[Oo]bjective*.txt"))
     obj_text = ("\n\n===== LEARNING OBJECTIVES — every one gets at least one card =====\n" +
                 open(obj_files[0], encoding="utf-8", errors="replace").read()[:6000]) if obj_files else ""
+    listed = "\n".join(f"  {os.path.abspath(p)}" for p in (sources or []))
+    scope = (f"CARD THESE SOURCES, ALL OF THEM. Read each one end to end with the Read tool and "
+             f"work through it completely — every source named here is in scope because it was "
+             f"chosen, so do not decide any of it is unimportant:\n{listed}\n"
+             f"Slide images for figures: {base}/slides/*.jpg\n\n"
+             if sources else
+             f"Read this lecture's sources with the Read tool (absolute paths): the .txt files in "
+             f"{base}/sources/ (objectives, transcript, slide text) and the slide images "
+             f"{base}/slides/*.jpg.\n\n")
     task = (
-        f"Author cloze flashcards for this lecture. Read its sources with the Read tool (absolute "
-        f"paths): the .txt files in {base}/sources/ (objectives, transcript, slide text) and the slide "
-        f"images {base}/slides/*.jpg.\n\n"
+        f"Author cloze flashcards for this lecture.\n\n{scope}"
         f"THE CARD SHAPE — make your cards LOOK LIKE the reference-corpus examples in your instructions. "
         f"Roles: <b> = subject, <i> = answer, <u> = facet.\n"
         f"  • CLOZE EVERY TESTABLE TERM. If the <b> subject is itself a term the student must RECALL "
@@ -613,15 +686,92 @@ def author_create(deck_dir, model, slug=None, audit_round=0):
         f"when it is the general FRAME of the question, not a word being tested (e.g. '<b>amino acids</b> "
         f"have {{{{c1::<i>(S)</i>}}}} configuration' — 'amino acids' is the frame). Ask: would the student "
         f"need to PRODUCE this word? If yes, cloze it — never leave a testable term as visible prose.\n"
-        f"  • The <i> answer is the LAST thing on the card. Nothing testable comes after it.\n"
+        f"  • THE CARD ENDS ON ITS ANSWER. The <i> span covers the WHOLE value tested — never cloze a "
+        f"fragment and let the rest of the sentence trail after it unstyled. ✗ '{{{{c1::<i>raise</i>}}}} "
+        f"low blood calcium levels to normal'  ✓ '{{{{c1::<u>raise</u>::raise or lower?}}}} "
+        f"{{{{c2::<i>blood calcium levels to normal</i>::what?}}}}'. 0 of 84 corpus cards leave two or "
+        f"more unstyled words after the answer.\n"
         f"  • Exactly ONE <i> answer, ONE fact per card. A chain (A→B→C) becomes SEPARATE one-answer cards.\n"
-        f"  • Every cloze gets a hint, phrased as an English question.\n\n"
+        f"  • Hint the clozes that need disambiguating — NOT all of them. 40 of 84 corpus cards leave "
+        f"an <i> answer hintless. A hint earns its place when the blank is ambiguous without it.\n"
+        f"  • Order the roles subject-first: <b> subject … <u> facet … <i> answer.\n\n"
         f"COVERAGE: every numbered objective below must get at least one card.\n"
         f"SOURCE: each card's `extra` = the slide <img> + a VERBATIM `<b>Source:</b> \"quote\"` copied "
         f"from a source you read. If you can't find a real quote for a fact, skip it — never a placeholder.\n"
         f"TAG each: isf::<subject>::<topic>, week::NN, src::okf-gen, slide::"
         + (f"{slug}-NN" if slug else "<slug>-NN") + " (when slide-based).\n" + obj_text)
     return _author_call(task, deck_dir, model, "author", audit_round)
+
+
+def _answer_side(text):
+    """The card as the student sees it revealed, as a bare token set — markup, cloze braces and
+    hints all gone. Two cards that teach the same fact look identical here even when their markup
+    differs completely."""
+    t = CLOZE_RE.sub(lambda m: m.group(1).split("::")[0], text)
+    t = re.sub(r"<[^>]+>", " ", t)
+    t = re.sub(r"&nbsp;|&[a-z]+;|&#\d+;", " ", t)
+    return {w for w in re.sub(r"[^a-z0-9 ]+", " ", t.lower()).split() if len(w) > 2}
+
+
+def mark_duplicates(cards, threshold=0.8):
+    """Flag near-duplicate cards in place. Returns [(dupe_id, kept_id)].
+
+    `no-duplicate.md` was only ever prose handed to the reviewer — the same "a rule in a prompt is a
+    rule the model must remember to apply" pattern that let style defects through for months. This
+    measures it instead: Jaccard overlap on the revealed answer text, which ignores markup, cloze
+    numbering and hints, so two cards teaching one fact collide no matter how differently they are
+    marked up.
+
+    NOTHING IS DELETED — the later card becomes `duplicate` with a note naming the one it repeats,
+    so a wrong call is visible and reversible rather than silent."""
+    seen, dupes = [], []
+    for c in cards:
+        toks = _answer_side(c.get("text", ""))
+        if len(toks) < 3:                       # too short to judge; leave it to the reviewer
+            continue
+        for kept_id, kept in seen:
+            # CONTAINMENT, not Jaccard. The real duplicate pattern is one card being a wordier
+            # restatement of another ("Lacunae contain osteocytes" vs "Lacunae are spaces that
+            # contain osteocytes") — Jaccard scores that pair 0.60 and lets it through, while
+            # containment scores it 1.00, because everything the shorter card teaches is already
+            # in the longer one.
+            overlap = len(toks & kept) / min(len(toks), len(kept))
+            if overlap >= threshold:
+                c["status"] = "duplicate"
+                c["note"] = f"duplicate of {kept_id} — {overlap:.0%} of its content is already there"
+                dupes.append((c["id"], kept_id))
+                break
+        else:
+            seen.append((c["id"], toks))
+    return dupes
+
+
+def resolve_sources(deck_dir, spec):
+    """The extracted source files IN SCOPE for this deck. Returns (paths, missing_specs).
+
+    Scope is STATED, not inferred. An earlier version of this pipeline tried to work out what
+    deserved a card by counting term frequencies in whatever happened to be in the folder; the
+    owner's answer was that the material to card is given — "we need cards for the powerpoint,
+    transcript and the Junqueira summary". So `spec` is a comma-separated list of substrings, each
+    of which MUST match a file, and a spec that matches nothing is an error rather than a silent
+    omission."""
+    have = sorted(glob.glob(os.path.join(deck_dir, "out", "sources", "*.txt")))
+    if not spec:
+        return have, []
+
+    def key(s):
+        """Match on letters and digits only, URL-decoded. These files arrive from downloads with
+        names like 'Bone%20Histology%20Power%20Point%20Slides.ppt.txt', and nobody is going to type
+        that — 'powerpoint' has to find 'Power%20Point'."""
+        return re.sub(r"[^a-z0-9]+", "", urllib.parse.unquote(s).lower())
+
+    chosen, missing = [], []
+    for want in [s.strip() for s in spec.split(",") if s.strip()]:
+        hits = [p for p in have if key(want) in key(os.path.basename(p))]
+        chosen += hits
+        if not hits:
+            missing.append(want)
+    return sorted(set(chosen)), missing
 
 
 def author_fix(deck_dir, model, needs_fix, audit_round, source_hint=None):
@@ -632,12 +782,17 @@ def author_fix(deck_dir, model, needs_fix, audit_round, source_hint=None):
         before removing it; if the lecture supports it, keep the fact and fix the citation instead.
     Returns (list_of_cards, cost). A split reuses the original id for the first card and '<id>-b',
     '<id>-c' for the rest, so the loop can map results back to the card they came from."""
-    lines = ["Revise these cards. Each has a PROBLEM to fix. Rules:\n"
-             "• Fix ONLY the flagged problem, keep the SAME fact(s), and match the corpus shape: "
-             "the <i> answer is the LAST thing (exactly one <i> answer per card), every cloze has an "
-             "English-question hint, a verbatim Source quote in `extra`. CLOZE the <b> subject when it "
-             "is a term the student must recall (a named structure/entity — 'lacunae', 'osteon'); "
-             "leave it visible only when it is the general frame, not a word being tested.\n"
+    lines = ["Revise these cards. Each has a PROBLEM to fix, and a STYLE CHECK measured against the "
+             "corpus. Rules:\n"
+             "• Fix ONLY the flagged problem and keep the SAME fact(s). A fix that restructures the "
+             "card trades one defect for another — the most common failure here is returning a card "
+             "that resolves the note but breaks something the original got right.\n"
+             "• The STYLE CHECK under each card is measured, not opinion. Every BLOCKING line must be "
+             "gone from your replacement, and you must not introduce a new one. Do not 'fix' anything "
+             "the check does not flag and the note does not mention.\n"
+             "• Keep a verbatim Source quote in `extra`. CLOZE the <b> subject when it is a term the "
+             "student must recall (a named structure/entity — 'lacunae', 'osteon'); leave it visible "
+             "only when it is the general frame, not a word being tested.\n"
              "• SPLIT when the problem is a CHAIN / COMPOUND / BURIED ANSWER (more than one fact, or "
              "a trailing testable detail): return SEVERAL one-answer cards, not one. Reuse the given "
              "id for the first and ids '<id>-b', '<id>-c' for the rest. NEVER resolve a compound by "
@@ -651,6 +806,11 @@ def author_fix(deck_dir, model, needs_fix, audit_round, source_hint=None):
     for c in needs_fix:
         lines.append(f"\n--- id {c.get('id')} ---\nText: {c.get('text','')}\nExtra: {c.get('extra','')}"
                      f"\nPROBLEM: {c.get('note','')}")
+        try:                                  # inline, never rely on the fixer fetching the tool
+            import style_check
+            lines.append(style_check.render(c.get("text", "")))
+        except ImportError:
+            pass
     cards, cost = _author_call("\n".join(lines), deck_dir, model, "fix", audit_round)
     return cards, cost
 
@@ -671,50 +831,119 @@ REVIEW_SCHEMA = {
 def _review_system_prompt():
     okf = os.path.join(HERE, "okf")
     parts = ["You are a strict flashcard REVIEWER. For EACH card, compare it to the REFERENCE CORPUS "
-             "cards below (the style authority) and return one verdict:\n"
+             "cards below (the style authority) and return one verdict.\n"
+             "WHAT A CARD IS FOR: to make the student PRODUCE a key term or phrase FROM MEMORY, "
+             "inside a complete thought. Judge every card against that first. WRITE DOWN THE "
+             "QUESTION THE CARD ASKS, then check the subject: IS THE SUBJECT THAT QUESTION'S ANSWER? "
+             "If it is and it is left visible, the card cannot do its job — that is `needs-fix`. "
+             "'<b>Parathyroid hormone</b> acts on bone to {{c1::raise blood calcium}}' asks WHICH "
+             "HORMONE raises blood calcium, so PTH is the answer and must be clozed; calling it a "
+             "'general frame' is exactly the error this instruction exists to stop. A class the "
+             "sentence is merely scoped to ('amino acids') is not an answer and stays visible.\n"
              "  approved — it looks like the corpus cards and is worth knowing. Approve ONLY what you "
-             "would not change. A visible (un-clozed) <b> subject is fine WHEN it is the general FRAME "
-             "of the question (like 'amino acids'); it is a DEFECT when the subject is itself a term the "
-             "student must recall (a named structure — 'lacunae', 'osteon') left un-clozed.\n"
+             "would not change.\n"
              "  needs-fix — it breaks a rule the CORPUS actually follows (a TESTABLE-TERM subject left "
-             "un-clozed, <i> answer not last, two red <i> answers, a chain fact that must be split, "
-             "under-clozed answer, a fragmented enumeration). Put the SPECIFIC fix in `note`. Do NOT "
-             "rewrite the card — the author fixes it from your note.\n"
+             "un-clozed, two red <i> answers, a chain fact that must be split, under-clozed answer, a "
+             "fragmented enumeration). Put the SPECIFIC fix in `note`. Do NOT rewrite the card — the "
+             "author fixes it from your note.\n"
              "  cut — low yield (restates a bullet, vacuous filler) OR the fact is wrong/unsupported. "
              "Say why in `note`.\n"
              "Grade STYLE against the corpus CARDS, not a remembered rule, and not on whether the card "
-             "'reads okay'. If a written rule and the cards disagree, the cards win.\n"]
+             "'reads okay'. If a written rule and the cards disagree, the cards win.\n"
+             "\nYOU HAVE ONE TOOL: `check_card`. CALL IT FOR EVERY CARD before you decide, and call it "
+             "again on any replacement text you put in `note`. It measures the card against the corpus "
+             "and reports what the corpus NEVER does.\n"
+             "  - ANY 'BLOCKING' finding => the verdict is `needs-fix`. No exceptions, no judgment "
+             "call: those properties have ZERO counterexamples in the corpus. Copy the finding and "
+             "its fix into `note`.\n"
+             "  - 'UNUSUAL' findings are rare-but-real in the corpus. Change the card unless you can "
+             "say why this card is the exception.\n"
+             "  - Judge shape against the COMPARABLE cards the tool returns for that specific card, "
+             "not against the full corpus dump.\n"
+             "  - Answer the tool's JUDGMENT questions yourself — it cannot, and it does not try.\n"
+             "The tool reports facts about the card; it never decides yield, accuracy, or whether a "
+             "visible bold subject is a term or a frame. Those remain yours.\n"]
     for rel in ("index.md", "style.md", "review-checklist.md", "rules/card-structure.md",
                 "rules/yield.md", "rules/accuracy.md", "rules/no-duplicate.md"):
         parts.append(f"\n\n===== {rel} =====\n" + open(os.path.join(okf, rel), encoding="utf-8").read())
     return "".join(parts) + examples_block()
 
 
-def review_all(cards, model, batch=10):
-    """Tool-less reviewer over all cards (in batches). Returns ({id: {verdict, note}}, cost)."""
+def _style_mcp_config():
+    """The style checker as the reviewer's ONE tool. Needs the venv interpreter — `mcp` lives
+    there, not in the system python."""
+    py = os.path.join(HERE, ".venv", "bin", "python")
+    return json.dumps({"mcpServers": {"style": {
+        "command": py if os.path.exists(py) else sys.executable,
+        "args": [os.path.join(HERE, "style_mcp.py")]}}})
+
+
+def review_all(cards, model, batch=5, use_tool=True, jobs=8):
+    """Reviewer over all cards. Returns ({id: {verdict, note}}, cost).
+
+    Every card carries its own measured STYLE CHECK, inlined below it (see the chunk loop). That
+    guarantee is per-card, so it does NOT depend on the batch size — which is why batching is back.
+    batch=1 was briefly the default while the reviewer had to CALL the checker per card; at ~2,500
+    lines of system prompt re-sent per call it made a single review round over 46 cards take ~45
+    minutes, and bought nothing once the report was inlined. 5 keeps per-card evidence while
+    amortising the prompt."""
+    from concurrent.futures import ThreadPoolExecutor
     sysp = _review_system_prompt()
     out, total = {}, 0.0
-    for i in range(0, len(cards), batch):
-        chunk = cards[i:i + batch]
+    chunks = [cards[i:i + batch] for i in range(0, len(cards), batch)]
+
+    def run_chunk(chunk):
         lines = ["Review EACH card. Return one verdict per card, keyed by its id.\n"]
+        if use_tool:
+            lines.append(
+                "Each card below already carries its STYLE CHECK, computed against the corpus. "
+                "Any BLOCKING finding means needs-fix — copy it and its fix into `note`.\n"
+                "Use the `check_card` tool to re-check any replacement text you propose.\n")
         for c in chunk:
             lines.append(f"\n--- id: {c['id']} ---\nText: {c.get('text','')}\n"
                          f"Extra: {c.get('extra','')}\nSource: {c.get('source','')}")
+            if use_tool:
+                # INLINE the report rather than trusting the model to fetch it. MCP tools are
+                # DEFERRED in this CLI: they are absent from the tool list at init (`status:
+                # pending`) and must be discovered via ToolSearch, so whether the model ever calls
+                # check_card is probabilistic. bone-005 shipped `approved` with a BLOCKING finding
+                # for exactly this reason — reviewed with no tool, fell back to eyeballing. The
+                # tool stays available for re-checking a PROPOSED fix, which cannot be precomputed.
+                try:
+                    import style_check
+                    lines.append("\n" + style_check.render(c.get("text", "")))
+                except ImportError:
+                    pass
         cmd = ["claude", "-p", "\n".join(lines), "--system-prompt", sysp,
                "--json-schema", json.dumps(REVIEW_SCHEMA), "--output-format", "json",
-               "--model", model, "--allowedTools", "", "--strict-mcp-config"]
-        r = subprocess.run(cmd, capture_output=True, text=True)
+               "--model", model, "--strict-mcp-config"]
+        cmd += (["--mcp-config", _style_mcp_config(),
+                 "--allowedTools", "mcp__style__check_card,mcp__style__invariants"]
+                if use_tool else ["--allowedTools", ""])
+        r = subprocess.run(cmd, capture_output=True, text=True, stdin=subprocess.DEVNULL)
         if r.returncode != 0:
-            for c in chunk:
-                out[c["id"]] = {"verdict": "needs-fix", "note": f"reviewer error: {r.stderr[:120]}"}
-            continue
-        d = json.loads(r.stdout)
-        total += d.get("total_cost_usd", 0.0) or 0.0
-        payload = d.get("structured_output") or (json.loads(d["result"]) if d.get("result") else {})
+            return ({c["id"]: {"verdict": "needs-fix",
+                               "note": f"reviewer error: {r.stderr[:120]}"} for c in chunk}, 0.0)
+        got = {}
+        try:
+            d = json.loads(r.stdout)
+            cost = d.get("total_cost_usd", 0.0) or 0.0
+            payload = d.get("structured_output") or (json.loads(d["result"]) if d.get("result") else {})
+        except Exception as e:
+            return ({c["id"]: {"verdict": "needs-fix",
+                               "note": f"unparseable reviewer output: {e}"} for c in chunk}, 0.0)
         for v in payload.get("verdicts", []):
-            out[str(v.get("id"))] = {"verdict": v.get("verdict", "needs-fix"), "note": v.get("note", "")}
+            got[str(v.get("id"))] = {"verdict": v.get("verdict", "needs-fix"), "note": v.get("note", "")}
         for c in chunk:
-            out.setdefault(c["id"], {"verdict": "needs-fix", "note": "no verdict returned — re-review"})
+            got.setdefault(c["id"], {"verdict": "needs-fix", "note": "no verdict returned — re-review"})
+        return got, cost
+
+    # Batches are independent, so run them concurrently. Sequential review is what made a single
+    # round over 46 cards take ~42 minutes; nothing about a verdict depends on another batch.
+    with ThreadPoolExecutor(max_workers=jobs) as ex:
+        for got, cost in ex.map(run_chunk, chunks):
+            out.update(got)
+            total += cost
     return out, total
 
 
@@ -723,11 +952,15 @@ def _slug(s):
 
 
 def cmd_review_deck(a):
-    """Feed an EXISTING Anki deck through the harness's tool-less reviewer (read-only). Pulls every
-    pipeline card (Custom Cloze) in --deck, runs strict_shape + the reviewer over it, and writes a
-    punch-list (verdict + fix-note per card) to --out. Anki is NOT touched — this only assesses. Use
-    it to triage a hand-made deck; then fix cards in Anki and `wrap` captures the fixes."""
-    from strict_shape import classify_card
+    """Feed an EXISTING Anki deck through the harness's reviewer (read-only). Pulls every pipeline
+    card (Custom Cloze) in --deck, runs the corpus-derived style check + the reviewer over it, and
+    writes a punch-list (verdict + findings per card) to --out. Anki is NOT touched — this only
+    assesses. Use it to triage a hand-made deck; then fix cards in Anki and `wrap` captures the fixes.
+
+    The shape column used to come from `strict_shape.classify_card`, whose T1-T5 templates were
+    measured from the deprecated AnKing Neurogenetics deck — so this diagnostic was grading the
+    owner's decks against a deck the project had abandoned. It now reports the same BLOCKING
+    invariants the pipeline enforces, measured from the live corpus."""
     allc = _pull_all(a.deck)
     snap = [c for c in allc if c.get("model") == MODEL]
     if not snap:
@@ -735,28 +968,27 @@ def cmd_review_deck(a):
     cards = [{"id": str(c["note_id"]), "text": c["fields"].get("Text", ""),
               "extra": c["fields"].get("Extra", ""), "source": c["fields"].get("Source", "")}
              for c in snap]
-    print(f"reviewing {len(cards)} Custom-Cloze card(s) from {a.deck!r} "
-          f"— {(len(cards) + 9) // 10} tool-less reviewer batch(es)…")
+    print(f"reviewing {len(cards)} Custom-Cloze card(s) from {a.deck!r}…")
     verdicts, cost = review_all(cards, a.model)
     rows = []
     for c in cards:
         v = verdicts.get(c["id"], {"verdict": "needs-fix", "note": "no verdict returned"})
-        shape = classify_card({"type": "cloze", "text": c["text"]})
+        blocking = _blocking_of(c["text"])
         rows.append({"note_id": c["id"], "verdict": v["verdict"], "note": v["note"],
-                     "shape_ok": bool(shape.ok), "text": c["text"]})
+                     "blocking": blocking, "text": c["text"]})
     order = {"cut": 0, "needs-fix": 1, "approved": 2}
-    rows.sort(key=lambda r: (order.get(r["verdict"], 1), r["shape_ok"]))
+    rows.sort(key=lambda r: (order.get(r["verdict"], 1), not r["blocking"]))
     out = a.out or os.path.join(HERE, "out", f"review-{_slug(a.deck)}.jsonl")
     _write_jsonl(out, rows)
     from collections import Counter
     t = Counter(r["verdict"] for r in rows)
-    bad_shape = sum(1 for r in rows if not r["shape_ok"])
+    bad_shape = sum(1 for r in rows if r["blocking"])
     print(f"\n  approved {t.get('approved', 0)}  |  needs-fix {t.get('needs-fix', 0)}  |  "
-          f"cut {t.get('cut', 0)}   ·   {bad_shape} fail strict_shape   ·   ${cost:.2f}")
+          f"cut {t.get('cut', 0)}   ·   {bad_shape} break a corpus invariant   ·   ${cost:.2f}")
     print(f"  full punch-list -> {out}\n")
     for r in rows:
-        if r["verdict"] != "approved":
-            flag = "" if r["shape_ok"] else " [shape]"
+        if r["verdict"] != "approved" or r["blocking"]:
+            flag = f" [{'; '.join(r['blocking'])}]" if r["blocking"] else ""
             print(f"  [{r['verdict']:9}]{flag} {r['note']}")
     skipped = len(allc) - len(snap)
     if skipped:
@@ -798,6 +1030,107 @@ def ocr_slides(deck_dir, model):
     return total
 
 
+def _blocking_of(text):
+    """The corpus-invariant violations in one card's Text, as plain strings (empty = clean).
+
+    Safe to gate on, unlike the shape rules that preceded it: every BLOCKING predicate has ZERO
+    counterexamples in the corpus, and `tests/test_style_check.py` asserts both that and that every
+    corpus card passes. The old hint gate blocked cards for a rule 48% of the corpus broke — that
+    cannot happen to a rule derived from the corpus itself."""
+    try:
+        import style_check
+    except ImportError:
+        return []
+    return [b["problem"] for b in style_check.check(text)["blocking"]]
+
+
+STYLE_PASS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "changed": {"type": "boolean"},
+        "text": {"type": "string"},
+        "why": {"type": "string"},
+    },
+    "required": ["changed", "text", "why"], "additionalProperties": False,
+}
+
+
+def _style_guide_block():
+    """The COMPACT style guide: style.md's five lines + the corpus-derived invariant table.
+
+    Deliberately NOT the full okf rulebook (39k chars) nor the 84-card dump (11k). This prompt is
+    rebuilt for every card, so its size IS the running time — the batched reviewer carried 51k
+    chars of system prompt per call and took ~40s a card. The per-card COMPARABLE cards and the
+    measured findings arrive with the card itself, which is what those 84 cards were there for."""
+    style = open(os.path.join(HERE, "okf", "style.md"), encoding="utf-8").read()
+    try:
+        import style_check
+        rows = style_check.derive()
+        n = rows[0][5] if rows else 0
+        table = "\n".join(f"  [{t}] {lab}  ({h} of {n} corpus cards)"
+                          for _k, lab, _f, _x, h, _n, t in rows if t != "allowed")
+        table = (f"\n\n===== MEASURED RULES (from {n} owner-accepted cards) =====\n"
+                 "BLOCKING = zero counterexamples in the corpus. UNUSUAL = rare, justify it.\n" + table)
+    except ImportError:
+        table = ""
+    return "===== STYLE =====\n" + style + table
+
+
+def _style_pass_system_prompt():
+    return (
+        "You EDIT one Anki cloze card so it matches the house style. You see ONE card and nothing "
+        "else — no other cards, no history.\n"
+        "Return `changed:false` and the text VERBATIM unless the card actually breaks the style. "
+        "Leaving a correct card alone is a SUCCESS, not a missed opportunity — most cards are fine.\n"
+        "When you do edit:\n"
+        "  - Fix ONLY the style. Never change which facts the card states, never add or remove a "
+        "fact, never reword for taste.\n"
+        "  - Every BLOCKING finding must be gone, and you must not introduce a new one.\n"
+        "  - Keep the same cloze numbers and hints unless the finding is about them.\n"
+        "  - `why` is ONE short line naming what you changed.\n"
+        "Roles: <b> subject, <u> facet (the aspect asked about), <i> answer (the value recalled).\n"
+        + _style_guide_block())
+
+
+def style_pass_card(card, model, effort="low"):
+    """ONE card, ONE fresh context, no tools. Returns (new_text or None, why, cost).
+
+    Each call is an independent process, so nothing carries over between cards — a verdict on card
+    N cannot colour card N+1. That isolation is the point: the batched reviewer judged 5-10 cards
+    in one context and its opinions bled across them."""
+    import style_check
+    text = card.get("text", "")
+    task = ("Card (JSON):\n" + json.dumps({"id": card.get("id"), "text": text}, ensure_ascii=False) +
+            "\n\n" + style_check.render(text) +
+            "\n\nReturn the card's `text`, edited only if the style requires it.")
+    cmd = ["claude", "-p", task, "--system-prompt", _style_pass_system_prompt(),
+           "--json-schema", json.dumps(STYLE_PASS_SCHEMA), "--output-format", "json",
+           "--model", model, "--effort", effort, "--allowedTools", "", "--strict-mcp-config"]
+    r = subprocess.run(cmd, capture_output=True, text=True, stdin=subprocess.DEVNULL)
+    if r.returncode != 0:
+        return None, f"agent error: {r.stderr[:120]}", 0.0
+    try:
+        d = json.loads(r.stdout)
+        cost = d.get("total_cost_usd", 0.0) or 0.0
+        p = d.get("structured_output") or (json.loads(d["result"]) if d.get("result") else {})
+    except Exception as e:
+        return None, f"unparseable: {e}", 0.0
+    new = (p.get("text") or "").strip()
+    if not p.get("changed") or not new or new == text:
+        return None, p.get("why", ""), cost
+    return new, p.get("why", ""), cost
+
+
+def style_findings(text):
+    """BLOCKING + UNUSUAL problems for one card — everything the checker has an opinion about."""
+    try:
+        import style_check
+    except ImportError:
+        return []
+    r = style_check.check(text)
+    return [x["problem"] for x in r["blocking"] + r["unusual"]]
+
+
 def review_fix_loop(cards, deck_dir, model, max_rounds, mechanical, save=None, source_hint=None):
     """STEPS 2–4 of the pipeline — review → fix → re-review over a list of status-carrying cards,
     IN PLACE, bounded by `max_rounds`. Shared by `run` (after it authors drafts) and `insert`
@@ -816,7 +1149,7 @@ def review_fix_loop(cards, deck_dir, model, max_rounds, mechanical, save=None, s
         # 2a mechanical marking — flags needs-fix with the exact reason; NEVER deletes a card
         to_review = []
         for c in drafts:
-            m = mechanical(c)
+            m = mechanical(c) + _blocking_of(c.get("text", ""))
             if m:
                 c["status"] = "needs-fix"; c["note"] = "; ".join(m)
             else:
@@ -858,7 +1191,19 @@ def review_fix_loop(cards, deck_dir, model, max_rounds, mechanical, save=None, s
                 tgt["text"] = rc["text"]
                 if rc.get("extra"):
                     tgt["extra"] = rc["extra"]
-                tgt["status"] = "draft"; tgt["note"] = ""
+                # VERIFY THE FIX BEFORE IT RE-ENTERS THE QUEUE. Checking a returned card costs
+                # nothing and is deterministic, so a fix that still breaks a corpus invariant goes
+                # straight back to a fresh fixer instead of spending a review call to learn what we
+                # can already prove. This is the loop's answer to "the fix introduced a new defect":
+                # bone-035-a was told only to reuse the source's wording and came back restructured
+                # with a second bold cloze, which then cost a full review round to discover.
+                still = _blocking_of(tgt["text"])
+                if still:
+                    tgt["status"] = "needs-fix"
+                    tgt["note"] = ("YOUR PREVIOUS FIX STILL BREAKS THE CORPUS: " + "; ".join(still) +
+                                   ". Fix ONLY this, and do not restructure the rest of the card.")
+                else:
+                    tgt["status"] = "draft"; tgt["note"] = ""
             # if nothing mapped to this card, it stays needs-fix (retried next round or held)
         _save()
     # any card still needs-fix (author couldn't resolve it) -> held: surfaced, never dropped
@@ -878,6 +1223,8 @@ def cmd_run(a):
       2 review   mechanical gate + tool-less reviewer set each card's status (+ note for fixes)
       3 fix      the author rewrites needs-fix cards from the note, back to draft
       4 re-review  loop 2-3 until nothing is needs-fix (bounded; leftovers -> held, still in the file)
+
+    --resume skips step 1 and re-enters the existing cards.jsonl's held/needs-fix cards at step 2.
     """
     from check_cards import load_sources, load_media, check_card
     from collections import Counter
@@ -893,10 +1240,13 @@ def cmd_run(a):
         sys.exit(f"no {out_dir}/slides.jsonl — render slides first:\n"
                  f"  build_deck slides <slides.pdf> {out_dir} <slug>")
 
+    resume = getattr(a, "resume", False)
+    if resume and not os.path.exists(cards_path):
+        sys.exit(f"--resume needs an existing {cards_path} — run without --resume to author it first.")
+
     total = 0.0
     print("· OCR slide images -> sources (so figure/bullet quotes are verifiable)…")
     total += ocr_slides(deck_dir, a.model)
-    open(os.path.join(out_dir, "author.audit.jsonl"), "w").close()          # fresh audit per run
     src_dir = os.path.join(out_dir, "sources")
     NB = load_sources(src_dir if os.path.isdir(src_dir) else None)
     media, no_media = load_media(a.no_media)
@@ -907,18 +1257,68 @@ def cmd_run(a):
                 f.write(json.dumps(c, ensure_ascii=False) + "\n")
 
     def mechanical(c):
-        """Deterministic checks — PROVENANCE only (verbatim source). SHAPE is judged by the tool-less
-        reviewer against the corpus cards; style.md says the corpus stats are 'not limits to enforce',
-        so there is NO mechanical shape/template gate (strict_shape no longer governs the process)."""
+        """Deterministic checks — PROVENANCE (verbatim source) + media, and the ONE shape rule the
+        corpus never breaks (>3 distinct clozes, 0 of 84). Everything else about SHAPE is judged by
+        the tool-less reviewer against the corpus cards; style.md says the corpus stats are 'not
+        limits to enforce', so there is no template gate (strict_shape no longer governs the
+        process). Keep it that way: this gate runs BEFORE the reviewer and short-circuits it, so any
+        rule added here outranks the corpus instead of being checked against it."""
         return check_card(c.get("text", ""), c.get("extra", ""), c.get("source", ""),
                           NB, media, no_media)
 
-    # ── STEP 1 — create ─────────────────────────────────────────────────────────
-    print("· step 1 — authoring draft cards…")
-    drafted, cost = author_create(deck_dir, a.model, slug=a.slug, audit_round=0); total += cost
-    cards = [{**c, "status": "draft", "note": ""} for c in drafted]
-    save(cards)
-    print(f"  {len(cards)} drafted -> {cards_path}")
+    # ── STEP 1 — create (or, with --resume, re-enter the leftovers) ─────────────
+    if resume:
+        # Re-run steps 2–4 over an EXISTING cards.jsonl instead of authoring fresh. This is how a
+        # harness fix gets tested against the very cards that exposed it: without it, validating a
+        # gate change costs a full re-author and lands on different cards, so the regression case is
+        # gone. `held`/`needs-fix` go back to `draft` (their notes were written by the old rules and
+        # would otherwise steer the author); `approved` and `cut` are verdicts already reached and
+        # are left alone.
+        cards = _load_jsonl(cards_path)
+        redo = ["held", "needs-fix"]
+        if getattr(a, "recheck_approved", False):
+            redo.append("approved")            # a harness change makes prior approvals stale
+        again = [c for c in cards if c.get("status") in redo]
+        if getattr(a, "recheck_flagged", False):
+            # Re-review only what the checker can already prove is suspect. Re-reviewing a clean
+            # approved card costs a full model call to re-confirm what measurement settled for
+            # free — that is the whole cost of a --recheck-approved pass (37 of 46 cards on Bone).
+            again = [c for c in again
+                     if c.get("status") != "approved" or _blocking_of(c.get("text", ""))
+                     or style_findings(c.get("text", ""))]
+        for c in again:
+            c["status"] = "draft"; c["note"] = ""
+        st = Counter(c.get("status") for c in cards)
+        print(f"· step 1 skipped (--resume) — {len(cards)} card(s) from {cards_path}")
+        print(f"  re-entering {len(again)} {'/'.join(redo)} as draft · {dict(st)}")
+        if not [c for c in cards if c.get("status") == "draft"]:
+            print("  nothing to re-review — every card is already approved or cut.")
+        save(cards)
+    else:
+        in_scope, missing = resolve_sources(deck_dir, a.sources)
+        if missing:
+            sys.exit(f"--sources named {missing} but no such file is in {out_dir}/sources/.\n"
+                     f"  have: {[os.path.basename(p) for p in resolve_sources(deck_dir, '')[0]]}\n"
+                     f"  Scope is stated, so a source you asked for and did not get is an error.")
+        # Truncate the audit HERE, not before OCR — it used to be wiped at the top of the run, so a
+        # run that aborted on a bad --sources destroyed the PREVIOUS run's author trace. That is
+        # exactly how the record of why PTH was left un-clozed was lost: nothing to read but 0 bytes.
+        open(os.path.join(out_dir, "author.audit.jsonl"), "w").close()
+        print(f"· step 1 — authoring from {len(in_scope)} source(s)"
+              f"{' (--sources)' if a.sources else ' (all extracted)'}:")
+        for p in in_scope:
+            print(f"    {os.path.basename(p)}")
+        drafted, cost = author_create(deck_dir, a.model, slug=a.slug, audit_round=0,
+                                      sources=in_scope); total += cost
+        cards = [{**c, "status": "draft", "note": ""} for c in drafted]
+        save(cards)
+        print(f"  {len(cards)} drafted -> {cards_path}")
+
+        # ── STEP 1b — dedup ──────────────────────────────────────────────────
+        dupes = mark_duplicates(cards)
+        print(f"· step 1b — dedup: {len(dupes)} duplicate(s) of {len(cards)} card(s)"
+              + (f" -> {', '.join(d + ' = ' + k for d, k in dupes[:6])}" if dupes else ""))
+        save(cards)
 
     # ── STEPS 2–4 — review / fix / re-review (the shared loop, also used by `insert`) ──────────
     cards, cost = review_fix_loop(cards, deck_dir, a.model, a.max_author_rounds, mechanical, save,
@@ -984,6 +1384,73 @@ def cmd_insert(a):
             print(f"  [{c.get('status'):8}] nid {c['id']}: {(c.get('note') or '')[:150]}")
 
 
+def cmd_style_pass(a):
+    """Cycle every card through a fresh one-card style agent until the file stops changing.
+
+    One card + the compact style guide per call, context cleared between cards, cards run in
+    parallel. Stops after `--rounds` passes OR after 2 consecutive passes that changed nothing —
+    convergence, not a fixed budget.
+
+    This replaces the review -> note -> fix -> re-review round trip for STYLE. That handoff was
+    where the damage happened: the reviewer wrote a note, a separate fixer read it, and the fixer
+    routinely rewrote more than the note asked (bone-035-a was told to reuse one word from the
+    source and came back restructured with a new defect). One agent that edits the card it is
+    looking at cannot misread a note, because there is no note.
+
+    Every card records what each pass did in `style_log`, so a card that keeps getting rewritten
+    round after round is visible rather than averaged away."""
+    from concurrent.futures import ThreadPoolExecutor
+    from collections import Counter
+    cards_path = a.cards
+    cards = _load_jsonl(cards_path)
+    todo = [c for c in cards if c.get("status") in (a.status.split(",") if a.status else [])] \
+        if a.status else cards
+    print(f"style pass over {len(todo)} of {len(cards)} card(s) in {cards_path}")
+    print(f"  model={a.model} effort={a.effort} parallel={a.jobs} max rounds={a.rounds}\n")
+
+    total, quiet = 0.0, 0
+    for rnd in range(1, a.rounds + 1):
+        with ThreadPoolExecutor(max_workers=a.jobs) as ex:
+            results = list(ex.map(lambda c: style_pass_card(c, a.model, a.effort), todo))
+        edits = 0
+        for c, (new, why, cost) in zip(todo, results):
+            total += cost
+            log = c.setdefault("style_log", [])
+            if new:
+                edits += 1
+                before = c["text"]
+                c["text"] = new
+                blocking = _blocking_of(new)
+                c["style_status"] = "blocking" if blocking else "edited"
+                log.append({"round": rnd, "changed": True, "why": why,
+                            "blocking_after": blocking})
+                print(f"  [{rnd}] {c['id']:12} EDITED  {why[:70]}")
+                if blocking:
+                    print(f"       !! still blocking: {'; '.join(blocking)}")
+                _log(os.path.dirname(os.path.abspath(cards_path)), "style-pass",
+                     f"{c['id']} r{rnd}: {before[:60]} -> {new[:60]}")
+            else:
+                c["style_status"] = "clean" if not _blocking_of(c["text"]) else "blocking"
+                log.append({"round": rnd, "changed": False, "why": why})
+        _write_jsonl(cards_path, cards)
+        left = sum(1 for c in todo if _blocking_of(c.get("text", "")))
+        print(f"  -- round {rnd}: {edits} edit(s), {left} card(s) still blocking, ${total:.2f}\n")
+        quiet = quiet + 1 if edits == 0 else 0
+        if quiet >= 2:
+            print(f"converged — 2 consecutive passes with no edits (stopped at round {rnd})")
+            break
+    else:
+        print(f"reached the {a.rounds}-round cap")
+
+    st = Counter(c.get("style_status") for c in todo)
+    blocking = [c["id"] for c in todo if _blocking_of(c.get("text", ""))]
+    print(f"\n── {dict(st)} · ${total:.2f} · {cards_path}")
+    if blocking:
+        print(f"!! {len(blocking)} card(s) STILL breaking a corpus invariant: {', '.join(blocking)}")
+    else:
+        print("✓ every card passes every corpus invariant")
+
+
 def cmd_apply(a):
     """Write a reviewed cards.jsonl (from `insert` or `run`) back to Anki: UPDATE existing notes in
     place (approved cards whose id is a real note id), ADD approved split-offs / new cards as new
@@ -1039,12 +1506,40 @@ def main():
     p.add_argument("--deck", required=True, help="target Anki deck name")
     p.add_argument("--slug", help="slide slug for slide::<slug>-NN tags")
     p.add_argument("--model", default="claude-sonnet-4-5", help="model for author + review sub-calls")
-    p.add_argument("--max-author-rounds", type=int, default=2,
-                   help="author->gate revision rounds before dropping still-failing cards")
+    p.add_argument("--max-author-rounds", type=int, default=5,
+                   help="review->fix rounds before a card is surfaced as `held`. Higher than it was: "
+                        "a fix that still breaks a corpus invariant is now caught for free and "
+                        "returned to the fixer without spending a review call, so rounds are cheap")
     p.add_argument("--no-media", action="store_true")
+    p.add_argument("--sources", default="",
+                   help="WHAT TO CARD — comma-separated substrings of the source filenames, e.g. "
+                        "'powerpoint,transcript,junqueira'. Each must match a file in "
+                        "out/sources/ or the run stops. Omit to card every extracted source")
+    p.add_argument("--resume", action="store_true",
+                   help="skip create; re-run review->fix over the existing out/cards.jsonl, putting "
+                        "held/needs-fix back to draft (approved/cut untouched). Use after a harness "
+                        "fix to re-test the exact cards that exposed it")
+    p.add_argument("--recheck-approved", action="store_true",
+                   help="with --resume: re-review the APPROVED cards too. Use when the reviewer "
+                        "itself changed — an approval only means the reviewer of the day passed it")
+    p.add_argument("--recheck-flagged", action="store_true",
+                   help="with --recheck-approved: re-review only the approved cards the style "
+                        "checker actually flags, not every one. Usually what you want — a clean "
+                        "card costs a model call to re-confirm what measurement already settled")
     p.add_argument("--dry-run", action="store_true",
                    help="run author+gate+review and report what commit WOULD ship; touch Anki not at all")
     p.set_defaults(fn=cmd_run)
+
+    p = sub.add_parser("style-pass", help="cycle every card through a fresh 1-card style agent "
+                                          "until the file stops changing")
+    p.add_argument("cards", help="the cards.jsonl to edit IN PLACE")
+    p.add_argument("--model", default="claude-sonnet-4-5")
+    p.add_argument("--effort", default="low", help="reasoning effort per card (default: low)")
+    p.add_argument("--rounds", type=int, default=5, help="max passes over the file")
+    p.add_argument("--jobs", type=int, default=8, help="cards reviewed in parallel")
+    p.add_argument("--status", default="", help="only cards with these statuses (comma-separated); "
+                                                "default: every card in the file")
+    p.set_defaults(fn=cmd_style_pass)
 
     p = sub.add_parser("slides", help="render slide PDF/.ppt -> JPEGs + slides.jsonl")
     p.add_argument("pdf"); p.add_argument("out_dir"); p.add_argument("slug")
@@ -1088,7 +1583,7 @@ def main():
     p.add_argument("--max-author-rounds", type=int, default=2)
     p.set_defaults(fn=cmd_insert)
 
-    p = sub.add_parser("review-deck", help="feed an existing Anki deck through the tool-less reviewer (read-only)")
+    p = sub.add_parser("review-deck", help="audit an existing Anki deck: corpus-derived style check + reviewer (read-only)")
     p.add_argument("--deck", required=True, help="Anki deck name to audit")
     p.add_argument("--model", default="claude-sonnet-4-5", help="reviewer model")
     p.add_argument("--out", default=None)

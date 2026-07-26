@@ -10,8 +10,10 @@ describing a different pipeline, it is stale — delete it rather than follow it
 
 **Read these before doing anything:**
 
-1. **[`classes/ISF/okf/index.md`](../../../classes/ISF/okf/index.md)** — the governing principle
-   (*faithful transcription, not synthesis*) and what the six files are.
+1. **[`classes/ISF/okf/index.md`](../../../classes/ISF/okf/index.md)** — **what a card is FOR**
+   (*make the student produce a key term from memory, inside a complete thought*), the governing
+   principle that constrains how (*faithful transcription, not synthesis*), and the file map.
+   The purpose decides every cloze: *what must the student produce for this card to do its job?*
 2. **[`classes/ISF/okf/process.md`](../../../classes/ISF/okf/process.md)** — the step-by-step
    procedure for building a deck, with the driver command *and* the manual fallback for every step.
 3. **[`classes/ISF/okf/style.md`](../../../classes/ISF/okf/style.md)** — the style in five lines
@@ -25,11 +27,21 @@ describing a different pipeline, it is stale — delete it rather than follow it
    explicit per-card checks a review must run.
 
 **Building a deck is one command:** `classes/ISF/build_deck.py run <deck_dir> --deck "<name>"
-[--slug S] [--dry-run]`. It runs the whole pipeline as four steps over one status-tracked
-`out/cards.jsonl` — **create → review → fix → re-review** — where the author (a read-only claude
-sub-call) and the reviewer (a tool-less sub-call) do the judgment, and the driver is the only writer
-to Anki. Render slides first (`build_deck slides <pdf> <deck>/out <slug>`). Ship the reviewed result
-with `build_deck commit <deck>/out/cards.jsonl --deck "<name>"`.
+[--sources "powerpoint,transcript,…"] [--slug S] [--dry-run]`. It runs the pipeline over one
+status-tracked `out/cards.jsonl` — **create → dedup → review → fix → re-review** — where the author
+(a read-only claude sub-call) and the reviewer do the judgment, and the driver is the only writer to
+Anki. Render slides first (`build_deck slides <pdf> <deck>/out <slug>`). Ship with
+`build_deck commit <deck>/out/cards.jsonl --deck "<name>"`.
+
+**`--sources` states what must be carded** — the user tells you which materials to turn into cards;
+a named source that isn't in `out/sources/` stops the run. Never infer scope from what happens to be
+in the folder.
+
+**Style rules are MEASURED, not written.** `classes/ISF/style_check.py` derives them from the corpus
+on every call — BLOCKING means zero corpus counterexamples. **To change a style rule, change the
+corpus, then `build_deck corpus`.** Never add a style rule to prose or a prompt: that is how four
+separate style bugs shipped. `style_check.py --derive` shows the live table;
+`style_check.py --deck <cards.jsonl>` audits a deck.
 
 **Every card is tracked, nothing is dropped.** Each card in `cards.jsonl` carries a `status`
 (draft/approved/needs-fix/cut/held) + a `note`. After a run, read that file (`grep '"status"'`) to

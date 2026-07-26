@@ -15,16 +15,32 @@ pipeline, it is stale — delete it rather than follow it.
 are **agent work** — marked 🧠 below. *No script writes cards.* There is no "generator" to find; if a
 card is wrong, fix the card and (if it names a rule the book lacks) add the rule.
 
+**What a card is FOR comes before how it is made.** A card exists to make the student *produce* a
+key term or phrase from memory, inside a complete thought. That purpose decides every cloze — *what
+must the student produce for this card to be doing its job?* — and it is stated in
+[index.md](index.md) above the fidelity principle, because without it "should this be clozed?" has
+no answer that can be wrong.
+
+**Style rules are MEASURED from the corpus, never authored.** `style_check.py` derives them on every
+call; to change a rule, change the corpus. Writing a rule down is how the last four style bugs
+shipped.
+
 **Nothing unreviewed goes into the deck — and a script enforces it, not discipline.** Shipping is
-`build_deck commit` (step 12): it re-runs the shape gate and mechanical review and **refuses any
-card without a signed `pass` verdict for its exact content**. A card that has not been through step
-9 is refused by the tool. The un-gated `insert` was removed; `commit` is the only live-write path.
+`build_deck commit` (step 12), and it **refuses to write any card that breaks a corpus invariant**.
+That backstop runs on the output, deliberately *after* review, never before it. The un-gated
+`insert` was removed; `commit` is the only live-write path.
+
+**You state the scope; nothing infers it.** `run --sources "powerpoint,transcript,junqueira"` names
+which extracted files must be carded, and a source you name but don't have stops the run. An earlier
+version tried to work out what deserved a card by counting term frequencies — that is guesswork
+about something you simply declare.
 
 **The whole pipeline is one command — `build_deck run` — and it inverts control.** `run` is a
 driver *you* invoke; it orchestrates every step below itself and is the only thing that writes to
 Anki. Claude is never the orchestrator — `run` calls it as two constrained sub-processes: **authoring**
 (spawned with read-only tools — it returns card drafts, the driver writes them; it cannot edit a
-rule, touch Anki, or skip a station) and **review** (the tool-less reviewer, step 9b). The numbered
+rule, touch Anki, or skip a station) and **review** (step 9b — the reviewer sees each card with its
+corpus-measured style report already inlined, plus one tool to re-check a proposed fix). The numbered
 steps below are what `run` does internally, and remain the manual fallback if you run them by hand.
 See [The harness](#the-harness).
 
@@ -218,13 +234,21 @@ bare `slide::14` is ambiguous and provenance silently mis-attributes. Always car
 Steps 7–10 are not run by hand any more — **`build_deck run` does them**, over the one status file.
 The pieces (understand them; you don't invoke them separately):
 
-- **Shape gate** (`strict_shape`) — sorts each card into one allowed template or marks it `needs-fix`
-  with the reason. Shape-only: it cannot tell an answer from a clause or a real fact from an invented
-  one. (`classify_card` is importable; `strict_shape.py <cards.jsonl>` still runs standalone for dev.)
-- **Mechanical checks** (`check_cards`) — every `Source:` quote is a verbatim substring of the deck's
-  own sources, every answer cloze carries a hint, ≤3 clozes, images present. A miss → `needs-fix`.
-- **Reviewer** (tool-less claude, one call per batch) — flags `approved` / `needs-fix` / `cut` + a
-  note, judging against `review-checklist.md` and the corpus. It does not rewrite; the author fixes.
+- **Dedup** (step 1b) — near-duplicates are found on the *revealed answer text*, markup and hints
+  stripped, so two cards teaching one fact collide however differently they're written. The later is
+  flagged `duplicate`; nothing is deleted.
+- **Style invariants** (`style_check`) — measured from the corpus on every call, not written down. A
+  predicate the corpus violates **zero** times BLOCKS; one it breaks rarely advises; one it breaks
+  often is not a rule and is never reported. See `style_check.py --derive` for the live table.
+- **Provenance checks** (`check_cards`) — every `Source:` quote is a verbatim substring of the deck's
+  own sources, images present, ≤3 clozes. A miss → `needs-fix`.
+- **Reviewer** (a fresh claude, batches run concurrently) — flags `approved` / `needs-fix` / `cut` +
+  a note, judging against `review-checklist.md` and the corpus. **Each card arrives with its style
+  report inlined**, so the reviewer reads measured findings rather than recalling rules. It does not
+  rewrite; the author fixes.
+- **Fix verification** — every card the author returns is re-checked immediately. One that still
+  breaks an invariant goes straight back to a fresh fixer, without spending a review call. This is
+  what stops a fix that resolves the note while introducing a new defect.
 
 ## 9 · 🧠 Review (what the reviewer judges)
 
@@ -247,8 +271,9 @@ that is the defect [accuracy](rules/accuracy.md) exists to catch, and it becomes
 
 > **Why the reviewer is a separate program, not a glance.** "Agent, check each card against the
 > rules" was an instruction every reviewer *claimed* to do and skipped — reading a batch and
-> asserting "looks good," while a testable node shipped as visible prose. The reviewer is a fresh,
-> tool-less model call per batch, judged in isolation; nothing is "checked" except what it returns.
+> asserting "looks good," while a testable node shipped as visible prose. The reviewer is a fresh
+> model call per batch, judged in isolation — and every card arrives with its **measured** style
+> findings inlined, so what the corpus can prove is never left to a claim.
 > **Do not** fan review out into per-axis subagents (one re-reading the whole rulebook per card
 > turned a 20-card review into two hours). One controlled call per batch is the loop.
 
@@ -349,8 +374,10 @@ build_deck sync
 **A script drives, and the agent is only ever a constrained sub-call.** `build_deck run` is the
 orchestrator and the only writer to Anki. It calls Claude for exactly two jobs — **authoring**
 (read-only `Read/Grep/Glob` tools: it reads slides/sources/images and returns drafts, and cannot
-write files, reach Anki, or skip a step) and **review** (tool-less: sees only the card + rules +
-corpus). The author cannot edit the rules — "fixed code the agent can't touch" holds *by
+write files, reach Anki, or skip a step) and **review** (sees the card + rules + corpus + the card's
+measured style report; one tool, to re-check a fix it proposes — a reviewer that had to *fetch* the
+checker sometimes never did, because MCP tools are deferred in this CLI and must be discovered
+first). The author cannot edit the rules — "fixed code the agent can't touch" holds *by
 construction*, because the driver spawns it with no write tools, not by a lock. To change a rule or
 the style, edit the `okf/` files directly; the next `run` picks them up.
 
