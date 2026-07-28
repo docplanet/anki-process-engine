@@ -1313,15 +1313,28 @@ def cmd_run(a):
         # run that aborted on a bad --sources destroyed the PREVIOUS run's author trace. That is
         # exactly how the record of why PTH was left un-clozed was lost: nothing to read but 0 bytes.
         open(os.path.join(out_dir, "author.audit.jsonl"), "w").close()
-        print(f"· step 1 — authoring from {len(in_scope)} source(s)"
+        # ONE AUTHORING RUN PER FILE. Not one run over all of them: a single call asked to card 8
+        # sources returned 125 cards and quality collapsed inside that one response — 65% of clozes
+        # came back hintless against a reference deck that hints every one. The same author on a
+        # 37-card deck hinted all 37. Per-file keeps every call in the range where it stays careful,
+        # and dedup + review then run ACROSS the whole set (step 1b onward), which is where
+        # cross-file repetition is supposed to be caught anyway.
+        print(f"· step 1 — authoring, ONE RUN PER FILE ({len(in_scope)} file(s))"
               f"{' (--sources)' if a.sources else ' (all extracted)'}:")
-        for p in in_scope:
-            print(f"    {os.path.basename(p)}")
-        drafted, cost = author_create(deck_dir, a.model, slug=a.slug, audit_round=0,
-                                      sources=in_scope); total += cost
-        cards = [{**c, "status": "draft", "note": ""} for c in drafted]
-        save(cards)
-        print(f"  {len(cards)} drafted -> {cards_path}")
+        cards = []
+        for i, src in enumerate(in_scope, 1):
+            name = os.path.basename(src)
+            print(f"  [{i}/{len(in_scope)}] {name}…")
+            drafted, cost = author_create(deck_dir, a.model, slug=a.slug, audit_round=i,
+                                          sources=[src]); total += cost
+            # ids collide across files (each run numbers from 01), so namespace by file index
+            for c in drafted:
+                c["id"] = f"f{i}-{c.get('id', 'x')}"
+            new = [{**c, "status": "draft", "note": ""} for c in drafted if c.get("text")]
+            cards += new
+            save(cards)
+            print(f"        +{len(new)} card(s)  ({len(cards)} total)")
+        print(f"  {len(cards)} drafted from {len(in_scope)} file(s) -> {cards_path}")
 
         # ── STEP 1b — dedup ──────────────────────────────────────────────────
         dupes = mark_duplicates(cards)
