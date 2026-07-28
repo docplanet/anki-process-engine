@@ -1,4 +1,4 @@
-"""Regression tests for the style checker, the dedup pass, and --sources resolution.
+"""Regression tests for the style checker and --sources resolution.
 
 This is the whole suite. It replaced `test_strict_shape.py`, which covered a module that had stopped
 governing anything, against a fixture of the AnKing deck the project had deprecated — so nothing
@@ -7,11 +7,17 @@ tested the code that actually decides what ships.
 The central property is SELF-CONSISTENCY: every rule the checker calls BLOCKING must be one the
 corpus keeps perfectly. Add a predicate the corpus contradicts and
 `test_blocking_rules_have_zero_corpus_violations` fails — which is precisely the bug that shipped
-four times ("always cloze the subject", "always have hints", strict_shape's T1-T5 templates,
-"never force-cloze it"). Rules are derived, so this test is what keeps them honest.
+five times ("always cloze the subject", strict_shape's T1-T5 templates, "never force-cloze it",
+and — inferred from a measurement rather than invented — "hint only the clozes that need it".
+Rules are derived, so this test is what keeps them honest.
 
 Corpus-dependent tests carry @needs_corpus and skip on CI, where the corpus is gitignored. The
-dedup, --sources and judgment tests need no corpus and always run.
+--sources and judgment tests need no corpus and always run.
+
+Dedup is NOT tested here any more. It used to be a word-overlap score, which is testable and wrong:
+it flagged 'Type IV collagen is found in the basal lamina' as a duplicate of 'Type VII collagen
+connects the basal lamina...'. It is now an agent that reads the cards, because telling two facts
+apart is reading comprehension, not string distance.
 """
 import os
 import sys
@@ -212,41 +218,3 @@ def test_no_sources_spec_means_every_extracted_source(tmp_path):
     assert len(got) == 2 and missing == []
 
 
-# ── dedup ────────────────────────────────────────────────────────────────────
-def test_dedup_catches_a_wordier_restatement():
-    """The real duplicate shape. Jaccard scores this pair 0.60 and lets it through; containment
-    scores it 1.00, because everything the first card teaches is already in the second."""
-    import build_deck
-    cards = [
-        {"id": "a", "text": "{{c1::<b>Lacunae</b>::what?}} contain {{c2::<i>osteocytes</i>::what cells?}}"},
-        {"id": "b", "text": "<b>Lacunae</b> are spaces that contain {{c1::<i>osteocytes</i>::what?}}"},
-    ]
-    assert build_deck.mark_duplicates(cards) == [("b", "a")]
-    assert cards[1]["status"] == "duplicate"
-    assert "a" in cards[1]["note"]
-
-
-def test_dedup_leaves_distinct_facts_alone():
-    import build_deck
-    cards = [
-        {"id": "c", "text": "{{c1::<b>Osteoclasts</b>::which cells?}} {{c2::<i>resorb bone</i>::do what?}}"},
-        {"id": "d", "text": "{{c1::<b>Osteoblasts</b>::which cells?}} {{c2::<i>synthesize osteoid</i>::do what?}}"},
-    ]
-    assert build_deck.mark_duplicates(cards) == []
-    assert all(c.get("status") != "duplicate" for c in cards)
-
-
-def test_dedup_never_deletes():
-    import build_deck
-    cards = [{"id": "a", "text": "{{c1::<b>Lacunae</b>::what?}} contain {{c2::<i>osteocytes</i>::x?}}"},
-             {"id": "b", "text": "<b>Lacunae</b> are spaces that contain {{c1::<i>osteocytes</i>::y?}}"}]
-    build_deck.mark_duplicates(cards)
-    assert len(cards) == 2, "a duplicate is flagged and kept, never dropped"
-
-
-def test_dedup_ignores_markup_and_hints():
-    """Two cards teaching one fact collide however differently they are marked up."""
-    import build_deck
-    cards = [{"id": "a", "text": "{{c1::<b>Osteon</b>::what?}} is the {{c2::<i>functional unit of compact bone</i>::what?}}"},
-             {"id": "b", "text": "The <u>functional unit</u> of compact bone is the {{c1::<i>osteon</i>::which?}}"}]
-    assert build_deck.mark_duplicates(cards) == [("b", "a")]

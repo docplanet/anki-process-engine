@@ -712,47 +712,102 @@ def author_create(deck_dir, model, slug=None, audit_round=0, sources=None):
     return _author_call(task, deck_dir, model, "author", audit_round)
 
 
-def _answer_side(text):
-    """The card as the student sees it revealed, as a bare token set — markup, cloze braces and
-    hints all gone. Two cards that teach the same fact look identical here even when their markup
-    differs completely."""
-    t = CLOZE_RE.sub(lambda m: m.group(1).split("::")[0], text)
-    t = re.sub(r"<[^>]+>", " ", t)
-    t = re.sub(r"&nbsp;|&[a-z]+;|&#\d+;", " ", t)
-    return {w for w in re.sub(r"[^a-z0-9 ]+", " ", t.lower()).split() if len(w) > 2}
+DEDUP_SCHEMA = {
+    "type": "object",
+    "properties": {"duplicates": {"type": "array", "items": {
+        "type": "object",
+        "properties": {"dupe_id": {"type": "string"}, "keeps_id": {"type": "string"},
+                       "why": {"type": "string"}},
+        "required": ["dupe_id", "keeps_id", "why"], "additionalProperties": False}}},
+    "required": ["duplicates"], "additionalProperties": False,
+}
+
+TRANSCRIPT_SCHEMA = {
+    "type": "object",
+    "properties": {"unsupported": {"type": "array", "items": {
+        "type": "object",
+        "properties": {"id": {"type": "string"}, "verdict": {"type": "string",
+                       "enum": ["not-taught", "contradicted", "low-emphasis"]},
+                       "why": {"type": "string"}},
+        "required": ["id", "verdict", "why"], "additionalProperties": False}}},
+    "required": ["unsupported"], "additionalProperties": False,
+}
 
 
-def mark_duplicates(cards, threshold=0.8):
-    """Flag near-duplicate cards in place. Returns [(dupe_id, kept_id)].
+def dedup_agent(cards, model):
+    """Ask an agent which cards teach the SAME fact. Returns [(dupe_id, keeps_id, why)].
 
-    `no-duplicate.md` was only ever prose handed to the reviewer — the same "a rule in a prompt is a
-    rule the model must remember to apply" pattern that let style defects through for months. This
-    measures it instead: Jaccard overlap on the revealed answer text, which ignores markup, cloze
-    numbering and hints, so two cards teaching one fact collide no matter how differently they are
-    marked up.
+    This replaced a word-overlap score, which was the wrong instrument. Containment flagged
+    'Type IV collagen is found in the basal lamina' as a duplicate of 'Type VII collagen connects
+    the basal lamina to the connective tissue underneath' — four shared words out of five. Parallel
+    phrasing on contrasting terms is house style, so a comparison-table deck generates those
+    collisions by design, and four such cards were dropped from one build before any reviewer saw
+    them. An agent tells type IV from type VII without being taught how."""
+    listing = "\n".join(f"{c['id']}: {re.sub(r'<[^>]+>', '', c.get('text', ''))}" for c in cards)
+    task = (
+        "Below are flashcards from one deck. Find ONLY the pairs that teach the SAME FACT — where "
+        "knowing one makes the other redundant.\n\n"
+        "NOT duplicates, however similar the wording:\n"
+        "  • different values of the same variable — 'type IV collagen' vs 'type VII collagen', "
+        "'9%' vs '15%', 'periosteum' vs 'endosteum'. Contrasting pairs in parallel phrasing are "
+        "deliberate house style.\n"
+        "  • different aspects of one subject — where it is found vs what it does.\n"
+        "  • a general statement and a specific instance of it.\n"
+        "A pair is a duplicate only if a student who knows one learns nothing from the other.\n\n"
+        "For each, give dupe_id (the one to drop), keeps_id (the one to keep — prefer the clearer "
+        "or more complete card), and one line of why.\n\n" + listing)
+    cmd = ["claude", "-p", task, "--json-schema", json.dumps(DEDUP_SCHEMA),
+           "--output-format", "json", "--model", model, "--allowedTools", "", "--strict-mcp-config"]
+    r = subprocess.run(cmd, capture_output=True, text=True, stdin=subprocess.DEVNULL)
+    if r.returncode != 0:
+        print(f"  !! dedup agent failed ({r.stderr[:100]}) — no cards flagged")
+        return [], 0.0
+    try:
+        d = json.loads(r.stdout)
+        p = d.get("structured_output") or (json.loads(d["result"]) if d.get("result") else {})
+        return [(x["dupe_id"], x["keeps_id"], x.get("why", "")) for x in p.get("duplicates", [])], \
+               (d.get("total_cost_usd") or 0.0)
+    except Exception as e:
+        print(f"  !! dedup agent output unreadable ({e}) — no cards flagged")
+        return [], 0.0
 
-    NOTHING IS DELETED — the later card becomes `duplicate` with a note naming the one it repeats,
-    so a wrong call is visible and reversible rather than silent."""
-    seen, dupes = [], []
-    for c in cards:
-        toks = _answer_side(c.get("text", ""))
-        if len(toks) < 3:                       # too short to judge; leave it to the reviewer
+
+def transcript_agent(cards, transcript_path, model, batch=25):
+    """Ask an agent which cards the lecture does not actually support. Returns [(id, verdict, why)].
+
+    `check_cards` only proves a card's quote appears somewhere in the sources — a card built from a
+    slide the lecturer skipped passes that. This asks the question that matters: did he teach this,
+    and did he weight it? Only the transcript can answer, and only by being read."""
+    text = open(transcript_path, encoding="utf-8", errors="replace").read()
+    out, total = [], 0.0
+    for i in range(0, len(cards), batch):
+        chunk = cards[i:i + batch]
+        listing = "\n".join(f"{c['id']}: {re.sub(r'<[^>]+>', '', c.get('text', ''))}" for c in chunk)
+        task = (
+            "Here is the lecture transcript, then flashcards made from that lecture's materials.\n\n"
+            "Report ONLY cards the transcript does not support:\n"
+            "  not-taught     — the lecturer never covered this, or explicitly said not to learn it\n"
+            "  contradicted   — the transcript says something different from the card\n"
+            "  low-emphasis   — mentioned in passing only, with nothing taught about it\n\n"
+            "Say nothing about a card he taught, even briefly and clearly. Slides carry material he "
+            "skipped; that is what you are looking for. If he said 'I don't need you to know X', "
+            "any card on X is not-taught.\n\n"
+            f"===== TRANSCRIPT =====\n{text}\n\n===== CARDS =====\n{listing}")
+        cmd = ["claude", "-p", task, "--json-schema", json.dumps(TRANSCRIPT_SCHEMA),
+               "--output-format", "json", "--model", model, "--allowedTools", "",
+               "--strict-mcp-config"]
+        r = subprocess.run(cmd, capture_output=True, text=True, stdin=subprocess.DEVNULL)
+        if r.returncode != 0:
+            print(f"  !! transcript agent failed on batch {i // batch + 1}")
             continue
-        for kept_id, kept in seen:
-            # CONTAINMENT, not Jaccard. The real duplicate pattern is one card being a wordier
-            # restatement of another ("Lacunae contain osteocytes" vs "Lacunae are spaces that
-            # contain osteocytes") — Jaccard scores that pair 0.60 and lets it through, while
-            # containment scores it 1.00, because everything the shorter card teaches is already
-            # in the longer one.
-            overlap = len(toks & kept) / min(len(toks), len(kept))
-            if overlap >= threshold:
-                c["status"] = "duplicate"
-                c["note"] = f"duplicate of {kept_id} — {overlap:.0%} of its content is already there"
-                dupes.append((c["id"], kept_id))
-                break
-        else:
-            seen.append((c["id"], toks))
-    return dupes
+        try:
+            d = json.loads(r.stdout)
+            total += d.get("total_cost_usd") or 0.0
+            p = d.get("structured_output") or (json.loads(d["result"]) if d.get("result") else {})
+            out += [(x["id"], x["verdict"], x.get("why", "")) for x in p.get("unsupported", [])]
+        except Exception as e:
+            print(f"  !! transcript agent output unreadable ({e})")
+    return out, total
 
 
 def resolve_sources(deck_dir, spec):
@@ -1336,11 +1391,35 @@ def cmd_run(a):
             print(f"        +{len(new)} card(s)  ({len(cards)} total)")
         print(f"  {len(cards)} drafted from {len(in_scope)} file(s) -> {cards_path}")
 
-        # ── STEP 1b — dedup ──────────────────────────────────────────────────
-        dupes = mark_duplicates(cards)
-        print(f"· step 1b — dedup: {len(dupes)} duplicate(s) of {len(cards)} card(s)"
-              + (f" -> {', '.join(d + ' = ' + k for d, k in dupes[:6])}" if dupes else ""))
+        # ── STEP 1b — dedup, by an AGENT ─────────────────────────────────────
+        by_id = {c["id"]: c for c in cards}
+        dupes, cost = dedup_agent(cards, a.model); total += cost
+        print(f"· step 1b — dedup: {len(dupes)} duplicate(s) of {len(cards)} card(s)")
+        for dupe_id, keeps_id, why in dupes:
+            c = by_id.get(dupe_id)
+            if not c or keeps_id not in by_id:
+                continue
+            c["status"] = "duplicate"; c["note"] = f"duplicate of {keeps_id} — {why}"
+            print(f"    {dupe_id} = {keeps_id}: {why[:80]}")
         save(cards)
+
+        # ── STEP 1c — check every card against the transcript ────────────────
+        tx = [p for p in in_scope if "transcript" in os.path.basename(p).lower()]
+        if tx:
+            live = [c for c in cards if c.get("status") == "draft"]
+            bad, cost = transcript_agent(live, tx[0], a.model); total += cost
+            print(f"· step 1c — transcript check ({os.path.basename(tx[0])}): "
+                  f"{len(bad)} of {len(live)} card(s) unsupported")
+            for cid, verdict, why in bad:
+                c = by_id.get(cid)
+                if not c:
+                    continue
+                # not a silent drop — it re-enters the fix loop with the reason
+                c["status"] = "needs-fix"; c["note"] = f"transcript says {verdict}: {why}"
+                print(f"    [{verdict}] {cid}: {why[:80]}")
+            save(cards)
+        else:
+            print("· step 1c — transcript check SKIPPED: no transcript among the sources")
 
     # ── STEPS 2–4 — review / fix / re-review (the shared loop, also used by `insert`) ──────────
     cards, cost = review_fix_loop(cards, deck_dir, a.model, a.max_author_rounds, mechanical, save,
