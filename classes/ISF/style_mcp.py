@@ -5,7 +5,7 @@ Why a tool and not more prompt text: the guidelines are already in the reviewer'
 all of okf plus 84 corpus cards — and it still approved 13 of 42 cards with style defects. Holding
 a rule in context and correctly evaluating a string against it is the step that fails. This tool
 removes that step: it does not tell the reviewer that bold comes before underline, it tells the
-reviewer that THIS card puts <u> before <b> and that 0 of 84 corpus cards do that.
+reviewer that THIS card puts <u> before <b> and that NO corpus card does that.
 
 It is deliberately the reviewer's ONLY tool — `review_all` passes --strict-mcp-config and allows
 just this one, so a reviewer that used to be tool-less cannot now wander off reading files.
@@ -26,7 +26,7 @@ def check_card(text: str) -> str:
     before deciding its verdict, and again on any replacement text you are about to propose.
 
     Returns four sections:
-      BLOCKING   - properties the 84-card corpus violates ZERO times. A card with any BLOCKING
+      BLOCKING   - properties the reference corpus violates ZERO times. A card with any BLOCKING
                    finding is `needs-fix`, always. These are measured, not asserted.
       UNUSUAL    - properties the corpus violates rarely, with the rate. Justify or change.
       COMPARABLE - the corpus cards structurally closest to this one. Judge shape against these.

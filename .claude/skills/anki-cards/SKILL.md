@@ -19,7 +19,7 @@ describing a different pipeline, it is stale — delete it rather than follow it
 3. **[`classes/ISF/okf/style.md`](../../../classes/ISF/okf/style.md)** — the style in five lines
    (`<b>` subject, `<i>` answer, `<u>` facet), and the **reference corpus that settles every other
    shape question**. Shape is decided by looking at real cards in
-   `ISF::Test 2::Biochemistry::Amino Acid Structures`, never by reading prose about them — nine
+   `ISF::Test 2::Histology::Bone`, never by reading prose about them — nine
    prose files describing shape were deleted because they drifted and started generating defects.
 4. **`classes/ISF/okf/rules/*.md`** — three judgment rules (yield, accuracy, no-duplicate).
    Read all three before authoring.

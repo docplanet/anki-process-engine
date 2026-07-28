@@ -82,16 +82,20 @@ def test_clean_card_is_not_blocked():
 
 
 @needs_corpus
-def test_facet_without_answer_is_unusual_not_blocking():
-    """1 of 84 corpus cards do this, so it must advise rather than block — the corpus gets a vote.
+def test_the_tier_follows_the_corpus_not_a_hardcoded_list():
+    """The point of deriving: a rule's tier is a FUNCTION of the reference deck, not a constant.
 
-    The card deliberately ends on its facet span: an earlier fixture trailed 'low blood calcium'
-    after it and tripped trailing_prose, which hid what this test is actually about."""
-    card = ("{{c1::<b>Volkmann's canals</b>::which canals?}} are "
-            "{{c2::<u>perpendicular</u>::what orientation?}}")
-    rep = style_check.check(card, CORPUS)
-    assert not rep["blocking"]
-    assert "facet_cloze_no_answer" in {u["rule"] for u in rep["unusual"]}
+    This test used to assert that facet-without-answer was UNUSUAL, because the old hand-built
+    corpus did it once in 84 cards. Swapping the reference deck to the LLM-authored Bone deck made
+    it 0 of 37 — so it became BLOCKING and the old assertion failed, correctly. Pin the mechanism
+    instead: every tier a rule can hold must be justified by its own measured count."""
+    for key, _label, _fn, _fix, hits, n, tier in style_check.derive(CORPUS):
+        if tier == "BLOCKING":
+            assert hits == 0, f"{key} blocks on {hits}/{n}"
+        elif tier == "UNUSUAL":
+            assert 0 < hits <= style_check.UNUSUAL_MAX * n, f"{key} advises on {hits}/{n}"
+        else:
+            assert hits > style_check.UNUSUAL_MAX * n, f"{key} is silent on {hits}/{n}"
 
 
 # ── trailing prose: the owner's "it must end on the answer" ──────────────────

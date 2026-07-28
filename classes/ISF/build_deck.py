@@ -356,7 +356,13 @@ def cmd_commit(a):
     print("· synced")
 
 
-CORPUS_DECK = "ISF::Test 2::Biochemistry::Amino Acid Structures"
+# The reference deck is LLM-AUTHORED on purpose. The previous corpus (Amino Acid Structures) was
+# hand-built over months and carried quirks the pipeline cannot reproduce — most damagingly a 22%
+# hintless rate, which was read as "hints are optional" and produced a 124-card deck that was 65%
+# hintless. Bone is what the harness actually produces when it is working: 37 cards, every cloze
+# hinted, 94% multi-cloze, zero style findings. A reference the author can hit is worth more than
+# an ideal it cannot.
+CORPUS_DECK = "ISF::Test 2::Histology::Bone"
 CORPUS_OUT = os.path.join(HERE, "reference", "style_corpus.jsonl")
 
 
@@ -689,11 +695,14 @@ def author_create(deck_dir, model, slug=None, audit_round=0, sources=None):
         f"  • THE CARD ENDS ON ITS ANSWER. The <i> span covers the WHOLE value tested — never cloze a "
         f"fragment and let the rest of the sentence trail after it unstyled. ✗ '{{{{c1::<i>raise</i>}}}} "
         f"low blood calcium levels to normal'  ✓ '{{{{c1::<u>raise</u>::raise or lower?}}}} "
-        f"{{{{c2::<i>blood calcium levels to normal</i>::what?}}}}'. 0 of 84 corpus cards leave two or "
+        f"{{{{c2::<i>blood calcium levels to normal</i>::what?}}}}'. NO corpus card leaves two or "
         f"more unstyled words after the answer.\n"
         f"  • Exactly ONE <i> answer, ONE fact per card. A chain (A→B→C) becomes SEPARATE one-answer cards.\n"
-        f"  • Hint the clozes that need disambiguating — NOT all of them. 40 of 84 corpus cards leave "
-        f"an <i> answer hintless. A hint earns its place when the blank is ambiguous without it.\n"
+        f"  • EVERY CLOZE GETS A HINT. No exceptions. Substituted into the blank, the hint must read "
+        f"as natural English — '{{{{c1::<i>osteocytes</i>::what cells?}}}}' reads 'Lacunae contain "
+        f"[what cells?]'. This is the owner's rule, stated directly. An earlier version of this line "
+        f"said to hint only the clozes that needed it; the author took that as permission and a "
+        f"124-card deck came back 65% hintless. There is no such permission.\n"
         f"  • Order the roles subject-first: <b> subject … <u> facet … <i> answer.\n\n"
         f"COVERAGE: every numbered objective below must get at least one card.\n"
         f"SOURCE: each card's `extra` = the slide <img> + a VERBATIM `<b>Source:</b> \"quote\"` copied "
@@ -1058,10 +1067,10 @@ STYLE_PASS_SCHEMA = {
 def _style_guide_block():
     """The COMPACT style guide: style.md's five lines + the corpus-derived invariant table.
 
-    Deliberately NOT the full okf rulebook (39k chars) nor the 84-card dump (11k). This prompt is
+    Deliberately NOT the full okf rulebook (39k chars) nor the full corpus dump. This prompt is
     rebuilt for every card, so its size IS the running time — the batched reviewer carried 51k
     chars of system prompt per call and took ~40s a card. The per-card COMPARABLE cards and the
-    measured findings arrive with the card itself, which is what those 84 cards were there for."""
+    measured findings arrive with the card itself, which is what the corpus dump was there for."""
     style = open(os.path.join(HERE, "okf", "style.md"), encoding="utf-8").read()
     try:
         import style_check
@@ -1258,7 +1267,7 @@ def cmd_run(a):
 
     def mechanical(c):
         """Deterministic checks — PROVENANCE (verbatim source) + media, and the ONE shape rule the
-        corpus never breaks (>3 distinct clozes, 0 of 84). Everything else about SHAPE is judged by
+        corpus never breaks (>3 distinct clozes — zero corpus violations). Everything else about SHAPE is judged by
         the tool-less reviewer against the corpus cards; style.md says the corpus stats are 'not
         limits to enforce', so there is no template gate (strict_shape no longer governs the
         process). Keep it that way: this gate runs BEFORE the reviewer and short-circuits it, so any

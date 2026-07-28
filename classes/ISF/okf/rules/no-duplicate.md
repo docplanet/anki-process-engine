@@ -31,6 +31,32 @@ planned follow-up to fold back into the review step. Until then, the signals to 
 | **over-carded subjects** | one `<b>` subject appears in ≥3 cards — possible redundancy |
 | **suspicious extra** | the card's subject term never appears in its own `Extra` — often a sign the provenance doesn't actually support the card (this is what caught a fabricated quote in review) |
 
+## The detector matches SENTENCE FRAMES, not facts — audit every `duplicate` before commit
+
+`mark_duplicates` scores Jaccard overlap on the revealed word set. Two cards built from the **same
+sentence frame** therefore collide even when they teach different facts — and because dedup runs at
+step 1b, *before* review, a false positive is silently dropped without any reviewer ever seeing it.
+**Read every card marked `duplicate` and confirm the two really teach one fact.** A shared frame is
+not a shared fact.
+
+Real cases, all four from one build (Histology Week 5) — restored, reviewed and shipped:
+
+| flagged as duplicate of | why it was NOT one |
+|---|---|
+| `Type VII collagen connects the basal lamina to the connective tissue underneath` = `Type IV collagen is found in the basal lamina` | different collagen type **and** different fact; matched on "basal lamina". The lecturer named type VII among the five collagens *"I want you to know… and what they do"*, so the drop silently broke his stated list |
+| `proteoglycans (aggrecan) make up about 9%` = `collagens make up about 15%` | identical frame, different component and different value |
+| `Fibrocartilage resists deformation under stress` = `Type I collagen in fibrocartilage provides strength…` | different subject (tissue vs one of its fibres); it also completed the hyaline/elastic/fibrocartilage function set of a table the lecturer stressed |
+| `cartilage growth … is very limited in adults` = `Cartilage growth: 1. appositional 2. interstitial` | one names the two modes, the other states the limit |
+
+The tell: the two cards share a **template** (`X make up about N%`, `Type N collagen … basal
+lamina`) while their *content words* — the ones carrying the fact — differ. Parallel structure on
+contrasting terms is house style ([review-checklist](../review-checklist.md)), so a deck that cards
+a comparison table well will generate these collisions by design.
+
+**Restoring one is not a re-approval.** A card cut at step 1b was never reviewed. Set it back to
+`draft` with a note saying why it is not a duplicate, and re-enter it through
+`build_deck run --resume` — never straight to `approved`.
+
 ## Resolving a flag — who decides
 
 Every flag must be **resolved, not ignored** — but an agent may resolve it itself:

@@ -40,7 +40,11 @@ def _style_dist(texts):
     # deck would look "under-clozed" for a non-style reason).
     prose = facet = multi = 0
     for t in texts:
-        if re.search(r"<br>\s*\d+\.", t) or "<img" in t:
+        # A numbered list is a list however its items are delimited. This matched only <br>-joined
+        # items, so a deck whose author wrote <div>1. …</div> had every list card counted as prose
+        # — 11 of them in Histology Week 5 — dragging the facet and multi-cloze rates down and
+        # reporting ⚠ UNDER-STYLED for a shape reason rather than a style one.
+        if re.search(r"(?:<br>|<div>)\s*\d+\.", t) or "<img" in t:
             continue
         prose += 1
         if "<u" in t:
@@ -145,7 +149,7 @@ def check_card(T, E, S, NB, media, no_media=False):
     # style.md's prose line "Always have hints" made mechanical, and the corpus contradicts it on
     # half its cards. Worse, the gate ran BEFORE the reviewer and short-circuited it, so the one
     # judge told "if a written rule and the cards disagree, the cards win" never saw these cards.
-    # Hint quality is the reviewer's call against the corpus. ">3 distinct clozes" stays: 0 of 84.
+    # Hint quality is the reviewer's call against the corpus. ">3 distinct clozes" stays: zero corpus violations.
     if not no_media:
         for img in re.findall(r'<img src="([^"]+)"', T + E):
             if img not in media:

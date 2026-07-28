@@ -122,6 +122,17 @@ def p_empty_cloze(T):
     return any(not _text_only(b).strip() and "<img" not in b for _, b, _ in clozes(T))
 
 
+def p_hintless_cloze(T):
+    """A cloze with no hint. The image cloze itself never takes one.
+
+    This is the owner's rule stated directly — "EVERY cloze gets a hint" — and it is now also
+    measurable, because the reference deck keeps it perfectly. Against the OLD corpus it could not
+    be: those hand-built cards were 22% hintless, so the check would have flagged 40 of 84 of them.
+    That is exactly why the rule was removed as a "prose invention", replaced with "hint only the
+    ones that need it", and a 124-card deck came back 65% hintless."""
+    return any("<img" not in b and not h.strip() for _, b, h in clozes(T))
+
+
 def _answer_side(T):
     """The card REVEALED: {{cN::body::hint}} -> body. Hints must be stripped before looking at what
     trails the answer — a hint sits after </i> INSIDE the braces, so leaving it in makes every
@@ -185,6 +196,10 @@ PREDICATES = [
     ("empty_cloze", "a cloze with no content",
      p_empty_cloze,
      "Remove it or fill it."),
+    ("hintless_cloze", "a cloze with no hint",
+     p_hintless_cloze,
+     "EVERY cloze gets a hint. Substituted into the blank it must read as natural English: "
+     "'{{c1::<i>osteocytes</i>::what cells?}}' reads 'Lacunae contain [what cells?]'."),
     ("trailing_prose", "unstyled prose trailing after the answer",
      p_trailing_prose,
      "The <i> answer must cover the WHOLE value tested, so the card ENDS on it. Either extend the "

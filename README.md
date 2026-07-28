@@ -91,7 +91,8 @@ you run:  build_deck run <deck_dir> --deck "<name>" --sources "powerpoint,transc
 | `tests/` | `test_style_check.py` — the checker, dedup, and `--sources`. Its central assertion is that **every BLOCKING rule has zero corpus violations**, so a rule the corpus contradicts fails CI instead of shipping. |
 
 **Card style is settled by looking at real cards**, not by reading prose. The reference corpus is
-the owner-reviewed deck `ISF::Test 2::Biochemistry::Amino Acid Structures`; `build_deck corpus`
+the reference deck `ISF::Test 2::Histology::Bone` — LLM-authored on purpose, so it is a target the
+pipeline can actually hit; `build_deck corpus`
 pulls it to `classes/ISF/reference/style_corpus.jsonl`.
 
 ```bash

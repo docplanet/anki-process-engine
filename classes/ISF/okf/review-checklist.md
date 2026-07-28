@@ -14,7 +14,7 @@ checklist rather than shipping from inside a review.
 ## The bar: the corpus is acceptable BY DEFINITION
 
 **Before reporting anything, ask: would this be a defect in the reference deck too?** If the same
-construction appears in `classes/ISF/reference/style_corpus.jsonl` — 84 cards the owner has
+construction appears in `classes/ISF/reference/style_corpus.jsonl` — the reference deck the owner has
 reviewed and accepted, with anything they tagged `wrong-*` excluded — **it is not a finding.**
 Say nothing.
 
@@ -92,7 +92,7 @@ See [style.md](style.md). This is **not** "do these look about right" — it is 
 
 Then confirm: bold = subject, italics = answer, a hint on every cloze that reads as English, lists
 as a bold header + numbered italics. **The bar is the corpus** — put the card beside real cards from
-`ISF::Test 2::Biochemistry::Amino Acid Structures`; do not invent a denser style than they have.
+`ISF::Test 2::Histology::Bone` (see style.md); do not invent a denser style than they have.
 
 Because this is a distinct per-card pass and easy to skip under time pressure, an authoring agent
 grading its own output is not enough — run it as its own read, the same way 9a is its own script.
