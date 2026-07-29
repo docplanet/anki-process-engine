@@ -609,9 +609,11 @@ def examples_block():
     # obeyed it and wrote "'Parathyroid hormone' serves as the general FRAME". State the MEASUREMENT
     # and the test here; never an absolute.
     header = ("\n\n===== REFERENCE CARDS — one per SHAPE. Your cards must look like these =====\n"
-              "These are owner-accepted cards from the reference deck, one example of each shape it "
-              "uses. They DEFINE the house style; where a written rule and these cards disagree, "
-              "THE CARDS WIN.\n"
+              "There are six, hand-built and owner-accepted, and this is all of them — one per "
+              "shape. They DEFINE the house style; where a written rule and these cards disagree, "
+              "THE CARDS WIN. Note the LIST card: the numbers sit OUTSIDE the braces and are not "
+              "italicised, one item per line, every item sharing one cloze number. Note the IMAGE "
+              "card: the picture is its own cloze and takes no hint.\n"
               "Every shape below is legitimate — including the ones that leave the <b> subject "
               "visible. Neither clozing nor not-clozing the subject is the default. Decide per card "
               "with the test in index.md: WRITE DOWN THE QUESTION THIS CARD ASKS, AND CHECK WHETHER "
