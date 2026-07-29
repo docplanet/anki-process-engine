@@ -767,12 +767,17 @@ DEDUP_SCHEMA = {
     "required": ["duplicates"], "additionalProperties": False,
 }
 
+# The note prefix that marks a card the LECTURER told the class not to learn. A sentinel rather
+# than a status because `held` is also where the fix loop parks cards it ran out of rounds on, and
+# --resume must re-draft those while leaving this alone.
+EXCLUDED_NOTE = "lecturer excluded this: "
+
 TRANSCRIPT_SCHEMA = {
     "type": "object",
     "properties": {"unsupported": {"type": "array", "items": {
         "type": "object",
         "properties": {"id": {"type": "string"}, "verdict": {"type": "string",
-                       "enum": ["not-taught", "contradicted", "low-emphasis"]},
+                       "enum": ["contradicted", "excluded", "low-emphasis"]},
                        "why": {"type": "string"}},
         "required": ["id", "verdict", "why"], "additionalProperties": False}}},
     "required": ["unsupported"], "additionalProperties": False,
@@ -817,26 +822,48 @@ def dedup_agent(cards, model):
         return [], 0.0
 
 
-def transcript_agent(cards, transcript_path, model, batch=25):
-    """Ask an agent which cards the lecture does not actually support. Returns [(id, verdict, why)].
+def transcript_agent(cards, transcript_path, model, other_sources=(), batch=25):
+    """Ask an agent what the LECTURER said that the other sources cannot tell you.
 
-    `check_cards` only proves a card's quote appears somewhere in the sources — a card built from a
-    slide the lecturer skipped passes that. This asks the question that matters: did he teach this,
-    and did he weight it? Only the transcript can answer, and only by being read."""
+    Deliberately narrow. The obvious version of this check — "is this card supported by the
+    transcript?" — is wrong here, because a deck is authored from every file in `--sources` and
+    only one of them is the recording. Histology Week 5 had seven sources: a comparison table, two
+    Junqueira summaries, PowerPoints, and one transcript. For six of the seven, absence from the
+    transcript is the NORMAL state; the lecturer never read the table aloud. So `not-taught` fired
+    on correct cards from material the owner had explicitly named, sent them to `needs-fix`, and
+    handed the fixer a defect no rewrite can repair — you cannot rewrite a card into having been
+    taught. It also inverted the scope rule in resolve_sources: `--sources` STATES what must be
+    carded, so the transcript does not get a veto over a named source.
+
+    What only the transcript can settle is what the lecturer SAID:
+      contradicted — he stated something different from the card. A real defect, always.
+      excluded     — he told the class not to learn it. No rewrite saves it; a human decides.
+      low-emphasis — advisory yield signal, reported and never routed anywhere.
+
+    Returns ([(id, verdict, why)], cost).
+    """
     text = open(transcript_path, encoding="utf-8", errors="replace").read()
+    others = ", ".join(os.path.basename(p) for p in other_sources) or "(none)"
     out, total = [], 0.0
     for i in range(0, len(cards), batch):
         chunk = cards[i:i + batch]
         listing = "\n".join(f"{c['id']}: {re.sub(r'<[^>]+>', '', c.get('text', ''))}" for c in chunk)
         task = (
-            "Here is the lecture transcript, then flashcards made from that lecture's materials.\n\n"
-            "Report ONLY cards the transcript does not support:\n"
-            "  not-taught     — the lecturer never covered this, or explicitly said not to learn it\n"
-            "  contradicted   — the transcript says something different from the card\n"
-            "  low-emphasis   — mentioned in passing only, with nothing taught about it\n\n"
-            "Say nothing about a card he taught, even briefly and clearly. Slides carry material he "
-            "skipped; that is what you are looking for. If he said 'I don't need you to know X', "
-            "any card on X is not-taught.\n\n"
+            "Here is a lecture transcript, then flashcards for that lecture.\n\n"
+            "THE CARDS WERE NOT MADE FROM THE TRANSCRIPT ALONE. They were made from every assigned "
+            f"source for this lecture, which also includes: {others}. A card can be entirely "
+            "correct and appear NOWHERE in this transcript — the lecturer did not read the handouts "
+            "or the textbook aloud. **Absence from the transcript is NOT a finding. Do not report "
+            "it.** Reporting it once sent correct cards from assigned readings into a fix loop.\n\n"
+            "Report ONLY what the lecturer SAID, which no other source can tell us:\n"
+            "  contradicted — he stated something DIFFERENT from what the card says. Quote him.\n"
+            "  excluded     — he told the class not to learn this: 'you don't need to know', "
+            "'skip this', 'not on the exam', 'I won't test you on'. Quote him. Being skipped in "
+            "silence is NOT exclusion — he must have said it.\n"
+            "  low-emphasis — he covered it, but named it once in passing with nothing taught "
+            "about it. Advisory only. Use this sparingly, and NEVER for a card whose material "
+            "lives in one of the other sources listed above.\n\n"
+            "If the transcript neither contradicts a card nor excludes it, say nothing about it.\n\n"
             f"===== TRANSCRIPT =====\n{text}\n\n===== CARDS =====\n{listing}")
         cmd = ["claude", "-p", task, "--json-schema", json.dumps(TRANSCRIPT_SCHEMA),
                "--output-format", "json", "--model", model, "--allowedTools", "",
@@ -1392,6 +1419,14 @@ def cmd_run(a):
         if getattr(a, "recheck_approved", False):
             redo.append("approved")            # a harness change makes prior approvals stale
         again = [c for c in cards if c.get("status") in redo]
+        # ONE exception: a card held because the lecturer told the class not to learn it. That note
+        # is a finding about the LECTURE, not about the card's markup, so the "its note was written
+        # by the old rules" reasoning does not apply — clearing it would re-author and re-approve
+        # the card, silently reversing a decision the transcript settled.
+        excluded = [c for c in again if str(c.get("note", "")).startswith(EXCLUDED_NOTE)]
+        if excluded:
+            again = [c for c in again if c not in excluded]
+            print(f"  keeping {len(excluded)} card(s) held: the lecturer excluded them")
         if getattr(a, "recheck_flagged", False):
             # Re-review only what the checker can already prove is suspect. Re-reviewing a clean
             # approved card costs a full model call to re-confirm what measurement settled for
@@ -1471,15 +1506,27 @@ def cmd_run(a):
             # authored, so by the time this runs nothing is a draft any more and filtering on that
             # checked exactly zero cards while printing a reassuring "0 unsupported".
             live = [c for c in cards if c.get("status") in ("draft", "approved", "needs-fix")]
-            bad, cost = transcript_agent(live, tx[0], a.model); total += cost
-            print(f"· step 1c — transcript check ({os.path.basename(tx[0])}): "
-                  f"{len(bad)} of {len(live)} card(s) unsupported")
+            others = [p for p in in_scope if p != tx[0]]
+            bad, cost = transcript_agent(live, tx[0], a.model, other_sources=others)
+            total += cost
+            print(f"· step 1c — transcript check ({os.path.basename(tx[0])}, "
+                  f"{len(others)} other source(s) in scope): {len(bad)} of {len(live)} flagged")
             for cid, verdict, why in bad:
                 c = by_id.get(cid)
                 if not c:
                     continue
-                # not a silent drop — it re-enters the fix loop with the reason
-                c["status"] = "needs-fix"; c["note"] = f"transcript says {verdict}: {why}"
+                # Each verdict needs a DIFFERENT destination. Routing all three to needs-fix was
+                # the bug: it handed the fixer defects no rewrite can repair.
+                if verdict == "contradicted":
+                    # A wrong fact IS fixable — correct it and re-review.
+                    c["status"] = "needs-fix"; c["note"] = f"lecturer contradicts this: {why}"
+                elif verdict == "excluded":
+                    # He said don't learn it. No rewrite saves it, and cutting it silently on one
+                    # agent's reading of a garbled transcript is worse — a human decides.
+                    c["status"] = "held"; c["note"] = f"{EXCLUDED_NOTE}{why}"
+                else:
+                    # low-emphasis is a yield SIGNAL, not a verdict. Printed, never routed.
+                    c["note"] = f"low emphasis in lecture: {why}"
                 print(f"    [{verdict}] {cid}: {why[:80]}")
             save(cards)
         else:
