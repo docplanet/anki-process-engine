@@ -48,7 +48,7 @@ ever checked.)
 
 **If you are rejecting a card's *second* attempt, say so explicitly and recommend escalating.** Two
 failed attempts means the third will be markup-shuffling, not a fix — see
-[process.md](process.md) step 10. Say plainly when the original was better than both attempts;
+[process.md](process.md) step 9. Say plainly when the original was better than both attempts;
 that has been the right answer more than once.
 
 ## 1 · Sense — read it as a student, not a linter
@@ -96,7 +96,8 @@ sharing one cloze number). **The bar is the reference** — put the card beside 
 `classes/ISF/reference_cards.jsonl`; do not invent a denser style than it has.
 
 Because this is a distinct per-card pass and easy to skip under time pressure, an authoring agent
-grading its own output is not enough — run it as its own read, the same way 9a is its own script.
+grading its own output is not enough — run it as its own read, the same way the mechanical gate is
+its own script.
 Three things make it hard to skip:
 
 1. **Grade against the same-shape reference card, pulled up — not from memory.** There are six and

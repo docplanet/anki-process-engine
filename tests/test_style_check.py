@@ -7,11 +7,11 @@ tested the code that actually decides what ships.
 The central property is SELF-CONSISTENCY: every rule the checker calls BLOCKING must be one the
 corpus keeps perfectly. Add a predicate the corpus contradicts and
 `test_blocking_rules_have_zero_corpus_violations` fails — which is precisely the bug that shipped
-five times ("always cloze the subject", strict_shape's T1-T5 templates, "never force-cloze it",
-and — inferred from a measurement rather than invented — "hint only the clozes that need it".
+four times ("always cloze the subject", strict_shape's T1-T5 templates, "never force-cloze it",
+and — inferred from a measurement rather than invented — "hint only the clozes that need it").
 Rules are derived, so this test is what keeps them honest.
 
-Corpus-dependent tests carry @needs_corpus and skip on CI, where the corpus is gitignored. The
+The reference cards are tracked in git, so nothing skips on CI any more. The
 --sources and judgment tests need no corpus and always run.
 
 Dedup is NOT tested here any more. It used to be a word-overlap score, which is testable and wrong:
@@ -81,7 +81,7 @@ SHIPPED_DEFECTS = [
 @pytest.mark.parametrize("cid,text,rule", SHIPPED_DEFECTS)
 @needs_corpus
 def test_shipped_defect_is_blocked(cid, text, rule):
-    """Each of these was APPROVED by the tool-less reviewer and would have reached Anki."""
+    """Each of these was APPROVED by the reviewer and would have reached Anki."""
     blocking = style_check.check(text, CORPUS)["blocking"]
     assert rule in {b["rule"] for b in blocking}, f"{cid}: {rule} not caught"
 

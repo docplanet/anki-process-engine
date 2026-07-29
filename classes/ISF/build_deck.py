@@ -169,9 +169,12 @@ def cmd_sources(a):
         ext = ext.lower()
         if os.path.isdir(path):
             continue
-        if ext in (".docx", ".doc"):
+        if ext in (".docx", ".doc", ".rtf"):
             # Objectives often ship as a Word doc (this professor's do). They are the coverage
-            # contract, so extract them rather than dropping them into `ignored`.
+            # contract, so extract them rather than dropping them into `ignored`. `.rtf` goes
+            # through the same textutil call: the Junqueira summaries arrive as .rtf, and without
+            # this they printed NOT EXTRACTED and a whole assigned reading went uncarded unless
+            # someone read that line and converted by hand.
             chosen[base] = (path, ".docx")
             continue
         if ext in SLIDES:
@@ -553,7 +556,7 @@ def cmd_sync(a):
 
 # ── run — THE pipeline driver ────────────────────────────────────────────────────
 # A human (or scheduler) runs `build_deck run`. It orchestrates the whole pipeline itself and is
-# the ONLY writer to Anki. Claude is never the orchestrator here — it is called as two CONSTRAINED
+# the only thing that writes to Anki. Claude is never the orchestrator here — it is called as two CONSTRAINED
 # sub-processes: authoring (read-only tools, returns drafts; author_create/author_fix) and review
 # (one tool, to re-check a proposed fix; review_all). Neither can edit the rules, reach Anki, or
 # skip a step — the driver spawns them
@@ -1424,7 +1427,7 @@ def cmd_run(a):
     total += ocr_slides(deck_dir, a.model)
     src_dir = os.path.join(out_dir, "sources")
     NB = load_sources(src_dir if os.path.isdir(src_dir) else None)
-    # Push slide JPEGs into Anki BEFORE the gate runs. `media` is documented as step 11 — after the
+    # Push slide JPEGs into Anki BEFORE the gate runs. `media` is documented as step 10 — after the
     # pipeline — but check_card flags "image not in Anki media" on every <img> card, so on the
     # documented ordering an image card comes back needs-fix on round 1 and the fixer burns its
     # rounds on a defect no rewrite can repair. The step is idempotent, so doing it here costs

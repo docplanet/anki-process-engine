@@ -11,7 +11,7 @@ share) — a clear outlier prints ⚠ UNDER-STYLED and makes the exit non-zero.
 ~10s for a whole deck. What it CANNOT see — is this worth carding, does it read sensibly, is the
 answer recallable — is the read-through in okf/review-checklist.md. Passing this is not a review.
 
-Two modes. **Use the jsonl mode before inserting**: okf/process.md step 9 runs before step 12, so
+Two modes. **Use the jsonl mode before inserting**: okf/process.md step 8 runs before step 11, so
 there is nothing in Anki to query yet.
 
     check_cards.py "<deck>/out/cards.jsonl"                    # pre-insert (sources auto-found)

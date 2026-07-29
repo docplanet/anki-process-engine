@@ -90,7 +90,7 @@ owner's actual cards contradict. This is why shape is settled by examples.
 
 # Do not add a rule to this file
 
-Style rules have shipped as defects five times because someone reasoned about them instead of
+Style rules have shipped as defects four times because someone reasoned about them instead of
 measuring them: *"always cloze the `<b>` subject"*; `strict_shape`'s T1–T5 templates (measured from
 the deprecated AnKing deck); *"never force-cloze it"* (four hormone cards shipped with the hormone
 visible); and — the other direction — *"hint only the clozes that need it"*, inferred from the old

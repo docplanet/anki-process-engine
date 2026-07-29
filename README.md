@@ -88,7 +88,7 @@ you run:  build_deck run <deck_dir> --deck "<name>" --sources "powerpoint,transc
 
 | Path | Role |
 |---|---|
-| [`classes/ISF/build_deck.py`](classes/ISF/build_deck.py) | **the driver** — `run` (the pipeline) + `commit` (write by status) + the deterministic steps `slides · sources · media · corpus · sync`. Holds the author/review sub-call logic. |
+| [`classes/ISF/build_deck.py`](classes/ISF/build_deck.py) | **the driver** — all 13 subcommands (see below). Holds the author/review sub-call logic. |
 | [`classes/ISF/style_check.py`](classes/ISF/style_check.py) | **the style rules — derived, never written.** Runs a predicate battery over the corpus on every call and tiers each by its measured rate: **BLOCKING** (0 corpus violations), **UNUSUAL** (≤5%), or silently allowed. Change the corpus and the rules change with it. `--derive` prints the table. |
 | [`classes/ISF/style_mcp.py`](classes/ISF/style_mcp.py) | the same checker as an MCP tool, so the author/fixer can verify a *proposed* rewrite. (The per-card report is inlined into prompts rather than fetched — MCP tools are deferred in this CLI, so a tool the model must discover may simply never be called.) |
 | [`classes/ISF/check_cards.py`](classes/ISF/check_cards.py) | **provenance checks** — verbatim `Source:` quotes, media, and the one shape rule the corpus never breaks (>3 clozes) |
@@ -106,6 +106,47 @@ Anki-pull path now refuses to write over it.
 ```bash
 classes/ISF/.venv/bin/python classes/ISF/build_deck.py --help
 ```
+
+## The driver's subcommands
+
+`build_deck.py --help` lists thirteen. Six of them went undocumented long enough that a fresh
+session discovered them in `--help` and had no idea whether they were current — while `process.md`
+was telling it that a document describing a different pipeline should be **deleted**. They are all
+current.
+
+**Building a deck** — the path [`okf/process.md`](classes/ISF/okf/process.md) walks:
+
+| | |
+|---|---|
+| `slides <pdf/ppt> <out> <slug>` | render one JPEG per slide + `slides.jsonl` |
+| `sources <deck_dir>` | extract PDFs/transcripts/docx → `out/sources/*.txt` |
+| `run <deck_dir> --deck …` | **the pipeline.** Authors, dedupes, checks the transcript, reviews, fixes, and writes approved cards to Anki unless `--dry-run` |
+| `media <out_dir>` | push slide JPEGs into Anki media. `run` now does this itself before the gate; this is the standalone form |
+| `commit <cards.jsonl> --deck …` | write by status — `approved` tagged `src::reviewed`, `held` suspended, `cut` never |
+| `sync` | AnkiConnect sync |
+
+**Repairing a deck that already exists in Anki** — a different job, and the reason `insert` still
+exists after `process.md` said it was removed (it was: the *un-gated* writer of that name is gone,
+and this one writes nothing):
+
+| | |
+|---|---|
+| `insert --deck …` | pull a live deck into review → fix → re-review. No create, no write |
+| `review-deck --deck …` | audit a live deck read-only: corpus-derived style check + reviewer |
+| `apply <cards.jsonl> --deck …` | write a reviewed file back — updates existing notes, adds splits |
+| `style-pass <cards.jsonl>` | cycle every card through a fresh one-card style agent until the file stops changing |
+
+**The style authority and the learning loop:**
+
+| | |
+|---|---|
+| `corpus` | regenerate `reference_cards.jsonl` from `reference_cards.py`. `--deck` dumps an Anki deck for comparison and refuses to overwrite the reference |
+| `baseline` | snapshot every ISF card — the diff base `wrap` compares against |
+| `wrap` | capture your Anki edits since the baseline → `corrections.jsonl` |
+
+**Three commands write to Anki:** `run` (approved, at the end, unless `--dry-run`), `commit`
+(approved + held), and `apply` (updates in place). Nothing else touches the collection.
+
 
 ## Style rules are measured, not asserted
 

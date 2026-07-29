@@ -26,7 +26,7 @@ call; to change a rule, change the corpus. Writing a rule down is how the last f
 shipped.
 
 **Nothing unreviewed goes into the deck — and a script enforces it, not discipline.** Shipping is
-`build_deck commit` (step 12), and it **refuses to write any card that breaks a corpus invariant**.
+`build_deck commit` (step 11), and it **refuses to write any card that breaks a corpus invariant**.
 That backstop runs on the output, deliberately *after* review, never before it. The un-gated
 the old un-gated `insert` is gone. A subcommand named `insert` still exists but does something
 else entirely — it pulls an EXISTING Anki deck into review→fix→re-review and writes nothing.
@@ -42,7 +42,7 @@ about something you simply declare.
 driver *you* invoke; it orchestrates every step below itself and is the only thing that writes to
 Anki. Claude is never the orchestrator — `run` calls it as two constrained sub-processes: **authoring**
 (spawned with read-only tools — it returns card drafts, the driver writes them; it cannot edit a
-rule, touch Anki, or skip a station) and **review** (step 9b — the reviewer sees each card with its
+rule, touch Anki, or skip a station) and **review** (step 7 — the reviewer sees each card with its
 corpus-measured style report already inlined, plus one tool to re-check a proposed fix). The numbered
 steps below are what `run` does internally, and remain the manual fallback if you run them by hand.
 See [The harness](#the-harness).
@@ -61,13 +61,15 @@ build_deck slides "<slides.pdf>" "<deck>/out" <slug>     # once, to render + ind
 build_deck run "<deck>" --deck "ISF::Test 2::<Subject>::Week N" --slug <slug> [--dry-run]
 ```
 `run` extracts sources, authors (read-only sub-agent), gates, dedupes, reviews, and commits — and is
-the only writer to Anki. `--dry-run` does everything except write. Every card ends up in
+the only thing that writes to Anki (via `run`, `commit` or `apply` — never the agent).
+`--dry-run` does everything except write. Every card ends up in
 `<deck>/out/cards.jsonl` with a `status` (draft/approved/needs-fix/cut/held) + a `note` — nothing is dropped.
 
 > **`classes/ISF/Exam 2/Histology/Week 3/out/cards.jsonl` is a live export, not a template.** It is
 > what that deck currently contains, regenerated from Anki, and it is useful for seeing real cards —
-> but do not copy its conventions. It carries `src::reviewed` in the JSONL (step 10 says *not* to do
-> that when building), its `slide::` slugs (`ct`) do not match the slug its images were rendered
+> but do not copy its conventions. It carries `src::reviewed` in the JSONL (step 11 says `commit`
+> adds that tag, so *never* write it yourself when building), its `slide::` slugs (`ct`) do not
+> match the slug its images were rendered
 > with (`ct-w3`), and ~half its provenance quotes splice two transcript cues. **Read the style
 > corpus for what a card should look like; read this only for what a real deck looks like.**
 
@@ -119,7 +121,7 @@ build_deck slides "<slides.pdf>" "<deck>/out" <slug>
 > the page-text index does not, and both runs report success):
 > ```
 > build_deck slides "<ct>.pptx"  "<deck>/out"     ct
-> build_deck slides "<epi>.pptx" "<deck>/out/epi" epi     # then media BOTH dirs, see step 11
+> build_deck slides "<epi>.pptx" "<deck>/out/epi" epi     # then media BOTH dirs, see step 10
 > ```
 > Re-rendering a deck that gained slides also re-pads filenames (`slide-9` → `slide-09`), breaking
 > `<img>` references in cards already authored. Re-render before authoring, not after.
@@ -271,7 +273,7 @@ The pieces (understand them; you don't invoke them separately):
   breaks an invariant goes straight back to a fresh fixer, without spending a review call. This is
   what stops a fix that resolves the note while introducing a new defect.
 
-## 9 · 🧠 Review (what the reviewer judges)
+## 8 · 🧠 Review (what the reviewer judges)
 
 > **Work from current text, never a stale copy.** When repairing *live* cards, re-read them from
 > Anki each round — a copy taken before the last round of fixes shows superseded text, and one
@@ -298,7 +300,7 @@ that is the defect [accuracy](rules/accuracy.md) exists to catch, and it becomes
 > **Do not** fan review out into per-axis subagents (one re-reading the whole rulebook per card
 > turned a 20-card review into two hours). One controlled call per batch is the loop.
 
-## 10 · 🧠 Fix and re-review
+## 9 · 🧠 Fix and re-review
 
 Inside `run` this is automatic: a `needs-fix` card is re-authored from its note and **re-reviewed**
 before it can become `approved`; a rewrite is never approved by the pass that flagged it. A card the
@@ -328,7 +330,7 @@ reached the right answer sooner, and the right answer was "leave it alone."*
   floor in [yield](rules/yield.md))
 - the fix would change what the card teaches rather than how it is worded
 
-## 11 · Media into Anki
+## 10 · Media into Anki
 
 ```
 build_deck media "<deck>/out"
@@ -342,7 +344,7 @@ Pushes the slide JPEGs into Anki's media collection so `extra` images render. Id
 > "<deck>/out/<slug>"`.
 *Manual:* copy `out/slides/*.jpg` into the Anki profile's `collection.media/`.
 
-## 12 · Ship to Anki — `commit` by status
+## 11 · Ship to Anki — `commit` by status
 
 `build_deck run` writes nothing when `--dry-run`. To ship the reviewed deck (push slide images
 first so `<img>` renders):
@@ -361,6 +363,10 @@ missing.
 > and re-commit, the edited card is no longer a duplicate — you get a **second note beside the stale
 > one**. After a repair, edit the live note in Anki rather than re-committing. `out/.build_deck.log`
 > records every write.
+
+**The folder says `Exam`, the deck says `Test`.** Material lives under
+`classes/ISF/Exam 2/…` and ships to `ISF::Test 2::…`. Mirroring the folder name creates a second,
+wrong, sibling deck. Check `anki_list_decks` and match what is already there.
 
 **Deck naming — deck by LECTURE, tag by TOPIC.**
 
@@ -382,7 +388,7 @@ inventing a sibling.
 > Some older decks read `ISF::Test 1::Week 2::Histology (Engine)::Epithelium` — a meaningless
 > `(Engine)` suffix and a topic leaf, both legacy. Don't copy that shape.
 
-## 13 · Sync
+## 12 · Sync
 
 ```
 build_deck sync
@@ -394,7 +400,7 @@ build_deck sync
 # Why it holds together
 
 **A script drives, and the agent is only ever a constrained sub-call.** `build_deck run` is the
-orchestrator and the only writer to Anki. It calls Claude for exactly two jobs — **authoring**
+orchestrator, and the only thing that writes to Anki. It calls Claude for exactly two jobs — **authoring**
 (read-only `Read/Grep/Glob` tools: it reads slides/sources/images and returns drafts, and cannot
 write files, reach Anki, or skip a step) and **review** (sees the card + rules + corpus + the card's
 measured style report; one tool, to re-check a fix it proposes — a reviewer that had to *fetch* the
@@ -417,7 +423,7 @@ The commands, since no driver subcommand covers this path — use the `anki` MCP
 | find the flagged cards | `anki_find_notes` with `deck:"<name>" tag:wrong-*` |
 | **read current text before editing** | `anki_get_notes_info` — note-ids are easy to mistake, and editing the wrong one has destroyed a card |
 | fix | `anki_update_note_fields` |
-| it is unreviewed again | `anki_remove_tags` → `src::reviewed`, then re-run step 9 |
+| it is unreviewed again | `anki_remove_tags` → `src::reviewed`, then re-run step 8 |
 | re-tag once reviewed | `anki_add_tags` by explicit note id — **never** by a `-tag:src::reviewed` search |
 | suspend, if it should not ship | not exposed by the MCP — suspend by hand in Anki, or via AnkiConnect `suspend` |
 
