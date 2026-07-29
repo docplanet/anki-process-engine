@@ -21,7 +21,9 @@ describing a different pipeline, it is stale — delete it rather than follow it
    shape question**. Shape is decided by looking at the six real cards in
    `classes/ISF/reference_cards.jsonl`, never by reading prose about them — nine
    prose files describing shape were deleted because they drifted and started generating defects.
-4. **`classes/ISF/okf/rules/*.md`** — three judgment rules (yield, accuracy, no-duplicate).
+4. **`classes/ISF/okf/rules/*.md`** — **four** judgment rules: yield, accuracy, no-duplicate, and
+   **card-structure** — the one that decides WHAT GETS CLOZED. It was dropped from this list once
+   and a fresh session skipped it; it is the most load-bearing authoring file in the repo.
    Read all three before authoring.
 5. **[`classes/ISF/okf/review-checklist.md`](../../../classes/ISF/okf/review-checklist.md)** — the
    explicit per-card checks a review must run.
@@ -44,7 +46,8 @@ separate style bugs shipped. `style_check.py --derive` shows the live table;
 `style_check.py --deck <cards.jsonl>` audits a deck.
 
 **Every card is tracked, nothing is dropped.** Each card in `cards.jsonl` carries a `status`
-(draft/approved/needs-fix/cut/held) + a `note`. After a run, read that file (`grep '"status"'`) to
+(draft/approved/needs-fix/cut/held, **plus `duplicate`** from the dedup agent) + a `note`. After a
+run, read that file (`grep '"status"'`) to
 see what landed where and why. Read the okf rulebook not to hand-author, but to understand and refine
 the rules the author/reviewer follow — the rulebook IS their prompt.
 

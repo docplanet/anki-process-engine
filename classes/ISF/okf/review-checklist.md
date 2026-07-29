@@ -101,7 +101,8 @@ Three things make it hard to skip:
 
 1. **Grade against the same-shape reference card, pulled up — not from memory.** There are six and
    they cover every shape; open the one this card is an instance of and put them side by side.
-   "Looks about right" from memory is how a whole deck shipped at ~6% facets against ~86%.
+   "Looks about right" from memory is how a whole deck shipped at ~6% facets against the
+   reference's 75%.
 2. **`check_cards.py` now reports the deck's style distribution vs the corpus** (facet-rate on prose
    cards, multi-cloze share) and marks a clear outlier `⚠ UNDER-STYLED`, making the exit non-zero.
    That is the mechanical backstop for this axis — resolve it by marking the missing facets and

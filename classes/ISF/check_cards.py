@@ -3,7 +3,6 @@
 
 Per card:
   * every `Source:` quote in Extra is a verbatim substring of THIS deck's source text
-  * every answer cloze carries a hint (list cards exempt — their items share one cloze)
   * no card exceeds 3 distinct clozes
   * every referenced image exists in Anki's media collection
 Deck-level: the style distribution vs the reference corpus (facet-rate on prose cards, multi-cloze
@@ -196,7 +195,7 @@ def main():
 
     # ── style distribution vs the corpus ──────────────────────────────────────────────────────
     # The durable fix for under-styling: a whole deck once shipped with facets on ~6% of cards
-    # against the corpus's ~86%, and half its cards single-cloze against the corpus's ~7% — a
+    # against the reference's 75%, and half its cards single-cloze against the reference's 25% — a
     # glaring distribution mismatch a glance missed and a lint catches instantly. This is advisory
     # (a subject can genuinely be less facet-heavy), so a clear outlier makes the exit non-zero and
     # you resolve it EITHER by marking the missing facets / clozing the untested roles OR by

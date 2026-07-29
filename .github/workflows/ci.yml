@@ -8,10 +8,9 @@ name: ci
 # contradicts and CI goes red, which is exactly how four authored style rules shipped as defects
 # before this existed.
 #
-# The corpus (`classes/ISF/reference/style_corpus.jsonl`) is pulled from the owner's Anki and is
-# gitignored, so the corpus-dependent tests SKIP here — CI catches syntax/import breakage and the
-# corpus-free tests (dedup, --sources resolution). Run locally with the corpus present to validate
-# the derived rules themselves.
+# The reference cards (`classes/ISF/reference_cards.jsonl`) are TRACKED IN GIT, so the full suite
+# runs here — including every derived-rule assertion. It used to be an Anki pull, gitignored, and
+# these tests skipped; CI reported green while measuring nothing.
 #
 # This job previously ran `python -m unittest tests.test_reference_deck` — a module that had been
 # deleted, so every run failed. It also used unittest, which cannot run this suite at all

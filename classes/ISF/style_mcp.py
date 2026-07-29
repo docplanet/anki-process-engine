@@ -2,7 +2,7 @@
 """The style checker as an MCP tool, so the REVIEWER can call it per card.
 
 Why a tool and not more prompt text: the guidelines are already in the reviewer's system prompt —
-all of okf plus 84 corpus cards — and it still approved 13 of 42 cards with style defects. Holding
+all of okf plus the reference cards — and it still approved 13 of 42 cards with style defects. Holding
 a rule in context and correctly evaluating a string against it is the step that fails. This tool
 removes that step: it does not tell the reviewer that bold comes before underline, it tells the
 reviewer that THIS card puts <u> before <b> and that NO corpus card does that.

@@ -17,7 +17,7 @@ timestamp: 2026-07-18T00:00:00Z
    answers. Every item shares one cloze number, so the whole list is one card view. See `ref-05`.
 4. **Every cloze gets a hint. No exceptions.** Stated directly by the deck owner.
 
-   > The reference deck keeps this perfectly — **73 of 73 clozes hinted** — so it is also a
+   > The reference keeps this — every cloze on the four prose shapes is hinted — so it is also a
    > BLOCKING rule in `style_check`. It was briefly softened to "hint the ones that need it — not
    > every cloze", on the evidence that the *old* hand-built reference was 22% hintless. The author
    > read that as permission and returned a 124-card deck that was **65% hintless**. That old deck
@@ -47,6 +47,28 @@ complete thought, a card with two `<b>` spans). The six are:
 `ref-04` and `ref-06` are the two that must not be dropped. Without `ref-04` the author clozes every
 subject it sees; without `ref-06` it has no model for a recognition card.
 
+**The list and the image are the two shapes prose cannot teach, so here they are verbatim.** A
+reader given only the descriptions above wrote the image card with the term in `<b>`, a hint on the
+picture, and an invented sentence frame — all three wrong:
+
+```
+ref-05  The {{c1::<b>epiphyseal growth</b>::which structure?}} plate has five <u>zones</u>:<br><br>
+        1. {{c2::<i>resting cartilage</i>::which five zones?}}<br>
+        2. {{c2::<i>proliferating cartilage</i>}}<br>
+        3. {{c2::<i>hypertrophic cartilage</i>}}<br>
+        4. {{c2::<i>calcified cartilage</i>}}<br>
+        5. {{c2::<i>ossification</i>}}
+
+ref-06  {{c1::<img src="ref-osteon.jpg">}}<br><br>This is {{c2::<i>compact bone</i>::which tissue?}} that we can see
+```
+
+Read off them: the list's numbers are outside the braces and unstyled, every item shares `c2`, and
+**only item 1 carries the hint** — the others inherit it, because a hint belongs to a cloze *number*.
+"plate" is visible and **not** bolded; one `<b>` span per card. The image card has **no `<b>` at
+all**, its image cloze takes **no hint**, and it **ends on four unstyled words** — the recognition
+idiom names the thing and closes the sentence. Those are carve-outs from the prose invariants, not
+violations of them.
+
 **To change the style, edit `classes/ISF/reference_cards.py` and regenerate.** The rules recompute
 from whatever those cards do — `style_check.py --derive` prints the table.
 
@@ -54,8 +76,8 @@ Measured on the six, for orientation only (not as limits to enforce):
 
 | | |
 |---|---|
-| clozes per card | 1 → 2 cards, 2 → 3, 3 → 1 |
-| hints | **every cloze**, mean ~2.5 words |
+| clozes per card | 1 → 1 card, **2 → 4**, 3 → 1 |
+| hints | **every cloze**, mean ~2.5 words. Two carve-outs, both structural: `ref-06`'s image cloze takes none, and `ref-05`'s list items 2–5 share item 1's cloze number and therefore its hint |
 | hint form | all end in `?` — question-form hints are house style |
 | shapes with a `<u>` facet | 4 of 6 |
 | commas in hints | 0 |
@@ -78,8 +100,8 @@ reference deck's 22% hintless rate, which produced a 124-card deck that was 65% 
 one hand-built deck; it was never permission. That is what changing the reference deck fixes.
 
 **Rules live in `classes/ISF/style_check.py`, derived from this corpus on every call.** A predicate
-the corpus violates zero times BLOCKS; one it breaks rarely advises; one it breaks often is not a
-rule. `tests/test_style_check.py` asserts that property, so a rule the corpus contradicts fails CI
+the corpus violates zero times BLOCKS; one it breaks often is not a rule. (The advisory middle tier
+cannot fire at n=6 — see [index.md](index.md).) `tests/test_style_check.py` asserts that property, so a rule the corpus contradicts fails CI
 rather than shipping.
 
 ```

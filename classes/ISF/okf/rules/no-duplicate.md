@@ -1,7 +1,7 @@
 ---
 type: Card Authoring Rule
 title: No near-duplicate cards
-description: Two cards that test the same fact are a duplicate; the deck-level checker surfaces near-duplicate pairs for merge/cut.
+description: Two cards that test the same fact are a duplicate; a dedup agent surfaces the pairs, and `duplicate` is a status you must audit.
 tags: [anki, card-authoring, duplicate, dedup, deck-level]
 resource: anki://rule/no-duplicate
 timestamp: 2026-07-13T00:00:00Z
@@ -20,24 +20,33 @@ prefix before `::` and are expected.
 
 # Enforcement
 
-Duplicate/redundancy detection is the **reviewer's** job in the `run` pipeline: it flags a card
-that restates another as `needs-fix` (merge/differentiate) or `cut`, with the reason in the card's
-`note`. An automated near-duplicate detector (revealed-text similarity, over-carded subjects) is a
-planned follow-up to fold back into the review step. Until then, the signals to watch are:
+Duplicate detection is a **dedicated agent** at step 1b, plus the reviewer, which also flags a card
+that restates another as `needs-fix` (merge/differentiate) or `cut` with the reason in the card's
+`note`. The signals to watch are:
 
 | Signal | Means |
 |---|---|
-| **near-dup pairs** | two cards' revealed text is ≥66% similar (same-note siblings excluded) |
+| **near-dup pairs** | an agent reads the whole set and says which pairs teach ONE fact |
 | **over-carded subjects** | one `<b>` subject appears in ≥3 cards — possible redundancy |
 | **suspicious extra** | the card's subject term never appears in its own `Extra` — often a sign the provenance doesn't actually support the card (this is what caught a fabricated quote in review) |
 
-## The detector matches SENTENCE FRAMES, not facts — audit every `duplicate` before commit
+## `duplicate` is a status no other doc lists — audit every one before commit
 
-`mark_duplicates` scores Jaccard overlap on the revealed word set. Two cards built from the **same
-sentence frame** therefore collide even when they teach different facts — and because dedup runs at
-step 1b, *before* review, a false positive is silently dropped without any reviewer ever seeing it.
-**Read every card marked `duplicate` and confirm the two really teach one fact.** A shared frame is
-not a shared fact.
+Dedup is **an agent** (step 1b): it reads the whole set and says which pairs teach one fact. It
+replaced a word-overlap score, which was the wrong instrument — that score matched **sentence
+frames** and flagged "type IV collagen is found in the basal lamina" as a duplicate of a type VII
+card. An agent can tell those apart; a Jaccard threshold cannot.
+
+The audit still matters, for a different reason than it used to. `duplicate` is **the sixth
+status**, and the other five are the ones every doc lists — so a card dropped here is invisible to
+anyone grepping the documented vocabulary, and `run` and `commit` both refuse to write it.
+
+    grep -c '"status": "duplicate"' <deck>/out/cards.jsonl
+
+**Read every one and confirm the two really teach one fact.** A shared frame is not a shared fact.
+By the time dedup runs the card HAS been reviewed — step 1 now authors and reviews one source file
+at a time — so restoring one is not restoring something unvetted. Set it back to `draft` with a
+note and re-enter via `run --resume`; never straight to `approved`.
 
 Real cases, all four from one build (Histology Week 5) — restored, reviewed and shipped:
 

@@ -12,12 +12,12 @@ rather than written down, with an independent review pass and a dedup pass, inst
 
 **[`classes/ISF/okf/`](classes/ISF/okf/)** is the single source of truth for card work — the process
 *and* the rules, in [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
-(plain markdown + YAML frontmatter). Seven files, no more:
+(plain markdown + YAML frontmatter). Eight files, no more:
 
 | Read | For |
 |---|---|
-| **[`okf/process.md`](classes/ISF/okf/process.md)** | **How to build a deck** — 13 steps, each with the driver command *and* the manual fallback |
-| [`okf/index.md`](classes/ISF/okf/index.md) | The governing principle and the map of the six files |
+| **[`okf/process.md`](classes/ISF/okf/process.md)** | **How to build a deck** — 12 numbered steps; most carry the driver command *and* the manual fallback |
+| [`okf/index.md`](classes/ISF/okf/index.md) | The governing principle and the map of the rulebook |
 | [`okf/style.md`](classes/ISF/okf/style.md) | The card style in five lines; every other shape question is answered by the reference **corpus**, not by prose |
 | [`okf/review-checklist.md`](classes/ISF/okf/review-checklist.md) | The per-card review — the bar, the five axes, what counts as a finding |
 | [`okf/rules/`](classes/ISF/okf/rules/) | The four judgment rules a corpus can't show — [yield](classes/ISF/okf/rules/yield.md), [accuracy](classes/ISF/okf/rules/accuracy.md), [no-duplicate](classes/ISF/okf/rules/no-duplicate.md), [card-structure](classes/ISF/okf/rules/card-structure.md) |
@@ -54,9 +54,10 @@ file.
 ```
 you run:  build_deck run <deck_dir> --deck "<name>" --sources "powerpoint,transcript,…"
              │   the driver orchestrates; it is the ONLY writer to Anki
-  1 create → 1b dedup → 2 review → 3 fix → 4 re-review   (loop 2–3 until nothing is needs-fix)
-  🧠 author   (measured)  gate + 🧠 reviewer  🧠 author      then commit approved → Anki
-  (read-only)             (+ style report)   (read-only)
+  1 create+review → 1b dedup → 1c transcript → 2 review → 3 fix → 4 re-review
+  🧠 per SOURCE FILE  🧠 agent    🧠 agent       gate+🧠      🧠 author   (loop until
+  (author read-only)                            reviewer     (read-only)  none needs-fix)
+                                                            then approved → Anki
 ```
 
 - **you state the scope** — `--sources` names which extracted files must be carded. A source you
@@ -64,9 +65,14 @@ you run:  build_deck run <deck_dir> --deck "<name>" --sources "powerpoint,transc
 - **create** — the author is a sub-process spawned with **read-only tools** (`Read Grep Glob`). It
   reads the named sources and *returns card drafts* — the driver writes them. With no write/Bash/Anki
   tools it **cannot** edit a rule, touch Anki, or skip a step.
-- **dedup** — near-duplicates are found by comparing the *revealed answer text* with markup, cloze
-  numbers and hints stripped, so two cards teaching one fact collide however differently they're
-  written. The later card is flagged `duplicate`, never deleted.
+- **dedup** — **an agent** reads the whole set and says which pairs teach one fact. It replaced a
+  word-overlap score that matched sentence frames: it called *type IV collagen in the basal lamina*
+  a duplicate of a type VII card. The later card is flagged `duplicate`, never deleted — and
+  `duplicate` is a sixth status the rest of this README's vocabulary doesn't list, so grep for it.
+- **transcript check** — a second agent reads the lecture recording and reports only what the
+  lecturer SAID that no other source can settle: he **contradicted** the card (→ `needs-fix`), or he
+  told the class **not to learn it** (→ `held`, for you). Absence from the transcript is not a
+  finding — most sources are handouts he never read aloud.
 - **review** — the verbatim-quote/media check (`check_cards`) plus the corpus-derived style
   invariants (`style_check`) **mark** a bad card `needs-fix` *with the reason*; then a reviewer flags
   each remaining card `approved` / `needs-fix` / `cut` + a note. **Every card carries its measured
@@ -108,7 +114,7 @@ the corpus on every call; a predicate the corpus violates **zero** times is BLOC
 rarely is advisory, one it breaks often is not a rule at all and is never reported.
 
 That design exists because authored rules failed four times — *"always cloze the `<b>` subject"*,
-*"always have hints"* (which flagged 48% of the corpus), `strict_shape`'s templates (calibrated to a
+`strict_shape`'s templates (calibrated to a
 deck the project had abandoned), and *"never force-cloze it"* (which caused four hormone cards to
 ship with the hormone visible). Each was enforced for a while against cards that contradicted it.
 
@@ -145,7 +151,7 @@ objectives. On macOS:
 brew install poppler                          # pdftoppm, pdftotext, pdfinfo
 brew install --cask libreoffice               # soffice — .ppt/.pptx → .pdf
 python3 -m venv classes/ISF/.venv
-classes/ISF/.venv/bin/pip install -r requirements.txt   # (stdlib only; the venv makes the commands verbatim)
+classes/ISF/.venv/bin/pip install -r requirements.txt   # needs `mcp` — style_mcp.py imports it
 ```
 
 Anki steps need **Anki running with the AnkiConnect add-on** (code `2055492159`); the driver creates

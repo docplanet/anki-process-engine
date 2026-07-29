@@ -58,11 +58,15 @@ English; the clozes only choose *which concepts get tested*.
    nothing else — scoping/context nouns stay *outside* the cloze, and every character inside a
    cloze carries the same role markup.
    - ❌ `{{c1::<b>lysine</b> side chain::…}}` — "side chain" is context, unstyled, inside the cloze.
-   - ✅ `The {{c1::<b>lysine</b>::which residue?}} side chain has a <u>pKa</u> of about {{c2::<i>10.5</i>}}`
+   - ✅ `The {{c1::<b>lysine</b>::which residue?}} side chain has a <u>pKa</u> of about {{c2::<i>10.5</i>::how much?}}`
    - **Cloze the distinguishing word; keep a generic head noun visible** — for `distinguisher +
-     generic head` ("**carboxyl** group", "**basal** lamina"), cloze only the distinguisher and
-     leave the head visible **but bold it too**, then still give the cloze a hint (an option-listing
-     one often fits: `regular or irregular?`).
+     generic head` ("carboxyl group", "basal lamina"), cloze only the distinguisher and leave the
+     head visible **and unstyled**, then still give the cloze a hint (an option-listing one often
+     fits: `regular or irregular?`). `ref-05` is this exact shape: `The {{c1::<b>epiphyseal
+     growth</b>::which structure?}} plate …` — "plate" is visible and **not** bolded.
+     *(This line used to say "bold it too". Every reference card has exactly ONE `<b>` span, and
+     style.md names a two-`<b>` card as one of the defects that disqualified the old reference. A
+     cold reader following the old wording produced a two-bold card on its first attempt.)*
 7. **No cloze reveals another (no self-answering).** On a multi-cloze card, no cloze's *answer* may
    give away a sibling. Watch for a value that IS the other cloze under another name:
    - ❌ `An amino acid's {{c1::<b>carboxyl group</b>}} is {{c2::<i>deprotonated (–COO⁻)</i>}}` — "–COO⁻"
@@ -70,7 +74,7 @@ English; the clozes only choose *which concepts get tested*.
    - Test by hiding each cloze in turn: the visible text (including the *other* answers) must not
      contain or spell out the hidden one.
 8. **Distinct clozes are distinctly styled — ONE red answer per card.** Two *different* cloze
-   numbers must not share the same role markup. **The corpus is unambiguous: 0 of 84 cards have two
+   numbers must not share the same role markup. **The reference is unambiguous: 0 of 6 cards have two
    `<i>` answers.** The house style is one bold subject, one red `<i>` answer, one optional teal
    `<u>` facet — never two reds. A chain fact (A secretes B, which maintains C) does **not** become
    a second red answer; either the extra node is the subject/context of the sentence, or the fact
@@ -89,7 +93,7 @@ inside the braces: `{{c1::<b>term</b>::hint}}`.
 
 # The two is normal, one is fine, three is the ceiling
 
-Measured on the reference corpus, prose (non-list, non-image) cards are overwhelmingly 2-cloze; a
+Two clozes is the most common prose shape in the reference; a
 single-cloze prose card that leaves a second testable role visible is the deck's most common
 under-cloze defect. Three is the hard ceiling; beyond it, split.
 
@@ -128,8 +132,10 @@ in `<i>`:
 - **A mechanical gate, but only for rules the corpus never breaks.** `style_check.py` measures its
   predicates against the corpus on every call; only those with **zero** counterexamples block. That
   is what makes gating safe here — the earlier gates were unsafe because they were *authored*
-  (`strict_shape`'s templates came from a deprecated AnKing deck; an "every cloze needs a hint" rule
-  flagged 48% of the corpus). `strict_shape.py` has since been **deleted** — `build_deck review-deck`
+  (`strict_shape`'s templates came from a deprecated AnKing deck). **The hint rule is not an example
+  of this** — "every cloze gets a hint" was briefly called an unsafe gate because it flagged 48% of
+  the RETIRED 84-card corpus. Against the six reference cards it is 0/6, it is BLOCKING, and it is
+  an absolute the owner stated directly. `strict_shape.py` has since been **deleted** — `build_deck review-deck`
   now audits an existing deck with the same corpus-derived invariants the pipeline enforces.
 - **What blocks:** the corpus-zero invariants — role order, >3 clozes, two same-styled clozes,
   trailing prose after the answer, unstyled text inside the braces. Plus verbatim `Source:` quotes

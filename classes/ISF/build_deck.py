@@ -3,7 +3,8 @@
 
 `run` is the whole pipeline as four visible steps over ONE status-tracked cards.jsonl:
 create -> review -> fix -> re-review. The author and reviewer are constrained claude sub-calls
-(the author is read-only; the reviewer is tool-less); the driver is the only writer to Anki.
+(the author is read-only; the reviewer gets one tool, to re-check a proposed fix); the driver is
+the only writer to Anki.
 Nothing is ever deleted — every card keeps a status (draft/approved/needs-fix/cut/held) + a note.
 See classes/ISF/okf/process.md for the full procedure.
 
@@ -221,14 +222,32 @@ def cmd_sources(a):
 
 
 # ── media ─────────────────────────────────────────────────────────────────────
+def _push_media(out_dir, fatal=False):
+    """Store <out_dir>/slides/*.jpg in Anki's media collection. Idempotent. Returns the count.
+
+    Factored out of cmd_media so `run` can do it BEFORE the mechanical gate — see the call site."""
+    imgs = sorted(glob.glob(os.path.join(out_dir, "slides", "*.jpg")))
+    if not imgs:
+        msg = f"no JPEGs under {out_dir}/slides — run `build_deck.py slides` first"
+        if fatal:
+            sys.exit(msg)
+        print(f"· media: {msg} (skipping)")
+        return 0
+    try:
+        for p in imgs:
+            invoke("storeMediaFile", filename=os.path.basename(p), path=os.path.abspath(p))
+    except Exception as e:
+        if fatal:
+            raise
+        print(f"· media: Anki unreachable ({e}) — image cards will flag in the gate")
+        return 0
+    print(f"· stored {len(imgs)} image(s) in Anki media")
+    return len(imgs)
+
+
 def cmd_media(a):
     """Push rendered slide images into Anki's media collection (idempotent)."""
-    imgs = sorted(glob.glob(os.path.join(a.out_dir, "slides", "*.jpg")))
-    if not imgs:
-        sys.exit(f"no JPEGs under {a.out_dir}/slides — run `build_deck.py slides` first")
-    for p in imgs:
-        invoke("storeMediaFile", filename=os.path.basename(p), path=os.path.abspath(p))
-    print(f"stored {len(imgs)} image(s) in Anki media")
+    _push_media(a.out_dir, fatal=True)
 
 
 # ── the Anki writer ─────────────────────────────────────────────────────────────
@@ -536,7 +555,8 @@ def cmd_sync(a):
 # A human (or scheduler) runs `build_deck run`. It orchestrates the whole pipeline itself and is
 # the ONLY writer to Anki. Claude is never the orchestrator here — it is called as two CONSTRAINED
 # sub-processes: authoring (read-only tools, returns drafts; author_create/author_fix) and review
-# (tool-less; review_all). Neither can edit the rules, reach Anki, or skip a step — the driver spawns them
+# (one tool, to re-check a proposed fix; review_all). Neither can edit the rules, reach Anki, or
+# skip a step — the driver spawns them
 # without those tools. That inversion — script drives, agent is a sub-call — is what makes this a
 # harness rather than a toolbox the agent picks up.
 
@@ -740,9 +760,12 @@ def author_create(deck_dir, model, slug=None, audit_round=0, sources=None):
         f"  • THE CARD ENDS ON ITS ANSWER. The <i> span covers the WHOLE value tested — never cloze a "
         f"fragment and let the rest of the sentence trail after it unstyled. ✗ '{{{{c1::<i>raise</i>}}}} "
         f"low blood calcium levels to normal'  ✓ '{{{{c1::<u>raise</u>::raise or lower?}}}} "
-        f"{{{{c2::<i>blood calcium levels to normal</i>::what?}}}}'. NO corpus card leaves two or "
-        f"more unstyled words after the answer.\n"
-        f"  • Exactly ONE <i> answer, ONE fact per card. A chain (A→B→C) becomes SEPARATE one-answer cards.\n"
+        f"{{{{c2::<i>blood calcium levels to normal</i>::what?}}}}'. On a PROSE card, nothing "
+        f"unstyled follows the answer. (An IMAGE card is exempt — ref-06 closes with 'that we can "
+        f"see'. Its idiom names the thing and finishes the sentence.)\n"
+        f"  • ONE <i> answer per PROSE card, ONE fact per card. A chain (A→B→C) becomes SEPARATE "
+        f"one-answer cards. A LIST card is the exception: every item is <i> and they SHARE one "
+        f"cloze number, so the list is one answer — see ref-05.\n"
         f"  • EVERY CLOZE GETS A HINT. No exceptions. Substituted into the blank, the hint must read "
         f"as natural English — '{{{{c1::<i>osteocytes</i>::what cells?}}}}' reads 'Lacunae contain "
         f"[what cells?]'. This is the owner's rule, stated directly. An earlier version of this line "
@@ -907,7 +930,19 @@ def resolve_sources(deck_dir, spec):
         chosen += hits
         if not hits:
             missing.append(want)
-    return sorted(set(chosen)), missing
+    chosen = sorted(set(chosen))
+    # SAY WHAT WAS LEFT OUT. A spec that matches NOTHING is already an error, but a spec that
+    # matches ONE of TWO files you meant is silent — and that is the case that bites: Histology
+    # Week 5 held both "Junqueira Cartilage Summary" and "Junquiera CT summary" (transposed 'ie'),
+    # so --sources "…,junqueira" selected one, dropped the other, and reported success. The
+    # unselected list is the only thing that makes an under-selection visible.
+    left_out = [os.path.basename(p) for p in have if p not in chosen]
+    if left_out:
+        print(f"· --sources selected {len(chosen)} of {len(have)} extracted file(s). NOT carded: "
+              + ", ".join(left_out))
+        print("  If one of those should be in scope, stop and add it — a spec that matches one of "
+              "two intended files passes silently.")
+    return chosen, missing
 
 
 def author_fix(deck_dir, model, needs_fix, audit_round, source_hint=None):
@@ -951,7 +986,7 @@ def author_fix(deck_dir, model, needs_fix, audit_round, source_hint=None):
     return cards, cost
 
 
-# ── review sub-call (STEP 2 — tool-less; FLAGS a status + note, never rewrites) ───────────────────
+# ── review sub-call (STEP 2 — FLAGS a status + note, never rewrites) ───────────────────
 REVIEW_SCHEMA = {
     "type": "object",
     "properties": {"verdicts": {"type": "array", "items": {
@@ -1294,7 +1329,7 @@ def review_fix_loop(cards, deck_dir, model, max_rounds, mechanical, save=None, s
                 c["status"] = "needs-fix"; c["note"] = "; ".join(m)
             else:
                 to_review.append(c)
-        # 2b tool-less reviewer on the mechanically-clean drafts -> approved / needs-fix / cut
+        # 2b reviewer on the mechanically-clean drafts -> approved / needs-fix / cut
         if to_review:
             print(f"· step 2 — round {rnd}: reviewing {len(to_review)} card(s)…")
             verdicts, cost = review_all(to_review, model); total += cost
@@ -1360,7 +1395,7 @@ def cmd_run(a):
     saying why. Only `approved` cards are written to Anki.
 
       1 create   author writes draft cards
-      2 review   mechanical gate + tool-less reviewer set each card's status (+ note for fixes)
+      2 review   mechanical gate + reviewer set each card's status (+ note for fixes)
       3 fix      the author rewrites needs-fix cards from the note, back to draft
       4 re-review  loop 2-3 until nothing is needs-fix (bounded; leftovers -> held, still in the file)
 
@@ -1389,6 +1424,13 @@ def cmd_run(a):
     total += ocr_slides(deck_dir, a.model)
     src_dir = os.path.join(out_dir, "sources")
     NB = load_sources(src_dir if os.path.isdir(src_dir) else None)
+    # Push slide JPEGs into Anki BEFORE the gate runs. `media` is documented as step 11 — after the
+    # pipeline — but check_card flags "image not in Anki media" on every <img> card, so on the
+    # documented ordering an image card comes back needs-fix on round 1 and the fixer burns its
+    # rounds on a defect no rewrite can repair. The step is idempotent, so doing it here costs
+    # nothing and removes the ordering trap entirely.
+    if not a.no_media:
+        _push_media(out_dir)
     media, no_media = load_media(a.no_media)
 
     def save(cards):
@@ -1399,7 +1441,7 @@ def cmd_run(a):
     def mechanical(c):
         """Deterministic checks — PROVENANCE (verbatim source) + media, and the ONE shape rule the
         corpus never breaks (>3 distinct clozes — zero corpus violations). Everything else about SHAPE is judged by
-        the tool-less reviewer against the corpus cards; style.md says the corpus stats are 'not
+        the reviewer against the corpus cards; style.md says the corpus stats are 'not
         limits to enforce', so there is no template gate (strict_shape no longer governs the
         process). Keep it that way: this gate runs BEFORE the reviewer and short-circuits it, so any
         rule added here outranks the corpus instead of being checked against it."""
@@ -1580,7 +1622,7 @@ def cmd_insert(a):
                 f.write(json.dumps(c, ensure_ascii=False) + "\n")
 
     def mechanical(c):
-        return []   # no mechanical shape/template gate — the tool-less reviewer judges shape vs the corpus
+        return []   # no mechanical shape/template gate — the reviewer judges shape vs the corpus
 
     src = os.path.abspath(a.source) if a.source else None
     print(f"inserting {len(cards)} card(s) from {a.deck!r} into review→fix→re-review "

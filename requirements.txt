@@ -18,6 +18,6 @@
 #                    `uv tool install --python 3.13 mlx-whisper`
 #                    Long lectures REQUIRE `--condition-on-previous-text False` or large-v3 loops.
 #
-# REVIEW LOOP (classes/ISF/review_loop.py — process step 9b):
+# REVIEW LOOP (build_deck.py `review_all` / `author_fix` — process step 7):
 #   the `claude` CLI, logged in. No pip package, no ANTHROPIC_API_KEY — it drives `claude -p`
 #   (print mode, structured output) using your existing Claude Code auth, one call per card.

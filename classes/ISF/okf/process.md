@@ -28,7 +28,10 @@ shipped.
 **Nothing unreviewed goes into the deck — and a script enforces it, not discipline.** Shipping is
 `build_deck commit` (step 12), and it **refuses to write any card that breaks a corpus invariant**.
 That backstop runs on the output, deliberately *after* review, never before it. The un-gated
-`insert` was removed; `commit` is the only live-write path.
+the old un-gated `insert` is gone. A subcommand named `insert` still exists but does something
+else entirely — it pulls an EXISTING Anki deck into review→fix→re-review and writes nothing.
+**Three commands write to Anki: `run` (approved cards, at the end, unless `--dry-run`), `commit`
+(approved + held), and `apply` (updates reviewed cards in place).**
 
 **You state the scope; nothing infers it.** `run --sources "powerpoint,transcript,junqueira"` names
 which extracted files must be carded, and a source you name but don't have stops the run. An earlier
@@ -186,9 +189,15 @@ direct instruction: do not card it. See [yield](rules/yield.md).
 
 ## 6 · 🧠 Author the gap
 
-Read [`index.md`](index.md), [`style.md`](style.md), and the three rules in `rules/` before
-writing — then **read the reference corpus itself** (`ISF::Test 2::Biochemistry::Amino Acid
-Structures`, 84 owner-reviewed cards). Shape questions are answered by those cards, not by prose.
+Read [`index.md`](index.md), [`style.md`](style.md), and **all four** rules in `rules/` — including
+[`card-structure.md`](rules/card-structure.md), which is the one that decides *what gets clozed* —
+then **read the reference cards themselves**: `classes/ISF/reference_cards.jsonl`, six hand-built
+cards, one per shape. Shape questions are answered by those six, not by prose.
+
+> This step used to send you to `ISF::Test 2::Biochemistry::Amino Acid Structures` — 84 cards in
+> Anki. That deck is **not** the reference and has not been for some time. Its habits are the origin
+> of every stale statistic in this rulebook, and following it here contradicted §3's own rule that
+> you never open Anki to make an authoring decision.
 Then author, obeying the governing principle: **faithful transcription, not synthesis** — render the
 source into card shape, add nothing, coin no terminology, and prefer the source's own words.
 
@@ -234,9 +243,21 @@ bare `slide::14` is ambiguous and provenance silently mis-attributes. Always car
 Steps 7–10 are not run by hand any more — **`build_deck run` does them**, over the one status file.
 The pieces (understand them; you don't invoke them separately):
 
-- **Dedup** (step 1b) — near-duplicates are found on the *revealed answer text*, markup and hints
-  stripped, so two cards teaching one fact collide however differently they're written. The later is
-  flagged `duplicate`; nothing is deleted.
+- **Author + review, ONE SOURCE FILE AT A TIME** (step 1) — the loop is per file, not one pass over
+  all of them. So by the time steps 1b and 1c run, every card has already been reviewed once.
+- **Dedup** (step 1b) — **an agent** reads the whole set and names the pairs that teach one fact. It
+  replaced a word-overlap score, which matched sentence frames: it called *type IV collagen in the
+  basal lamina* a duplicate of a type VII card. The later is flagged **`duplicate`** — a **sixth
+  status**, not in the list above, never written to Anki by `run` or `commit`. Audit them: see
+  [no-duplicate](rules/no-duplicate.md).
+- **Transcript check** (step 1c) — a second agent reads the recording and reports only what the
+  lecturer SAID, which no other source can settle: **contradicted** (→ `needs-fix`, a wrong fact is
+  fixable) or **excluded**, meaning he told the class not to learn it (→ `held`, for you — no
+  rewrite saves it). Absence from the transcript is **not** a finding: most sources are handouts he
+  never read aloud, and treating absence as a defect once sent correct cards from assigned readings
+  into a fix loop the fixer could not resolve.
+- **Media** — `run` pushes `out/slides/*.jpg` into Anki before the gate, because the gate flags
+  `image not in Anki media` and no rewrite fixes that. Step 11 below is the standalone form.
 - **Style invariants** (`style_check`) — measured from the corpus on every call, not written down. A
   predicate the corpus violates **zero** times BLOCKS; one it breaks rarely advises; one it breaks
   often is not a rule and is never reported. See `style_check.py --derive` for the live table.
@@ -281,7 +302,8 @@ that is the defect [accuracy](rules/accuracy.md) exists to catch, and it becomes
 
 Inside `run` this is automatic: a `needs-fix` card is re-authored from its note and **re-reviewed**
 before it can become `approved`; a rewrite is never approved by the pass that flagged it. A card the
-loop can't resolve within `--max-author-rounds` (default 2) becomes `held` — surfaced in the status
+loop can't resolve within `--max-author-rounds` (**the flag defaults to 5; pass `2` to match the
+two-attempt policy below**) becomes `held` — surfaced in the status
 file, and shipped to Anki suspended under `flag::held`, never silently passed. `commit` tags every
 `approved` card `src::reviewed` automatically. When you repair a **live** card by hand (the ongoing
 loop below), **read the note's current text before editing it** — note-ids are easy to mistake, and

@@ -5,20 +5,30 @@ out of it surfaced defects in the reference itself: a subject left un-clozed, a 
 complete thought ("what three?"), and a card with two <b> spans that the style guide forbids. A
 reference has to be right, and 37 cards is 31 more than the shapes require.
 
-One card per SHAPE, five shapes:
+One card per SHAPE, SIX shapes:
   A  two clozes: subject + answer                       (the workhorse)
   B  two clozes: subject + answer, with a visible facet
   C  three clozes: subject + clozed facet + answer      (the either/or shape)
   D  one cloze:  answer only, subject and facet visible (the subject is the frame, not the answer)
-  E  list card:  clozed subject, visible facet, numbered italic items in one cloze
+  E  list card:  clozed subject, visible facet, numbered items sharing ONE cloze number
+  F  image card: the picture is one cloze, the term the other
 
-Every card obeys, and demonstrates:
+EVERY CARD OBEYS:
   · <b> subject, <u> facet, <i> answer — in that order, subject first
-  · EVERY cloze carries a hint
   · each hint reads as a complete question when substituted into its blank
-  · exactly one <i> answer
-  · the card ENDS on its answer — no unstyled prose trailing after it
-  · one <b> span per card
+  · no unstyled text inside the braces; no <b> nested in <i>; at most 3 cloze numbers
+
+TRUE OF THE PROSE SHAPES (A–D), AND DELIBERATELY NOT OF E AND F:
+  · every cloze carries a hint — EXCEPT the image cloze in F, which has nothing to disambiguate,
+    and items 2..n of the list in E, which share their number (and therefore their hint) with item 1
+  · exactly one <i> answer — E has five, all on one cloze number, which is what makes it one answer
+  · the card ENDS on its answer — F closes with "that we can see", the recognition-card idiom
+  · one <b> span per card — F has none; there is no subject to name, that is the question
+
+Those four carve-outs are not sloppiness. They are why E and F exist: a prompt that states the
+prose invariants as universals cannot produce a list card or a recognition card. A cold reader
+given only the prose rules wrote the image card with the term in <b>, a hint on the picture, and
+an invented frame — because the four lines above had been written as absolutes.
 """
 import json
 

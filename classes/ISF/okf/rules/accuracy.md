@@ -29,7 +29,7 @@ exactly grounded in it. Any of the following is a defect:
   has no backbone, so the usage is invented. Also: pseudo-classification subtypes ("cyclic",
   "imino acid" for proline), and hedged characterizations ("borderline", "the most basic", loose
   qualifiers like "hydrolyzable"). **Rule: cite or omit, never coin.** Use only established field
-  terminology; if no standard term fits a hint or label, leave it out (a hint is optional) rather
+  terminology; if no standard term fits a **label**, leave it out rather
   than invent one. Prefer the source's own words.
 
 # Status — review gate, not mechanical

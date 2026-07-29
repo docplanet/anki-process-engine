@@ -1,7 +1,7 @@
 ---
 type: Knowledge Bundle Index
 title: ISF card authoring
-description: Governing principle, the style guide, and the three judgment rules.
+description: Governing principle, the style guide, and the four judgment rules.
 tags: [anki, card-authoring, isf]
 timestamp: 2026-07-18T00:00:00Z
 ---
@@ -65,9 +65,16 @@ on **every call** and tiers each by its measured rate:
 | **UNUSUAL** | the corpus violates it rarely (≤5%) — advisory, reported with the rate |
 | *(silent)* | the corpus violates it often — not a rule, never reported |
 
+> **At the current corpus size there is no middle tier.** UNUSUAL needs `hits/n ≤ 5%`, and with
+> **n = 6** a single violation is 16.7% — so every predicate is either BLOCKING (0/6) or silent.
+> That is the correct behaviour for a hand-built reference: six cards chosen to be right cannot
+> support "rarely". The tier returns automatically if the reference ever grows. Do not add a
+> predicate expecting it to land as advisory — it will either gate or vanish.
+
+
 **To change a style rule, change the reference cards** — edit `classes/ISF/reference_cards.py`,
 then `build_deck corpus` to regenerate. Do not write a
-rule into prose or a prompt; that is how *"always cloze the subject"*, *"always have hints"*,
+rule into prose or a prompt; that is how *"always cloze the subject"*,
 `strict_shape`'s templates and *"never force-cloze it"* all shipped as defects.
 `style_check.py --derive` prints the current table.
 

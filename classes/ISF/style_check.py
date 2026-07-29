@@ -300,16 +300,20 @@ def judgment(T):
             qs.append(f"c{num}: read the sentence with '[{hint}]' in place of '{val}'. Does it read "
                       f"as natural English?")
         else:
-            qs.append(f"c{num} ('{val}') has NO hint. {ANSWER_HINTLESS}")
+            # NOT a judgment question. A hintless cloze is already BLOCKING above; asking the
+            # reviewer to weigh it re-opens a decision the owner closed. This line used to read
+            # "That is allowed — 40 of 84 corpus cards leave an <i> answer hintless", citing a
+            # corpus that no longer exists, INSIDE the same report whose BLOCKING section said
+            # 0 of 6 cards do it. The reviewer's prompt tells it to answer JUDGMENT questions
+            # itself, so the softening arrived as the checker's own verdict on exactly the cards
+            # the rule was catching. That is the phrasing that produced a 65%-hintless deck.
+            qs.append(f"c{num} ('{val}') has NO hint — see BLOCKING above. Write one that reads "
+                      f"as natural English in the blank; do not weigh whether it needs one.")
     if len(clozes(T)) > 1:
         qs.append("Hide each cloze in turn: does any answer give away another (self-answering)?")
     qs.append("Does the <i> answer span cover the WHOLE value tested, or is part of it "
               "left as trailing prose?")
     return qs
-
-
-ANSWER_HINTLESS = ("That is allowed — 40 of 84 corpus cards leave an <i> answer hintless. Add one "
-                   "only if the blank is ambiguous without it.")
 
 
 # ── the report ───────────────────────────────────────────────────────────────
@@ -375,8 +379,17 @@ def main():
         print(render(a.card, corpus))
         return
 
-    rows = [json.loads(l) for l in open(a.deck, encoding="utf-8") if l.strip()]
-    rows = [r for r in rows if r.get("status") == a.status]
+    allrows = [json.loads(l) for l in open(a.deck, encoding="utf-8") if l.strip()]
+    rows = [r for r in allrows if r.get("status") == a.status]
+    if not rows:
+        # "0 of 0 'approved' cards have a style finding" reads as a clean deck. It means the filter
+        # matched nothing — which is what you get running this on a fresh draft file, since
+        # --status defaults to approved.
+        from collections import Counter
+        have = Counter(r.get("status") for r in allrows)
+        print(f"!! NO cards with status {a.status!r} in {a.deck}.")
+        print(f"!! This deck has: {dict(have)} — nothing was checked. Pass --status to pick one.")
+        sys.exit(2)
     bad = 0
     for r in rows:
         rep = check(r.get("text", ""), corpus)
