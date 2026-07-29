@@ -256,7 +256,11 @@ def _write_notes(deck, cards, notes, out_dir, suspend_flagged, tag_reviewed, ste
     """The audited write path: create the model/deck, add notes one at a time (per-card
     reporting), then suspend-flagged / tag-reviewed. Shared by `commit` and `run` so both reuse
     exactly the writer that was hardened over many incidents — not a copy."""
-    blocked = _style_backstop(cards)
+    # Only APPROVED cards are gated. A `held` card is one the loop could not resolve — it ships
+    # suspended under flag::held precisely so you can finish it in Anki, so refusing to write it
+    # because it still has the defect that held it is circular: it blocks the whole deck over a
+    # card already marked as unfinished.
+    blocked = _style_backstop([c for c in cards if c.get("status", "approved") == "approved"])
     if blocked:
         print(f"\n!! REFUSING TO WRITE — {len(blocked)} card(s) break a corpus invariant:")
         for cid, probs in blocked:
@@ -1208,7 +1212,11 @@ def review_fix_loop(cards, deck_dir, model, max_rounds, mechanical, save=None, s
             save(cards)
     for rnd in range(1, max_rounds + 2):
         drafts = [c for c in cards if c.get("status") == "draft"]
-        if not drafts:
+        # Keep going when something is already `needs-fix` even with no drafts left. Cards now
+        # arrive here pre-reviewed (step 1 reviews each file as it is authored) and the only thing
+        # left to resolve is what dedup / the transcript check pushed back — with the old
+        # break-on-no-drafts those would have been surfaced as `held` without one fix attempt.
+        if not drafts and not any(c.get("status") == "needs-fix" for c in cards):
             break
         # 2a mechanical marking — flags needs-fix with the exact reason; NEVER deletes a card
         to_review = []
@@ -1374,22 +1382,34 @@ def cmd_run(a):
         # 37-card deck hinted all 37. Per-file keeps every call in the range where it stays careful,
         # and dedup + review then run ACROSS the whole set (step 1b onward), which is where
         # cross-file repetition is supposed to be caught anyway.
-        print(f"· step 1 — authoring, ONE RUN PER FILE ({len(in_scope)} file(s))"
+        # AUTHOR **AND REVIEW** ONE FILE AT A TIME. Reviewing only after every file was authored
+        # meant a file whose cards came back bad was not discovered until all of them had been
+        # paid for. Per file, the loop is small, converges fast, and a drifting author is caught
+        # at file 2 instead of file 7. Dedup and the transcript check still run across the WHOLE
+        # set afterwards, because neither can be judged one file at a time.
+        print(f"· step 1 — author + review, ONE FILE AT A TIME ({len(in_scope)} file(s))"
               f"{' (--sources)' if a.sources else ' (all extracted)'}:")
         cards = []
         for i, src in enumerate(in_scope, 1):
             name = os.path.basename(src)
-            print(f"  [{i}/{len(in_scope)}] {name}…")
+            print(f"\n  ── [{i}/{len(in_scope)}] {name}")
             drafted, cost = author_create(deck_dir, a.model, slug=a.slug, audit_round=i,
                                           sources=[src]); total += cost
             # ids collide across files (each run numbers from 01), so namespace by file index
             for c in drafted:
                 c["id"] = f"f{i}-{c.get('id', 'x')}"
-            new = [{**c, "status": "draft", "note": ""} for c in drafted if c.get("text")]
-            cards += new
+            batch = [{**c, "status": "draft", "note": ""} for c in drafted if c.get("text")]
+            print(f"     authored {len(batch)} card(s) — reviewing this file now…")
+            done = cards                       # already-settled cards from earlier files
+            batch, cost = review_fix_loop(batch, deck_dir, a.model, a.max_author_rounds,
+                                          mechanical, save=lambda b: save(done + b),
+                                          source_hint=src_dir if os.path.isdir(src_dir) else None)
+            total += cost
+            cards += batch
             save(cards)
-            print(f"        +{len(new)} card(s)  ({len(cards)} total)")
-        print(f"  {len(cards)} drafted from {len(in_scope)} file(s) -> {cards_path}")
+            st = Counter(c.get("status") for c in batch)
+            print(f"     [{i}/{len(in_scope)}] {name} -> {dict(st)}   ({len(cards)} total, ${total:.2f})")
+        print(f"\n  {len(cards)} card(s) from {len(in_scope)} file(s) -> {cards_path}")
 
         # ── STEP 1b — dedup, by an AGENT ─────────────────────────────────────
         by_id = {c["id"]: c for c in cards}
@@ -1406,7 +1426,10 @@ def cmd_run(a):
         # ── STEP 1c — check every card against the transcript ────────────────
         tx = [p for p in in_scope if "transcript" in os.path.basename(p).lower()]
         if tx:
-            live = [c for c in cards if c.get("status") == "draft"]
+            # Every card still in play — NOT just `draft`. Step 1 now reviews each file as it is
+            # authored, so by the time this runs nothing is a draft any more and filtering on that
+            # checked exactly zero cards while printing a reassuring "0 unsupported".
+            live = [c for c in cards if c.get("status") in ("draft", "approved", "needs-fix")]
             bad, cost = transcript_agent(live, tx[0], a.model); total += cost
             print(f"· step 1c — transcript check ({os.path.basename(tx[0])}): "
                   f"{len(bad)} of {len(live)} card(s) unsupported")
