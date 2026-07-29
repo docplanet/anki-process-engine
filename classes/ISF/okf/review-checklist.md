@@ -14,8 +14,8 @@ checklist rather than shipping from inside a review.
 ## The bar: the corpus is acceptable BY DEFINITION
 
 **Before reporting anything, ask: would this be a defect in the reference deck too?** If the same
-construction appears in `classes/ISF/reference/style_corpus.jsonl` — the reference deck the owner has
-reviewed and accepted, with anything they tagged `wrong-*` excluded — **it is not a finding.**
+construction appears in `classes/ISF/reference_cards.jsonl` — the six canonical reference cards,
+one per shape, that the owner has reviewed and accepted — **it is not a finding.**
 Say nothing.
 
 This is not a tiebreaker; it is the threshold. A review with no bar reports every deviation from an
@@ -28,7 +28,7 @@ Things that are **house style, not defects** (all measured in the corpus):
   letting you assemble known pieces instead of decoding what is being asked. Listing both options
   is **not** a leak; you still have to recall which one. Do not call these coin flips or
   self-answering.
-- **Question-form hints**, including bare `what?` and `which?` — 107 of 111 corpus hints end in `?`.
+- **Question-form hints**, including bare `what?` and `which?` — every reference hint ends in `?`.
 - **Visible bold subjects** outside the cloze braces — the corpus does this constantly.
 - **Two cards on one slide** covering different aspects of one thing. Two is not over-carding.
 - **A matched pair** on contrasting terms with parallel structure — that similarity is the point.
@@ -90,17 +90,18 @@ See [style.md](style.md). This is **not** "do these look about right" — it is 
   trailing text? Cloze it — but respect the ceiling (≤3, two is normal) and never manufacture a
   cloze to fill a slot.
 
-Then confirm: bold = subject, italics = answer, a hint on every cloze that reads as English, lists
-as a bold header + numbered italics. **The bar is the corpus** — put the card beside real cards from
-`ISF::Test 2::Histology::Bone` (see style.md); do not invent a denser style than they have.
+Then confirm: bold = subject, italics = answer, **a hint on every cloze** that reads as English,
+lists as `ref-05` does them (numbers outside the braces, not italicised, one item per line, all
+sharing one cloze number). **The bar is the reference** — put the card beside the same-shape card in
+`classes/ISF/reference_cards.jsonl`; do not invent a denser style than it has.
 
 Because this is a distinct per-card pass and easy to skip under time pressure, an authoring agent
 grading its own output is not enough — run it as its own read, the same way 9a is its own script.
 Three things make it hard to skip:
 
-1. **Grade against same-shape corpus cards, pulled up — not from memory.** For each card, open the
-   2–3 corpus cards of the same template and put them side by side. "Looks about right" from memory
-   is how a whole deck shipped at ~6% facets against the corpus's ~86%.
+1. **Grade against the same-shape reference card, pulled up — not from memory.** There are six and
+   they cover every shape; open the one this card is an instance of and put them side by side.
+   "Looks about right" from memory is how a whole deck shipped at ~6% facets against ~86%.
 2. **`check_cards.py` now reports the deck's style distribution vs the corpus** (facet-rate on prose
    cards, multi-cloze share) and marks a clear outlier `⚠ UNDER-STYLED`, making the exit non-zero.
    That is the mechanical backstop for this axis — resolve it by marking the missing facets and

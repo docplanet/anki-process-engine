@@ -18,8 +18,8 @@ describing a different pipeline, it is stale — delete it rather than follow it
    procedure for building a deck, with the driver command *and* the manual fallback for every step.
 3. **[`classes/ISF/okf/style.md`](../../../classes/ISF/okf/style.md)** — the style in five lines
    (`<b>` subject, `<i>` answer, `<u>` facet), and the **reference corpus that settles every other
-   shape question**. Shape is decided by looking at real cards in
-   `ISF::Test 2::Histology::Bone`, never by reading prose about them — nine
+   shape question**. Shape is decided by looking at the six real cards in
+   `classes/ISF/reference_cards.jsonl`, never by reading prose about them — nine
    prose files describing shape were deleted because they drifted and started generating defects.
 4. **`classes/ISF/okf/rules/*.md`** — three judgment rules (yield, accuracy, no-duplicate).
    Read all three before authoring.
@@ -37,9 +37,9 @@ Anki. Render slides first (`build_deck slides <pdf> <deck>/out <slug>`). Ship wi
 a named source that isn't in `out/sources/` stops the run. Never infer scope from what happens to be
 in the folder.
 
-**Style rules are MEASURED, not written.** `classes/ISF/style_check.py` derives them from the corpus
-on every call — BLOCKING means zero corpus counterexamples. **To change a style rule, change the
-corpus, then `build_deck corpus`.** Never add a style rule to prose or a prompt: that is how four
+**Style rules are MEASURED, not written.** `classes/ISF/style_check.py` derives them from the six
+reference cards on every call — BLOCKING means zero counterexamples among them. **To change a style
+rule, edit `classes/ISF/reference_cards.py`, then `build_deck corpus`.** Never add a style rule to prose or a prompt: that is how four
 separate style bugs shipped. `style_check.py --derive` shows the live table;
 `style_check.py --deck <cards.jsonl>` audits a deck.
 

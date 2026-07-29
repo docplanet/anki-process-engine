@@ -28,7 +28,7 @@ import argparse, glob, html, json, os, re, sys, urllib.request
 ANKI = "http://127.0.0.1:8765"
 CLOZE = re.compile(r"\{\{c(\d+)::(.*?)\}\}", re.S)
 HERE = os.path.dirname(os.path.abspath(__file__))
-CORPUS = os.path.join(HERE, "reference", "style_corpus.jsonl")
+CORPUS = os.path.join(HERE, "reference_cards.jsonl")
 
 
 def _style_dist(texts):
@@ -203,8 +203,8 @@ def main():
     # explaining why this deck is legitimately flatter. Do not just re-run past it.
     cd = _corpus_dist()
     if cd is None:
-        print("!! no style corpus at reference/style_corpus.jsonl — skipping the distribution "
-              "check (run `build_deck corpus`)")
+        print("!! no reference cards at reference_cards.jsonl — skipping the distribution "
+              "check (regenerate them with `build_deck corpus`)")
     else:
         dd = _style_dist(deck_texts)
         print("\nstyle distribution vs corpus:")

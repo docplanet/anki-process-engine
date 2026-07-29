@@ -12,7 +12,9 @@ timestamp: 2026-07-18T00:00:00Z
    (the aspect being asked about). Italics = the answer/value.
 2. **Usually clozed, not always.** A styled span is normally inside `{{c1::…}}`, but a visible
    bold subject or a visible underlined facet is fine and common.
-3. **Lists:** a bold header, then numbered items in italics — `1.` `2.` `3.`
+3. **Lists:** a clozed header, a visible `<u>` facet, then ONE NUMBERED LINE PER ITEM. The
+   numbers sit **outside** the braces and are **not** italicised — they are scaffolding, not
+   answers. Every item shares one cloze number, so the whole list is one card view. See `ref-05`.
 4. **Every cloze gets a hint. No exceptions.** Stated directly by the deck owner.
 
    > The reference deck keeps this perfectly — **73 of 73 clozes hinted** — so it is also a
@@ -28,39 +30,35 @@ That is the whole style guide.
 
 **Do not answer a shape question from prose. Read the cards.**
 
-**`classes/ISF/reference/style_corpus.jsonl`** is the reference — pull or refresh it with:
+**`classes/ISF/reference_cards.jsonl`** is the reference — **six hand-built cards, one per shape,
+tracked in git.** Not pulled from a deck: an authority has to be right before it is large, and the
+deck it used to be pulled from carried its own defects (an un-clozed subject, a hint that was not a
+complete thought, a card with two `<b>` spans). The six are:
 
-```
-classes/ISF/.venv/bin/python classes/ISF/build_deck.py corpus
-```
+| | shape |
+|---|---|
+| `ref-01` | two clozes — subject + answer |
+| `ref-02` | two clozes + a **visible** facet |
+| `ref-03` | three clozes — an either/or choice wears `<u>`, the value wears `<i>` |
+| `ref-04` | one cloze — the subject is the **frame**, so it stays visible |
+| `ref-05` | list — numbers **outside** the braces, one item per line, all sharing `c2` |
+| `ref-06` | image — the picture is one cloze, the term the other |
 
-It is **`ISF::Test 2::Histology::Bone`** — 37 cards the owner has reviewed and accepted.
+`ref-04` and `ref-06` are the two that must not be dropped. Without `ref-04` the author clozes every
+subject it sees; without `ref-06` it has no model for a recognition card.
 
-**It is LLM-authored on purpose.** The previous reference was `Amino Acid Structures`, built by hand
-over months, and it carried habits the pipeline could not reproduce — most damagingly a 22% hintless
-rate. Measured, that read as "hints are optional", which became a 124-card deck that was 65%
-hintless. Bone is what this harness produces when it is working: every cloze hinted, 94% two-cloze,
-zero style findings. **A reference the author can actually hit beats an ideal it cannot.**
+**To change the style, edit `classes/ISF/reference_cards.py` and regenerate.** The rules recompute
+from whatever those cards do — `style_check.py --derive` prints the table.
 
-`build_deck corpus` **excludes any card tagged `wrong-*`** and reports how many it dropped.
-[review-checklist.md](review-checklist.md) makes this corpus the "acceptable by definition" bar, so
-a card the owner has flagged as broken must never sit in it — it would teach a reviewer to stay
-silent about the exact defect they complained of. **A `wrong-*` tag means the card is still broken;
-clear it once the card is fixed** and the card rejoins the corpus automatically. (All 37 are
-currently clean.) When you need to know how long an answer runs, how a hint is
-phrased, when to cloze an image, how a list card looks — **look at examples, don't consult a rule.**
-
-Measured on that corpus, for orientation only (not as limits to enforce):
+Measured on the six, for orientation only (not as limits to enforce):
 
 | | |
 |---|---|
-| clozes per card | 1 → 3 cards, **2 → 32**, 3 → 2 |
-| hints | **73 of 73 clozes** — every one, mean 1.9 words |
-| hint form | 73 of 73 end in `?` — question-form hints are house style |
-| most common hints | `what?` (12), `which process?` (7), `which cells?` (6) |
-| bare `what?` / `which?` | present and accepted |
+| clozes per card | 1 → 2 cards, 2 → 3, 3 → 1 |
+| hints | **every cloze**, mean ~2.5 words |
+| hint form | all end in `?` — question-form hints are house style |
+| shapes with a `<u>` facet | 4 of 6 |
 | commas in hints | 0 |
-| facet `<u>` | 20 of 37 cards |
 
 **A previous version of this rulebook was calibrated to a different deck (AnKing Neurogenetics)
 and concluded that hints should be bare noun phrases without question marks. That is wrong for
@@ -89,9 +87,9 @@ classes/ISF/.venv/bin/python classes/ISF/style_check.py --derive          # the 
 classes/ISF/.venv/bin/python classes/ISF/style_check.py --deck <cards>    # audit a deck
 ```
 
-**To change a style rule, change the corpus** — fix or add cards in
-`ISF::Test 2::Histology::Bone`, then `build_deck corpus`. The prose in this file
-describes the style; it does not govern it.
+**To change a style rule, change the reference cards** — edit `classes/ISF/reference_cards.py`
+and regenerate `reference_cards.jsonl`. The prose in this file describes the style; it does not
+govern it.
 
 # What prose is still for
 

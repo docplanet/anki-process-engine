@@ -3,20 +3,28 @@
 
 Why this exists
 ---------------
-Shape rules kept getting written from intuition and shipped without ever being checked against the
-owner's own cards. Three separate rules died that way ("always cloze the <b> subject", "always have
-hints", and `strict_shape`'s T1-T5 templates, which were measured from a deprecated AnKing deck).
-Each one was enforced for a while against cards that contradicted it.
+Shape rules kept getting written from intuition and shipped without ever being checked against
+real cards. Rules died that way in BOTH directions: asserted from nothing ("always cloze the <b>
+subject", `strict_shape`'s T1-T5 templates, "never force-cloze it"), and inferred from a
+measurement that only described a habit ("hint only the clozes that need it", read off an older
+reference deck that happened to be 22% hintless — the author took it as permission and a 124-card
+deck came back 65% hintless).
 
-So no rule here is asserted. Every predicate below is run over `reference/style_corpus.jsonl` on
-each call and reported with its measured corpus rate:
+So no rule here is asserted. Every predicate below is run over `reference_cards.jsonl` — six
+hand-built cards, one per shape, tracked in git — and reported with its measured rate:
 
   BLOCKING  the corpus violates it ZERO times   -> a real invariant of the house style
   UNUSUAL   the corpus violates it rarely (<5%) -> advisory, reported with the rate
   (silent)  the corpus violates it often        -> not a rule, never reported
 
-If the corpus changes, the rules change with it. A predicate that stops being an invariant stops
-blocking automatically. This is the one property `strict_shape.py` could not have.
+If the reference changes, the rules change with it. A predicate that stops being an invariant
+stops blocking automatically.
+
+Six cards is a small denominator, and that is deliberate: they are the MINIMUM set that shows every
+shape, hand-built so each one is correct. The previous reference was 37 cards from a real deck, and
+picking exemplars out of it surfaced defects in the reference itself — an un-clozed subject, a hint
+that was not a complete thought, a card with two <b> spans. An authority has to be right before it
+is large.
 
 Deliberately NOT enforced here: anything requiring judgment (is this <b> span a term to recall or
 the question's frame? does this hint read like English in the blank?). Those are returned as
@@ -29,7 +37,11 @@ QUESTIONS for the reviewer, not verdicts — a regex cannot answer them and shou
 import json, os, re, sys, argparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CORPUS = os.path.join(HERE, "reference", "style_corpus.jsonl")
+# The reference cards are CANONICAL and tracked in git — six hand-built cards, one per shape.
+# They used to be pulled from an Anki deck, which meant the authority could drift silently and
+# carried whatever defects that deck had: picking exemplars out of the 37-card Bone deck turned
+# up an un-clozed subject, a hint that was not a complete thought, and a card with two <b> spans.
+CORPUS = os.path.join(HERE, "reference_cards.jsonl")
 
 CLOZE = re.compile(r"\{\{c(\d+)::([\s\S]*?)\}\}")
 TAG = re.compile(r"<(/?)(b|i|u)(?:\s[^>]*)?>")
@@ -123,14 +135,22 @@ def p_empty_cloze(T):
 
 
 def p_hintless_cloze(T):
-    """A cloze with no hint. The image cloze itself never takes one.
+    """A cloze NUMBER with no hint anywhere on it. The image cloze never takes one.
 
-    This is the owner's rule stated directly — "EVERY cloze gets a hint" — and it is now also
-    measurable, because the reference deck keeps it perfectly. Against the OLD corpus it could not
-    be: those hand-built cards were 22% hintless, so the check would have flagged 40 of 84 of them.
-    That is exactly why the rule was removed as a "prose invention", replaced with "hint only the
-    ones that need it", and a 124-card deck came back 65% hintless."""
-    return any("<img" not in b and not h.strip() for _, b, h in clozes(T))
+    Counted per NUMBER, not per occurrence. A list card writes the same number once per item —
+    `1. {{c2::resting}} 2. {{c2::proliferating}} …` — and that is ONE cloze with five blanks, one
+    card view, one hint. Counting occurrences flagged the reference list card as hintless because
+    only its first item carried the hint, which is exactly where the hint belongs.
+
+    The owner's rule, stated directly: EVERY cloze gets a hint. It was once softened to "hint only
+    the ones that need it" on the evidence that an older reference deck was 22% hintless; the
+    author read that as permission and a 124-card deck came back 65% hintless."""
+    by_num = {}
+    for n, b, h in clozes(T):
+        if "<img" in b:
+            continue                              # a picture has nothing to disambiguate
+        by_num.setdefault(n, []).append(h.strip())
+    return any(not any(hs) for hs in by_num.values())
 
 
 def _answer_side(T):
@@ -155,6 +175,12 @@ def p_trailing_prose(T):
     corpus breaks it 23 of 84 times (image cards legitimately end on <b>: 'This amino acid is
     {{c1::<b>glycine</b>}}'). Measuring that version is how this rule got discarded as 'not a rule'
     while 13 of 43 approved cards broke it."""
+    # Image-recognition cards are exempt. Their idiom names the thing and then closes the sentence
+    # — "This is <i>compact bone</i> that we can see", "This is the <i>indole</i> group" — so the
+    # trailing words are grammar, not an untested fragment. The rule is about a chopped-off answer,
+    # which is a prose-card failure.
+    if "<img" in T:
+        return False
     tail = _answer_side(T)
     ends = list(re.finditer(r"</(?:b|i|u)>", tail))
     if not ends:
@@ -335,7 +361,7 @@ def main():
     a = ap.parse_args()
     corpus = load_corpus()
     if not corpus:
-        sys.exit(f"no corpus at {CORPUS} — run: build_deck corpus")
+        sys.exit(f"no reference cards at {CORPUS} — regenerate: build_deck corpus")
 
     if a.derive:
         print(f"{len(corpus)} corpus cards\n")

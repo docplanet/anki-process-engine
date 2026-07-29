@@ -65,7 +65,8 @@ on **every call** and tiers each by its measured rate:
 | **UNUSUAL** | the corpus violates it rarely (≤5%) — advisory, reported with the rate |
 | *(silent)* | the corpus violates it often — not a rule, never reported |
 
-**To change a style rule, change the corpus** — then `build_deck corpus` to re-pull. Do not write a
+**To change a style rule, change the reference cards** — edit `classes/ISF/reference_cards.py`,
+then `build_deck corpus` to regenerate. Do not write a
 rule into prose or a prompt; that is how *"always cloze the subject"*, *"always have hints"*,
 `strict_shape`'s templates and *"never force-cloze it"* all shipped as defects.
 `style_check.py --derive` prints the current table.

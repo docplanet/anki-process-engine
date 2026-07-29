@@ -86,14 +86,16 @@ you run:  build_deck run <deck_dir> --deck "<name>" --sources "powerpoint,transc
 | [`classes/ISF/style_check.py`](classes/ISF/style_check.py) | **the style rules — derived, never written.** Runs a predicate battery over the corpus on every call and tiers each by its measured rate: **BLOCKING** (0 corpus violations), **UNUSUAL** (≤5%), or silently allowed. Change the corpus and the rules change with it. `--derive` prints the table. |
 | [`classes/ISF/style_mcp.py`](classes/ISF/style_mcp.py) | the same checker as an MCP tool, so the author/fixer can verify a *proposed* rewrite. (The per-card report is inlined into prompts rather than fetched — MCP tools are deferred in this CLI, so a tool the model must discover may simply never be called.) |
 | [`classes/ISF/check_cards.py`](classes/ISF/check_cards.py) | **provenance checks** — verbatim `Source:` quotes, media, and the one shape rule the corpus never breaks (>3 clozes) |
-| `classes/ISF/reference/style_corpus.jsonl` | the **style authority** — owner-reviewed cards, pulled by `build_deck corpus`; `wrong-*` cards excluded. Every rule is measured against it; the cards themselves also go into the prompts. |
+| [`classes/ISF/reference_cards.py`](classes/ISF/reference_cards.py) | the **style authority** — six hand-built cards, one per shape. Edit this to change the style; `build_deck corpus` regenerates `reference_cards.jsonl` from it. Every rule is measured against those six, and the cards themselves go into the prompts. |
 | [`anki-mcp-server/`](anki-mcp-server/) | TypeScript AnkiConnect MCP server (note CRUD + review stats) |
 | `tests/` | `test_style_check.py` — the checker, dedup, and `--sources`. Its central assertion is that **every BLOCKING rule has zero corpus violations**, so a rule the corpus contradicts fails CI instead of shipping. |
 
-**Card style is settled by looking at real cards**, not by reading prose. The reference corpus is
-the reference deck `ISF::Test 2::Histology::Bone` — LLM-authored on purpose, so it is a target the
-pipeline can actually hit; `build_deck corpus`
-pulls it to `classes/ISF/reference/style_corpus.jsonl`.
+**Card style is settled by looking at real cards**, not by reading prose — six of them, one per
+shape, hand-built and tracked in git. It was a 37-card pull from a real deck; that deck's own habits
+then became rules by measurement (it was 22% hintless, so the derived rule became "hint only the
+clozes that need it", and the next deck came back 65% hintless). **An authority has to be right
+before it is large.** `build_deck corpus` regenerates the JSONL from `reference_cards.py`; the
+Anki-pull path now refuses to write over it.
 
 ```bash
 classes/ISF/.venv/bin/python classes/ISF/build_deck.py --help
@@ -156,9 +158,8 @@ classes/ISF/.venv/bin/pip install pytest
 classes/ISF/.venv/bin/python -m pytest tests/ -q
 ```
 
-The corpus is pulled from your Anki and gitignored, so the tests that measure against it skip on CI
-— the dedup, `--sources` and judgment tests still run there. `build_deck corpus` pulls the corpus
-locally to run the full suite.
+The reference cards are tracked in git, so the whole suite — including every derived-rule
+assertion — runs on CI with no Anki and no local setup.
 
 See the current derived rule table any time with:
 

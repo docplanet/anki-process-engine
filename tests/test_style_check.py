@@ -31,11 +31,16 @@ style_check = pytest.importorskip("style_check")
 
 CORPUS = style_check.load_corpus()
 
-# The corpus is pulled from the owner's Anki and gitignored, so anything measuring against it must
-# skip on CI. Apply this PER TEST, not module-wide: a module-level skip made CI green while running
-# nothing at all, and the dedup / --sources tests need no corpus and should always run.
+# The reference cards are TRACKED IN GIT now, so this should never skip — but keep it per-test
+# rather than module-wide, because a module-level skip once made CI green while running nothing at
+# all. test_reference_is_present below is what fails loudly if the file goes missing.
 needs_corpus = pytest.mark.skipif(
-    not CORPUS, reason="no style_corpus.jsonl — run `build_deck corpus`")
+    not CORPUS, reason="reference_cards.jsonl missing — regenerate: build_deck corpus")
+
+
+def test_reference_is_present():
+    """The style authority ships with the repo. If this fails, every rule below is unmeasured."""
+    assert len(CORPUS) == 6, f"expected the 6 hand-built reference cards, got {len(CORPUS)}"
 
 
 # ── the self-consistency property that matters most ──────────────────────────

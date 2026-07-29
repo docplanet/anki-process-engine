@@ -22,6 +22,8 @@ Slide rendering needs poppler (pdftoppm, pdftotext, pdfinfo); .ppt/.pptx also ne
 """
 import argparse, datetime, glob, json, os, re, subprocess, sys, urllib.parse, urllib.request
 
+import reference_cards
+
 CLOZE_RE = re.compile(r"\{\{c\d+::([\s\S]*?)\}\}")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -360,41 +362,43 @@ def cmd_commit(a):
     print("· synced")
 
 
-# The reference deck is LLM-AUTHORED on purpose. The previous corpus (Amino Acid Structures) was
-# hand-built over months and carried quirks the pipeline cannot reproduce — most damagingly a 22%
-# hintless rate, which was read as "hints are optional" and produced a 124-card deck that was 65%
-# hintless. Bone is what the harness actually produces when it is working: 37 cards, every cloze
-# hinted, 94% multi-cloze, zero style findings. A reference the author can hit is worth more than
-# an ideal it cannot.
-CORPUS_DECK = "ISF::Test 2::Histology::Bone"
-CORPUS_OUT = os.path.join(HERE, "reference", "style_corpus.jsonl")
+# The style authority is `reference_cards.jsonl` — six hand-built cards, one per shape, tracked in
+# git and GENERATED FROM `reference_cards.py`, which is the thing you edit to change the style.
+# `corpus` regenerates it from that file. `corpus --deck <name>` dumps an Anki deck for comparison
+# and REQUIRES --out, because pulling a real deck over the reference is what the six cards fix.
+CORPUS_OUT = os.path.join(HERE, "reference_cards.jsonl")
 
 
 def cmd_corpus(a):
-    """Pull the owner-reviewed style corpus out of Anki.
+    """Regenerate reference_cards.jsonl from reference_cards.py — or dump an Anki deck elsewhere.
 
-    okf/style.md makes these cards the authority for every shape question, so they must be
-    re-pullable on demand — they previously lived only in /tmp, one reboot from gone.
+    The reference used to be a 37-card pull from `ISF::Test 2::Histology::Bone`, and every style
+    rule derives from whatever it contains — so a re-pull could silently redefine the style, and
+    once did: measuring that deck's 22% hintless rate turned "every cloze gets a hint" into "hint
+    the ones that need it", and the next deck came back 65% hintless. The reference is now six
+    hand-built cards under review, and the Anki path cannot write over them.
     """
-    out = a.out or CORPUS_OUT
-    os.makedirs(os.path.dirname(out), exist_ok=True)
+    if not a.deck:
+        rows = reference_cards.corpus_rows()
+        with open(CORPUS_OUT, "w", encoding="utf-8") as f:
+            for r in rows:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        print(f"{len(rows)} reference cards -> {CORPUS_OUT}  (from reference_cards.py)")
+        return
+    if not a.out:
+        sys.exit("--deck needs --out: pulling a deck over reference_cards.jsonl would redefine "
+                 "the style. To change the style, edit reference_cards.py and re-run `corpus`.")
+    if os.path.abspath(a.out) == CORPUS_OUT:
+        sys.exit(f"refusing to write {CORPUS_OUT} from an Anki deck — edit reference_cards.py.")
     notes = invoke("notesInfo", notes=invoke("findNotes", query=f'deck:"{a.deck}"'))
     if not notes:
         sys.exit(f"no notes in {a.deck!r} — is Anki open and the deck name right?")
-    # EXCLUDE cards the owner flagged as defective. review-checklist.md makes this corpus the
-    # "acceptable by definition" bar, so a wrong-* card in it teaches a reviewer to stay silent
-    # about the very defect the owner complained of.
-    rejected = [n for n in notes if any(t.startswith("wrong-") for t in n["tags"])]
-    notes = [n for n in notes if n not in rejected]
-    if rejected:
-        print(f"  excluded {len(rejected)} card(s) tagged wrong-* — the owner flagged them as "
-              f"defective, so they are not part of the style bar")
-    with open(out, "w", encoding="utf-8") as f:
+    with open(a.out, "w", encoding="utf-8") as f:
         for n in notes:
             f.write(json.dumps({"note_id": n["noteId"], "model": n["modelName"],
                                 "fields": {k: v["value"] for k, v in n["fields"].items()},
                                 "tags": n["tags"]}, ensure_ascii=False) + "\n")
-    print(f"{len(notes)} reference cards -> {out}")
+    print(f"{len(notes)} cards from {a.deck!r} -> {a.out}  (a dump for comparison, NOT the style)")
 
 
 # ── continuity: baseline snapshot + edit capture ────────────────────────────────
@@ -553,32 +557,67 @@ AUTHOR_SCHEMA = {
 }
 
 
-def examples_block():
-    """The owner-reviewed corpus cards themselves, dropped into the prompt as the STYLE AUTHORITY.
-    style.md is explicit: shape is settled by these cards, NOT by a rule or a template classifier —
-    'read the cards, don't consult a rule.' So we present the raw cards, ungrouped, no strict_shape."""
+def _card_shape(text):
+    """A card's markup shape: (n distinct clozes, roles clozed, roles left visible, is a list)."""
+    cl = []
+    for m in CLOZE_RE.finditer(text):
+        p = m.group(1).split("::")
+        cl.append(p[0] if len(p) == 1 else "::".join(p[:-1]))
+    n = len({m.group(0).split("::")[0] for m in CLOZE_RE.finditer(text)})
+    clozed = "".join(r for r in "biu" if any(re.search("<" + r + "[ >]", b) for b in cl))
+    visible = "".join(r for r in "biu" if re.search("<" + r + "[ >]", CLOZE_RE.sub("", text)))
+    return (n, clozed, visible, bool(re.search(r"(?:<br>|<div>)\s*\d+\.", text)))
+
+
+def exemplars(per_shape=1):
+    """ONE reference card per distinct markup shape — not the whole deck.
+
+    The 37-card reference deck has only SIX shapes; 31 of the cards are repetition. Dumping all of
+    them cost ~11k chars sitting between the rules and where the author starts writing, and that
+    distance is the mechanism behind the worst failure this pipeline has had: with an identical
+    prompt, a 37-card generation hinted every cloze and a 125-card generation was 65% hintless.
+    Nothing was forgotten — the rules were just far behind the model's own output by then.
+
+    Repetition also skews the signal. Seventeen near-identical two-cloze cards read as "this is
+    what we do" and bury the 3-cloze and visible-subject cases in noise. One per shape makes every
+    shape equally visible. Shortest card per shape: the clearest example of a shape is the one with
+    the least incidental content."""
     if not os.path.exists(CORPUS_OUT):
-        return ""
+        return []
     cards = [json.loads(l)["fields"]["Text"].replace("\n", " ")
              for l in open(CORPUS_OUT, encoding="utf-8") if l.strip()]
+    by = {}
+    for c in cards:
+        by.setdefault(_card_shape(c), []).append(c)
+    out = []
+    for shape in sorted(by, key=lambda s: -len(by[s])):
+        out += sorted(by[shape], key=len)[:per_shape]
+    return out
+
+
+def examples_block():
+    """The reference cards dropped into the prompt as the STYLE AUTHORITY — one per SHAPE.
+    style.md is explicit: shape is settled by these cards, NOT by a rule or a template classifier —
+    'read the cards, don't consult a rule.'"""
+    if not os.path.exists(CORPUS_OUT):
+        return ""
+    cards = exemplars()
     # This header is the LAST thing before the corpus dump, ~79% through a 52k-char prompt, and it
     # carries "THE CARDS WIN" authority — so whatever it says outranks everything above it in
     # practice. It used to end "a visible <b> subject is normal here; never force-cloze it", and
     # that one clause is why four hormone cards shipped with the hormone left visible: the reviewer
     # obeyed it and wrote "'Parathyroid hormone' serves as the general FRAME". State the MEASUREMENT
     # and the test here; never an absolute.
-    n = len(cards)
-    clozed = sum(1 for c in cards
-                 if any("<b" in m.group(1) for m in CLOZE_RE.finditer(c)))
-    header = ("\n\n===== REFERENCE CORPUS — your cards must look like these =====\n"
-              "These owner-reviewed cards DEFINE the house style. Match them. Where a written rule "
-              "and these cards disagree, THE CARDS WIN.\n"
-              f"On clozing the <b> subject the corpus is SPLIT: {clozed} of {n} cards cloze it, "
-              f"{n - clozed} leave it visible. So neither is the default and neither is forbidden — "
-              "decide per card with the test in index.md: WRITE DOWN THE QUESTION THIS CARD ASKS, "
-              "AND CHECK WHETHER THE SUBJECT IS ITS ANSWER. 'Which hormone raises blood calcium?' "
-              "makes PTH the answer — cloze it. 'Amino acids have (S) configuration' asks nothing "
-              "about the class — leave it visible.\n")
+    header = ("\n\n===== REFERENCE CARDS — one per SHAPE. Your cards must look like these =====\n"
+              "These are owner-accepted cards from the reference deck, one example of each shape it "
+              "uses. They DEFINE the house style; where a written rule and these cards disagree, "
+              "THE CARDS WIN.\n"
+              "Every shape below is legitimate — including the ones that leave the <b> subject "
+              "visible. Neither clozing nor not-clozing the subject is the default. Decide per card "
+              "with the test in index.md: WRITE DOWN THE QUESTION THIS CARD ASKS, AND CHECK WHETHER "
+              "THE SUBJECT IS ITS ANSWER. 'Which hormone raises blood calcium?' makes PTH the "
+              "answer — cloze it. 'Bone's organic components' asks nothing about bone — leave it "
+              "visible.\n")
     return header + "\n".join("  " + c for c in cards)
 
 
@@ -1682,8 +1721,8 @@ def main():
     p.add_argument("--dry-run", action="store_true", help="report what would be written; touch nothing")
     p.set_defaults(fn=cmd_commit)
 
-    p = sub.add_parser("corpus", help="pull the style reference corpus from Anki")
-    p.add_argument("--deck", default=CORPUS_DECK)
+    p = sub.add_parser("corpus", help="regenerate reference_cards.jsonl from reference_cards.py")
+    p.add_argument("--deck", default=None, help="instead, dump this Anki deck (needs --out)")
     p.add_argument("--out", default=None)
     p.set_defaults(fn=cmd_corpus)
 
