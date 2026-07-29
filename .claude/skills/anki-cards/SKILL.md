@@ -24,6 +24,7 @@ describing a different pipeline, it is stale — delete it rather than follow it
 4. **`classes/ISF/okf/rules/*.md`** — **four** judgment rules: yield, accuracy, no-duplicate, and
    **card-structure** — the one that decides WHAT GETS CLOZED. It was dropped from this list once
    and a fresh session skipped it; it is the most load-bearing authoring file in the repo.
+   **Read all four before authoring.**
    Read all three before authoring.
 5. **[`classes/ISF/okf/review-checklist.md`](../../../classes/ISF/okf/review-checklist.md)** — the
    explicit per-card checks a review must run.

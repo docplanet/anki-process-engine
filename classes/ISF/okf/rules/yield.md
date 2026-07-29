@@ -39,6 +39,9 @@ but **"did the teacher signal this as need-to-know?"** Mining every fact mints l
   semester ≈ 670 cards. If a lecture is trending past ~1 card/slide, you're mining, not measuring.
 - **Listen for explicit exclusions.** When the instructor says a value "will be given" or not to
   memorize something, that is a direct instruction — do not card it.
+  *(If one slips through anyway, the transcript check at step 7 catches it and parks the card as
+  `held` rather than cutting it — no rewrite saves it, so a human decides. Not carding it in the
+  first place is still the right move; `held` is the safety net, not the plan.)*
 
 ## Objectives are the contract (restraint has a floor)
 

@@ -15,7 +15,9 @@ timestamp: 2026-07-18T00:00:00Z
 3. **Lists:** a clozed header, a visible `<u>` facet, then ONE NUMBERED LINE PER ITEM. The
    numbers sit **outside** the braces and are **not** italicised — they are scaffolding, not
    answers. Every item shares one cloze number, so the whole list is one card view. See `ref-05`.
-4. **Every cloze gets a hint. No exceptions.** Stated directly by the deck owner.
+4. **Every cloze gets a hint. No exceptions.** Stated directly by the deck owner. *(Two structural
+   carve-outs — an image cloze, and items 2..n of a list that share one cloze number. Both are
+   spelled out below; neither is a judgment call.)*
 
    > The reference keeps this — every cloze on the four prose shapes is hinted — so it is also a
    > BLOCKING rule in `style_check`. It was briefly softened to "hint the ones that need it — not
@@ -23,6 +25,13 @@ timestamp: 2026-07-18T00:00:00Z
    > read that as permission and returned a 124-card deck that was **65% hintless**. That old deck
    > is no longer the reference, for exactly this reason.
 5. **Hints read like English** — substituted into the blank, the sentence reads naturally.
+6. **Role order is `<b>` → `<u>` → `<i>`, left to right.** Subject first, then the facet, then the
+   answer. This is BLOCKING and every reference card keeps it; a `<u>` before the `<b>` is the most
+   common real defect.
+7. **Cloze the facet only when it is a value the student must produce.** `ref-03` clozes
+   `<u>lower</u>` because *raise or lower* is the thing being recalled. `ref-02` leaves
+   `<u>function</u>` visible because it only names the aspect being asked about. Same test as the
+   subject: write the question the card asks, and see whether the facet is its answer.
 
 That is the whole style guide.
 

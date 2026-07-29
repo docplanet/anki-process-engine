@@ -104,8 +104,15 @@ Three things make it hard to skip:
    they cover every shape; open the one this card is an instance of and put them side by side.
    "Looks about right" from memory is how a whole deck shipped at ~6% facets against the
    reference's 75%.
-2. **`check_cards.py` now reports the deck's style distribution vs the corpus** (facet-rate on prose
+2. **`check_cards.py` reports the deck's style distribution vs the reference** (facet-rate on prose
    cards, multi-cloze share) and marks a clear outlier `⚠ UNDER-STYLED`, making the exit non-zero.
+   **`build_deck run` does NOT call this** — it calls the per-card checks only — so run it yourself
+   after a dry run:
+
+   ```
+   classes/ISF/.venv/bin/python classes/ISF/check_cards.py "<deck>/out/cards.jsonl"
+   ```
+
    That is the mechanical backstop for this axis — resolve it by marking the missing facets and
    clozing the untested roles, **or** by explaining why this deck is legitimately flatter. Do not
    run past it.

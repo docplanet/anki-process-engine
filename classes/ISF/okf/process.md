@@ -27,8 +27,8 @@ shipped.
 
 **Nothing unreviewed goes into the deck — and a script enforces it, not discipline.** Shipping is
 `build_deck commit` (step 11), and it **refuses to write any card that breaks a corpus invariant**.
-That backstop runs on the output, deliberately *after* review, never before it. The un-gated
-the old un-gated `insert` is gone. A subcommand named `insert` still exists but does something
+That backstop runs on the output, deliberately *after* review, never before it. The old un-gated
+`insert` is gone. A subcommand named `insert` still exists but does something
 else entirely — it pulls an EXISTING Anki deck into review→fix→re-review and writes nothing.
 **Three commands write to Anki: `run` (approved cards, at the end, unless `--dry-run`), `commit`
 (approved + held), and `apply` (updates reviewed cards in place).**
@@ -58,12 +58,19 @@ command if unsure.
 **The whole harness in one command** (render slides first — it needs a slug):
 ```
 build_deck slides "<slides.pdf>" "<deck>/out" <slug>     # once, to render + index slides
-build_deck run "<deck>" --deck "ISF::Test 2::<Subject>::Week N" --slug <slug> [--dry-run]
+build_deck run "<deck>" --deck "ISF::Test 2::<Subject>::Week N" --slug <slug> \
+    --sources "powerpoint,transcript,junqueira" --max-author-rounds 2 [--dry-run]
 ```
-`run` extracts sources, authors (read-only sub-agent), gates, dedupes, reviews, and commits — and is
-the only thing that writes to Anki (via `run`, `commit` or `apply` — never the agent).
+`--sources` is **required** — scope is stated, not inferred (`--all-sources` is the explicit opt-out).
+`--max-author-rounds` defaults to 5; pass `2` to match the two-attempt policy in §9.
+
+`run` extracts sources, pushes slide media, authors and reviews per source file, dedupes, checks the
+transcript, fixes, re-reviews, and then **writes the `approved` cards to Anki and syncs** unless
+`--dry-run`. `held` cards are shipped only by `commit`, so the clean sequence is **`run --dry-run`,
+read the status file, then one `commit`** — `commit` is not idempotent, and a live `run` followed by
+`commit` re-offers every approved card.
 `--dry-run` does everything except write. Every card ends up in
-`<deck>/out/cards.jsonl` with a `status` (draft/approved/needs-fix/cut/held) + a `note` — nothing is dropped.
+`<deck>/out/cards.jsonl` with a `status` (draft/approved/needs-fix/cut/held, plus `duplicate` — see §7) + a `note` — nothing is dropped.
 
 > **`classes/ISF/Exam 2/Histology/Week 3/out/cards.jsonl` is a live export, not a template.** It is
 > what that deck currently contains, regenerated from Anki, and it is useful for seeing real cards —
@@ -215,7 +222,10 @@ capitalized fields:**
 | `id` | — | your own reference; not written to Anki |
 
 ```json
-{"id":"ct-01","type":"cloze","text":"…","extra":"<img src=\"…\"><br><br><b>Source:</b> …","source":"Slide 12","tags":["isf::histology::connective-tissue","week::03"]}
+{"id":"ct-01","text":"…","extra":"<img src=\"…\"><br><br><b>Source:</b> …","source":"Slide 12","tags":["isf::histology::connective-tissue","week::03","test::2","slide::ct-12","src::okf-gen"]}
+
+Those five tag families are all required — this example used to show two, and carried a `"type"`
+key the author schema rejects outright (`additionalProperties: false`).
 ```
 
 ### Tag vocabulary
@@ -226,10 +236,11 @@ capitalized fields:**
 | `week::NN` | source week, zero-padded |
 | `test::N` | which exam block |
 | `slide::<slug>-NN` | the slide the fact came from — **the slug is required** |
-| `src::okf-gen` | **written by you into the JSONL** — records that an agent authored this card against this rulebook. No script adds it; every card needs it, or the audit query below silently returns nothing |
+| `src::okf-gen` | **written by the authoring sub-call into the JSONL** — records that an agent authored this card against this rulebook. No script adds it. Every card needs it: an audit like `tag:src::okf-gen -tag:src::reviewed` silently returns nothing without it. After a dry run, confirm it is present in `cards.jsonl` |
 | `src::reviewed` | added automatically by `build_deck commit` to every `approved` card it writes. Never tag by a search |
 | `flag::beyond-scope` | correct + objective-backed, but the lecture deferred it (suspended) |
 | `flag::low-yield` | shipped suspended because its yield is uncertain — for the owner's end-of-build list |
+| `flag::held` | added automatically by `commit` to every `held` card, which it also **suspends** |
 | `wrong-<defect>` | added **by the user during review** to flag a problem — never by the author |
 
 **A deck folder often holds more than one slide deck, and both number from 1.** In the Week 3
@@ -255,9 +266,10 @@ The pieces (understand them; you don't invoke them separately):
 - **Transcript check** (step 1c) — a second agent reads the recording and reports only what the
   lecturer SAID, which no other source can settle: **contradicted** (→ `needs-fix`, a wrong fact is
   fixable) or **excluded**, meaning he told the class not to learn it (→ `held`, for you — no
-  rewrite saves it). Absence from the transcript is **not** a finding: most sources are handouts he
-  never read aloud, and treating absence as a defect once sent correct cards from assigned readings
-  into a fix loop the fixer could not resolve.
+  rewrite saves it). A third verdict, **low-emphasis** — he named it once in passing — is a yield
+  signal only: it writes a note and changes nothing. Absence from the transcript is **not** a
+  finding: most sources are handouts he never read aloud, and treating absence as a defect once
+  sent correct cards from assigned readings into a fix loop the fixer could not resolve.
 - **Media** — `run` pushes `out/slides/*.jpg` into Anki before the gate, because the gate flags
   `image not in Anki media` and no rewrite fixes that. Step 11 below is the standalone form.
 - **Style invariants** (`style_check`) — measured from the corpus on every call, not written down. A
@@ -353,7 +365,7 @@ first so `<img>` renders):
 build_deck media  "<deck>/out"
 build_deck commit "<deck>/out/cards.jsonl" --deck "ISF::Test 2::Histology::Week 4" [--approved-only]
 ```
-`commit` is the **only** path that writes cards to a live deck, and it writes **by status**:
+`commit` writes **by status** — and it is the only path that ships `held` cards:
 `approved` cards are added and tagged `src::reviewed`; `held` cards are added tagged `flag::held` and
 **suspended** (so you can find them with `tag:flag::held` and finish them in Anki); `cut` cards are
 never written. `--approved-only` skips the held cards. The note type `Custom Cloze` is created if

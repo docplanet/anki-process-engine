@@ -40,7 +40,7 @@ editorializing. If a fact, term, or qualifier is not in the source, it does not 
 Fidelity governs *what may go on a card*. It never decides *which word gets blanked* — that is
 settled by the purpose above.
 
-# The seven files
+# The rulebook
 
 | File | What it is |
 |---|---|

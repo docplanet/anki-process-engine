@@ -64,7 +64,8 @@ English; the clozes only choose *which concepts get tested*.
      head visible **and unstyled**, then still give the cloze a hint (an option-listing one often
      fits: `regular or irregular?`). `ref-05` is this exact shape: `The {{c1::<b>epiphyseal
      growth</b>::which structure?}} plate …` — "plate" is visible and **not** bolded.
-     *(This line used to say "bold it too". Every reference card has exactly ONE `<b>` span, and
+     *(This line used to say "bold it too". No reference card has more than ONE `<b>` span — the
+     image card `ref-06` has none at all — and
      style.md names a two-`<b>` card as one of the defects that disqualified the old reference. A
      cold reader following the old wording produced a two-bold card on its first attempt.)*
 7. **No cloze reveals another (no self-answering).** On a multi-cloze card, no cloze's *answer* may
@@ -73,7 +74,9 @@ English; the clozes only choose *which concepts get tested*.
      is the carboxylate, so c2 hands you c1.
    - Test by hiding each cloze in turn: the visible text (including the *other* answers) must not
      contain or spell out the hidden one.
-8. **Distinct clozes are distinctly styled — ONE red answer per card.** Two *different* cloze
+8. **Distinct clozes are distinctly styled — ONE red answer per CLOZE NUMBER.** (Per *number*, not
+   per span: `ref-05`'s five list items are all `<i>` and all `c2`, which is what makes the list one
+   answer.) Two *different* cloze
    numbers must not share the same role markup. **The reference is unambiguous: 0 of 6 cards have two
    `<i>` answers.** The house style is one bold subject, one red `<i>` answer, one optional teal
    `<u>` facet — never two reds. A chain fact (A secretes B, which maintains C) does **not** become

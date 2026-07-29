@@ -1422,6 +1422,17 @@ def cmd_run(a):
     if resume and not os.path.exists(cards_path):
         sys.exit(f"--resume needs an existing {cards_path} — run without --resume to author it first.")
 
+    # Scope is STATED, never inferred. Three documents say so; the flag used to default to "",
+    # which cards everything, so omitting it did exactly what they forbid — silently, with the run
+    # reporting success. Checked HERE, before the OCR call and the media push: the first version of
+    # this validation sat inside the authoring branch, and a missing --sources burned a paid OCR
+    # pass and 131 media writes before erroring. Same mistake as truncating the audit log first.
+    if not resume and a.sources is None and not getattr(a, "all_sources", False):
+        sys.exit("--sources is REQUIRED: name what must be carded, e.g.\n"
+                 '  --sources "powerpoint,transcript,junqueira"\n'
+                 "Scope is stated, not inferred from whatever is in the folder. To card every "
+                 "extracted file on purpose, pass --all-sources.")
+
     total = 0.0
     print("· OCR slide images -> sources (so figure/bullet quotes are verifiable)…")
     total += ocr_slides(deck_dir, a.model)
@@ -1488,7 +1499,15 @@ def cmd_run(a):
             print("  nothing to re-review — every card is already approved or cut.")
         save(cards)
     else:
-        in_scope, missing = resolve_sources(deck_dir, a.sources)
+        # Scope is STATED, never inferred. Three documents say so; the flag used to default to ""
+        # which cards everything, so omitting it did exactly what they forbid — silently, and with
+        # the run reporting success. Requiring it is what makes the rule true rather than aspirational.
+        if a.sources is None and not getattr(a, "all_sources", False):
+            sys.exit("--sources is REQUIRED: name what must be carded, e.g.\n"
+                     "  --sources \"powerpoint,transcript,junqueira\"\n"
+                     "Scope is stated, not inferred from whatever is in the folder. To card every "
+                     "extracted file on purpose, pass --all-sources.")
+        in_scope, missing = resolve_sources(deck_dir, a.sources or "")
         if missing:
             sys.exit(f"--sources named {missing} but no such file is in {out_dir}/sources/.\n"
                      f"  have: {[os.path.basename(p) for p in resolve_sources(deck_dir, '')[0]]}\n"
@@ -1768,10 +1787,14 @@ def main():
                         "a fix that still breaks a corpus invariant is now caught for free and "
                         "returned to the fixer without spending a review call, so rounds are cheap")
     p.add_argument("--no-media", action="store_true")
-    p.add_argument("--sources", default="",
+    p.add_argument("--sources", default=None,
                    help="WHAT TO CARD — comma-separated substrings of the source filenames, e.g. "
-                        "'powerpoint,transcript,junqueira'. Each must match a file in "
-                        "out/sources/ or the run stops. Omit to card every extracted source")
+                        "'powerpoint,transcript,junqueira'. Matched case-insensitively on "
+                        "alphanumerics only, so 'powerpoint' finds a URL-encoded 'Power Point'. Each must "
+                        "match a file in out/sources/ or the run stops. REQUIRED — pass "
+                        "--all-sources to deliberately card everything extracted")
+    p.add_argument("--all-sources", action="store_true",
+                   help="card every extracted file. The explicit form of the old empty --sources")
     p.add_argument("--resume", action="store_true",
                    help="skip create; re-run review->fix over the existing out/cards.jsonl, putting "
                         "held/needs-fix back to draft (approved/cut untouched). Use after a harness "

@@ -38,8 +38,8 @@ frames** and flagged "type IV collagen is found in the basal lamina" as a duplic
 card. An agent can tell those apart; a Jaccard threshold cannot.
 
 The audit still matters, for a different reason than it used to. `duplicate` is **the sixth
-status**, and the other five are the ones every doc lists — so a card dropped here is invisible to
-anyone grepping the documented vocabulary, and `run` and `commit` both refuse to write it.
+status**, easy to miss if you grep only the five you remember — and `run` and `commit` both refuse
+to write it.
 
     grep -c '"status": "duplicate"' <deck>/out/cards.jsonl
 
