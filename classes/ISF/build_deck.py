@@ -728,7 +728,7 @@ def _author_call(task, deck_dir, model, kind, audit_round):
     return cards, cost
 
 
-def author_create(deck_dir, model, slug=None, audit_round=0, sources=None):
+def author_create(deck_dir, model, slug=None, audit_round=0, sources=None, gaps=None):
     """STEP 1 — author cloze cards from the deck's sources. Short, examples-led prompt: the full
     style guide + real corpus examples are already in the system prompt; the task just points to the
     sources and states the card SHAPE plainly.
@@ -750,8 +750,22 @@ def author_create(deck_dir, model, slug=None, audit_round=0, sources=None):
              f"Read this lecture's sources with the Read tool (absolute paths): the .txt files in "
              f"{base}/sources/ (objectives, transcript, slide text) and the slide images "
              f"{base}/slides/*.jpg.\n\n")
+    # A TARGETED pass: the coverage agent found these uncarded, so card exactly them and nothing
+    # else. Without this the second pass re-reads the whole source and re-authors what already
+    # exists, which is how a "top up the gaps" step turns into another full duplicate set.
+    gap_text = ""
+    if gaps:
+        rows = "\n".join(f"  {'[HE STRESSED THIS] ' if st else ''}{t}\n      evidence: {ev}"
+                          for t, ev, st in gaps)
+        gap_text = (
+            f"\n\n===== CARD EXACTLY THESE {len(gaps)} GAPS, AND NOTHING ELSE =====\n"
+            f"The deck already covers the rest of this source. These were taught and have NO card. "
+            f"Author cards for each. Items marked [HE STRESSED THIS] are ones the lecturer told the "
+            f"class to know — those must not come back uncarded. Do NOT author anything outside "
+            f"this list; a fact already in the deck is a duplicate and will be cut.\n{rows}\n")
+
     task = (
-        f"Author cloze flashcards for this lecture.\n\n{scope}"
+        f"Author cloze flashcards for this lecture.\n\n{scope}{gap_text}"
         f"THE CARD SHAPE — make your cards LOOK LIKE the reference-corpus examples in your instructions. "
         f"Roles: <b> = subject, <i> = answer, <u> = facet.\n"
         f"  • CLOZE EVERY TESTABLE TERM. If the <b> subject is itself a term the student must RECALL "
@@ -797,6 +811,11 @@ DEDUP_SCHEMA = {
 # than a status because `held` is also where the fix loop parks cards it ran out of rounds on, and
 # --resume must re-draft those while leaving this alone.
 # check_card's quote finding prefix. Split on it rather than gating on it — see mechanical().
+# How many author->coverage-check->author rounds per source file. 3 = one authoring pass, a
+# coverage check, a top-up pass, a second check, a final top-up. Bounded because a coverage agent
+# will always find SOMETHING if you keep asking; the loop exits early the moment it returns none.
+COVERAGE_PASSES = 3
+
 QUOTE_FINDING = "QUOTE not in sources:"
 
 EXCLUDED_NOTE = "lecturer excluded this: "
@@ -909,6 +928,68 @@ def transcript_agent(cards, transcript_path, model, other_sources=(), batch=25):
         except Exception as e:
             print(f"  !! transcript agent output unreadable ({e})")
     return out, total
+
+
+COVERAGE_SCHEMA = {
+    "type": "object",
+    "properties": {"gaps": {"type": "array", "items": {
+        "type": "object",
+        "properties": {"topic": {"type": "string"}, "evidence": {"type": "string"},
+                       "stressed": {"type": "boolean"}},
+        "required": ["topic", "evidence", "stressed"], "additionalProperties": False}}},
+    "required": ["gaps"], "additionalProperties": False,
+}
+
+
+def coverage_agent(cards, source_path, model):
+    """What does this source TEACH that no card covers? Returns ([(topic, evidence, stressed)], cost).
+
+    The step that did not exist, and the most expensive omission in the harness. Authoring is ONE
+    PASS per file, and one pass is however much that call happened to catch. Over a tidy textbook
+    summary that is nearly everything; over 212KB of rambling lecture it is a skim. The Bone deck
+    came out 54 cards from the Junqueira summary and 23 from the transcript, and roughly two thirds
+    of what the lecturer added on top of the book had no card — including RANK/RANKL/osteoprotegerin
+    ("understand this"), the osteoclast ruffled border and proton pump, osteopetrosis, and a synonym
+    he explicitly warned would cost them a board question.
+
+    Nothing caught it. The transcript agent asks whether the lecturer CONTRADICTED or EXCLUDED a
+    card; nobody asked the opposite question. yield.md states the rule — "cards should land where
+    the emphasis is, not where the text is" — and no step enforced it. This does.
+    """
+    text = open(source_path, encoding="utf-8", errors="replace").read()
+    listing = "\n".join(f"- {re.sub(r'<[^>]+>', '', re.sub(r'\{\{c\d+::(.*?)(?:::.*?)?\}\}', r'\\1', c.get('text', '')))}"
+                        for c in cards)
+    task = (
+        "Here is a source from a lecture, then EVERY card the deck currently has.\n\n"
+        "What does the source TEACH that no card covers?\n\n"
+        "Weight by EMPHASIS, not by word count. If this is a transcript, the signal is what the "
+        "lecturer stopped on: 'I need you to know', 'this will be on the exam', spelling a term "
+        "aloud, repeating himself, quizzing the class, spending minutes on one slide. Set "
+        "`stressed` true for those. A fact stated once in passing is a real gap too, but rank it "
+        "below.\n\n"
+        "Be STRICT about what counts as covered: a card that names a term does NOT cover a "
+        "mechanism or a list he walked through. If he gave five steps and a card has three, that "
+        "is a gap — say which two are missing.\n\n"
+        "Do NOT report: anything he said not to learn, previewed as next time, or called an aside; "
+        "anything already covered; wording or style problems. Coverage only.\n\n"
+        "`evidence` must be a short quote from the source showing he taught it.\n\n"
+        f"===== SOURCE: {os.path.basename(source_path)} =====\n{text}\n\n"
+        f"===== EVERY CARD IN THE DECK ({len(cards)}) =====\n{listing}")
+    cmd = ["claude", "-p", task, "--json-schema", json.dumps(COVERAGE_SCHEMA),
+           "--output-format", "json", "--model", model, "--allowedTools", "",
+           "--strict-mcp-config"]
+    r = subprocess.run(cmd, capture_output=True, text=True, stdin=subprocess.DEVNULL)
+    if r.returncode != 0:
+        print(f"  !! coverage agent failed on {os.path.basename(source_path)}")
+        return [], 0.0
+    try:
+        d = json.loads(r.stdout)
+        pl = d.get("structured_output") or (json.loads(d["result"]) if d.get("result") else {})
+        return ([(g["topic"], g.get("evidence", ""), g.get("stressed", False))
+                 for g in pl.get("gaps", [])], d.get("total_cost_usd") or 0.0)
+    except Exception as e:
+        print(f"  !! coverage agent output unreadable ({e})")
+        return [], 0.0
 
 
 def resolve_sources(deck_dir, spec):
@@ -1540,6 +1621,39 @@ def cmd_run(a):
         if not [c for c in cards if c.get("status") == "draft"]:
             print("  nothing to re-review — every card is already approved or cut.")
         save(cards)
+
+        # --topup: run the coverage check over an EXISTING deck and author what is missing. The
+        # coverage loop lives in the authoring branch, so without this a deck built before that
+        # step existed can never be brought up to coverage without a full re-author on to
+        # different cards. Every deck built before today is in exactly that state.
+        if getattr(a, "topup", False):
+            in_scope, missing = resolve_sources(deck_dir, a.sources or "")
+            if missing:
+                sys.exit(f"--sources named {missing} but no such file is in {out_dir}/sources/.")
+            for i, src in enumerate(in_scope, 1):
+                name = os.path.basename(src)
+                live = [c for c in cards if c.get("status") in ("approved", "needs-fix", "draft")]
+                gaps, cost = coverage_agent(live, src, a.model); total += cost
+                if not gaps:
+                    print(f"· topup [{i}/{len(in_scope)}] {name}: nothing uncarded")
+                    continue
+                n_str = sum(1 for _, _, st in gaps if st)
+                print(f"· topup [{i}/{len(in_scope)}] {name}: {len(gaps)} uncarded "
+                      f"({n_str} stressed) — authoring")
+                drafted, cost = author_create(deck_dir, a.model, slug=a.slug, audit_round=100 + i,
+                                              sources=[src], gaps=gaps); total += cost
+                for c in drafted:
+                    c["id"] = f"top{i}-{c.get('id', 'x')}"
+                fresh = [{**c, "status": "draft", "note": ""} for c in drafted if c.get("text")]
+                print(f"    authored {len(fresh)} — reviewing…")
+                settled = cards
+                fresh, cost = review_fix_loop(fresh, deck_dir, a.model, a.max_author_rounds,
+                                              mechanical, save=lambda b: save(settled + b),
+                                              source_hint=src_dir if os.path.isdir(src_dir) else None)
+                total += cost
+                cards += fresh
+                save(cards)
+                print(f"    [{i}/{len(in_scope)}] {name} -> {dict(Counter(c.get('status') for c in fresh))}")
     else:
         # Scope is STATED, never inferred. Three documents say so; the flag used to default to ""
         # which cards everything, so omitting it did exactly what they forbid — silently, and with
@@ -1575,18 +1689,45 @@ def cmd_run(a):
         for i, src in enumerate(in_scope, 1):
             name = os.path.basename(src)
             print(f"\n  ── [{i}/{len(in_scope)}] {name}")
-            drafted, cost = author_create(deck_dir, a.model, slug=a.slug, audit_round=i,
-                                          sources=[src]); total += cost
-            # ids collide across files (each run numbers from 01), so namespace by file index
-            for c in drafted:
-                c["id"] = f"f{i}-{c.get('id', 'x')}"
-            batch = [{**c, "status": "draft", "note": ""} for c in drafted if c.get("text")]
-            print(f"     authored {len(batch)} card(s) — reviewing this file now…")
-            done = cards                       # already-settled cards from earlier files
-            batch, cost = review_fix_loop(batch, deck_dir, a.model, a.max_author_rounds,
-                                          mechanical, save=lambda b: save(done + b),
-                                          source_hint=src_dir if os.path.isdir(src_dir) else None)
-            total += cost
+            # AUTHOR -> CHECK COVERAGE -> AUTHOR THE GAPS, until the source is dry. One pass is
+            # however much that single call happened to catch, and that is not a deck — it is a
+            # sample. The Bone lecture came back with 54 cards off a tidy textbook summary and 23
+            # off 212KB of transcript, and two thirds of what the lecturer stressed had no card.
+            # Files go in and cards come out; nothing was checking that the cards covered the files.
+            batch, done = [], cards            # `done` = already-settled cards from earlier files
+            gaps = None
+            for pass_no in range(1, COVERAGE_PASSES + 1):
+                drafted, cost = author_create(deck_dir, a.model, slug=a.slug, audit_round=i,
+                                              sources=[src], gaps=gaps); total += cost
+                # ids collide across files and passes (each call numbers from 01) — namespace both
+                for c in drafted:
+                    c["id"] = f"f{i}p{pass_no}-{c.get('id', 'x')}"
+                fresh = [{**c, "status": "draft", "note": ""} for c in drafted if c.get("text")]
+                label = "authored" if pass_no == 1 else f"pass {pass_no}: authored"
+                print(f"     {label} {len(fresh)} card(s) — reviewing…")
+                settled = done + batch
+                fresh, cost = review_fix_loop(fresh, deck_dir, a.model, a.max_author_rounds,
+                                              mechanical, save=lambda b: save(settled + b),
+                                              source_hint=src_dir if os.path.isdir(src_dir) else None)
+                total += cost
+                batch += fresh
+                save(done + batch)
+                if pass_no == COVERAGE_PASSES:
+                    break
+                # Check coverage against the WHOLE deck so far, not just this file's cards — a
+                # fact carded from the slides is covered even if the transcript also teaches it.
+                live = [c for c in done + batch if c.get("status") in ("approved", "needs-fix", "draft")]
+                gaps, cost = coverage_agent(live, src, a.model); total += cost
+                if not gaps:
+                    print(f"     coverage: nothing left uncarded in {name}")
+                    break
+                n_str = sum(1 for _, _, st in gaps if st)
+                print(f"     coverage: {len(gaps)} uncarded ({n_str} the lecturer stressed) "
+                      f"— authoring them")
+                for t, _ev, st in gaps[:8]:
+                    print(f"        {'!' if st else '·'} {t[:90]}")
+                if len(gaps) > 8:
+                    print(f"        … and {len(gaps) - 8} more")
             cards += batch
             save(cards)
             st = Counter(c.get("status") for c in batch)
@@ -1837,6 +1978,10 @@ def main():
                         "alphanumerics only, so 'powerpoint' finds a URL-encoded 'Power Point'. Each must "
                         "match a file in out/sources/ or the run stops. REQUIRED — pass "
                         "--all-sources to deliberately card everything extracted")
+    p.add_argument("--topup", action="store_true",
+                   help="with --resume: run the COVERAGE check over the existing deck and author "
+                        "whatever the sources teach that no card covers. For decks built before "
+                        "the coverage step existed")
     p.add_argument("--all-sources", action="store_true",
                    help="card every extracted file. The explicit form of the old empty --sources")
     p.add_argument("--resume", action="store_true",
