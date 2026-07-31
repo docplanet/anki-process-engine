@@ -685,7 +685,10 @@ def _author_call(task, deck_dir, model, kind, audit_round):
            "--model", model, "--strict-mcp-config",
            "--mcp-config", _style_mcp_config(),
            "--allowedTools", "Read Grep Glob mcp__style__check_card mcp__style__invariants"]
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    # stdin=DEVNULL like every other claude sub-call. Without it the CLI exits 1 with EMPTY
+    # stderr whenever the run has no tty — so it worked interactively and died the moment the
+    # pipeline was backgrounded, with no error to read.
+    r = subprocess.run(cmd, capture_output=True, text=True, stdin=subprocess.DEVNULL)
     if r.returncode != 0:
         raise RuntimeError(f"author sub-call failed ({r.returncode}): {r.stderr[:300]}")
     stamp = datetime.datetime.now().isoformat(timespec="seconds")
@@ -1299,7 +1302,7 @@ def ocr_slides(deck_dir, model):
                 "written — no paraphrase, no commentary, skip nothing textual.\n\n" + "\n".join(group))
         cmd = ["claude", "-p", task, "--output-format", "json", "--model", model,
                "--allowedTools", "Read", "--strict-mcp-config"]
-        r = subprocess.run(cmd, capture_output=True, text=True)
+        r = subprocess.run(cmd, capture_output=True, text=True, stdin=subprocess.DEVNULL)
         if r.returncode != 0:
             print(f"  ! slide OCR batch {gi}/{len(chunks)} failed — image quotes may not verify")
             continue
