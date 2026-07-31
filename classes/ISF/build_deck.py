@@ -796,6 +796,9 @@ DEDUP_SCHEMA = {
 # The note prefix that marks a card the LECTURER told the class not to learn. A sentinel rather
 # than a status because `held` is also where the fix loop parks cards it ran out of rounds on, and
 # --resume must re-draft those while leaving this alone.
+# check_card's quote finding prefix. Split on it rather than gating on it — see mechanical().
+QUOTE_FINDING = "QUOTE not in sources:"
+
 EXCLUDED_NOTE = "lecturer excluded this: "
 
 TRANSCRIPT_SCHEMA = {
@@ -1052,7 +1055,7 @@ def _style_mcp_config():
         "args": [os.path.join(HERE, "style_mcp.py")]}}})
 
 
-def review_all(cards, model, batch=5, use_tool=True, jobs=8):
+def review_all(cards, model, batch=5, use_tool=True, jobs=8, source_hint=None):
     """Reviewer over all cards. Returns ({id: {verdict, note}}, cost).
 
     Every card carries its own measured STYLE CHECK, inlined below it (see the chunk loop). That
@@ -1068,6 +1071,10 @@ def review_all(cards, model, batch=5, use_tool=True, jobs=8):
 
     def run_chunk(chunk):
         lines = ["Review EACH card. Return one verdict per card, keyed by its id.\n"]
+        if source_hint:
+            lines.append(f"THE EXTRACTED SOURCES ARE AT {source_hint} — Read/Grep them. Any card "
+                         f"below carrying a PROVENANCE finding needs you to open the source and "
+                         f"decide; do not take the finding as a verdict.\n")
         if use_tool:
             lines.append(
                 "Each card below already carries its STYLE CHECK, computed against the corpus. "
@@ -1083,6 +1090,21 @@ def review_all(cards, model, batch=5, use_tool=True, jobs=8):
                 # check_card is probabilistic. bone-005 shipped `approved` with a BLOCKING finding
                 # for exactly this reason — reviewed with no tool, fell back to eyeballing. The
                 # tool stays available for re-checking a PROPOSED fix, which cannot be precomputed.
+                if c.get("_quote"):
+                    # Measured by the script, JUDGED HERE. A literal substring test cannot see the
+                    # two quoting conventions accuracy.md mandates, so it reports a miss on honest
+                    # quotes; it is still the only thing that catches a fabricated or spliced one.
+                    lines.append(
+                        "\nPROVENANCE — the literal substring check did not find this card's "
+                        "`Source:` quote in the extracted sources:\n  "
+                        + "\n  ".join(c["_quote"])
+                        + "\n  READ THE SOURCE AND DECIDE. This is a finding, not a verdict.\n"
+                          "  NOT a defect: a quote that elides rambling with `…` — check each "
+                          "fragment is word-for-word present AND in order. Also not a defect: a "
+                          "`[bracketed correction]` of a garbled term.\n"
+                          "  IS a defect: words the lecturer never said, a sentence stitched from "
+                          "two separate cues, or a paraphrase presented as a quote — 'in your 20s' "
+                          "written as 'in your twenties' is altered, however harmless it looks.\n")
                 try:
                     import style_check
                     lines.append("\n" + style_check.render(c.get("text", "")))
@@ -1092,8 +1114,13 @@ def review_all(cards, model, batch=5, use_tool=True, jobs=8):
                "--json-schema", json.dumps(REVIEW_SCHEMA), "--output-format", "json",
                "--model", model, "--strict-mcp-config"]
         cmd += (["--mcp-config", _style_mcp_config(),
-                 "--allowedTools", "mcp__style__check_card,mcp__style__invariants"]
-                if use_tool else ["--allowedTools", ""])
+                 "--allowedTools",
+                 # Read/Grep/Glob so the reviewer can OPEN the lecture and settle a provenance
+                 # finding itself. Without them it was handed "this quote isn't in the sources"
+                 # and no way to check, so the substring test was effectively the verdict.
+                 # Still read-only: it returns verdicts, the driver writes.
+                 "Read,Grep,Glob,mcp__style__check_card,mcp__style__invariants"]
+                if use_tool else ["--allowedTools", "Read,Grep,Glob"])
         r = subprocess.run(cmd, capture_output=True, text=True, stdin=subprocess.DEVNULL)
         if r.returncode != 0:
             return ({c["id"]: {"verdict": "needs-fix",
@@ -1335,7 +1362,8 @@ def review_fix_loop(cards, deck_dir, model, max_rounds, mechanical, save=None, s
         # 2b reviewer on the mechanically-clean drafts -> approved / needs-fix / cut
         if to_review:
             print(f"· step 2 — round {rnd}: reviewing {len(to_review)} card(s)…")
-            verdicts, cost = review_all(to_review, model); total += cost
+            verdicts, cost = review_all(to_review, model, source_hint=source_hint)
+            total += cost
             for c in to_review:
                 v = verdicts.get(c["id"], {"verdict": "needs-fix", "note": "no verdict — re-review"})
                 c["status"] = v["verdict"]; c["note"] = v.get("note", "")
@@ -1450,17 +1478,31 @@ def cmd_run(a):
     def save(cards):
         with open(cards_path, "w", encoding="utf-8") as f:
             for c in cards:
-                f.write(json.dumps(c, ensure_ascii=False) + "\n")
+                # `_`-prefixed keys are scratch passed to the review prompt, not card data
+                f.write(json.dumps({k: v for k, v in c.items() if not k.startswith("_")},
+                                   ensure_ascii=False) + "\n")
 
     def mechanical(c):
-        """Deterministic checks — PROVENANCE (verbatim source) + media, and the ONE shape rule the
-        corpus never breaks (>3 distinct clozes — zero corpus violations). Everything else about SHAPE is judged by
-        the reviewer against the corpus cards; style.md says the corpus stats are 'not
-        limits to enforce', so there is no template gate (strict_shape no longer governs the
-        process). Keep it that way: this gate runs BEFORE the reviewer and short-circuits it, so any
-        rule added here outranks the corpus instead of being checked against it."""
-        return check_card(c.get("text", ""), c.get("extra", ""), c.get("source", ""),
-                          NB, media, no_media)
+        """The checks that GATE — media, and >3 distinct clozes (zero reference violations).
+
+        THIS RUNS BEFORE THE REVIEWER AND SHORT-CIRCUITS IT, so anything added here outranks the
+        judge instead of being checked by it. That is why the quote check is no longer in it.
+
+        A `Source:` quote is verified by literal substring against the extracted sources, and the
+        rulebook mandates TWO quoting conventions the substring cannot see: `[bracketed
+        corrections]` (norm() strips those) and `…` for elision (nothing strips those). So every
+        honest quote that skips a few words of rambling speech failed. On slide-sourced decks that
+        never showed — the Cartilage deck used zero ellipses and held 2 cards. The Bone deck quotes
+        the lecture recording, used 13, and 18 cards were parked without the reviewer ever seeing
+        them, by a test that cannot read.
+
+        Whether a quote is faithful to a lecture is reading comprehension. The reviewer HAS the
+        sources. So the quote result now travels WITH the card into the review prompt as a finding
+        to check, exactly like the style report — measured by the script, judged by the agent."""
+        findings = check_card(c.get("text", ""), c.get("extra", ""), c.get("source", ""),
+                              NB, media, no_media)
+        c["_quote"] = [f for f in findings if f.startswith(QUOTE_FINDING)]
+        return [f for f in findings if not f.startswith(QUOTE_FINDING)]
 
     # ── STEP 1 — create (or, with --resume, re-enter the leftovers) ─────────────
     if resume:
