@@ -59,10 +59,9 @@ command if unsure.
 ```
 build_deck slides "<slides.pdf>" "<deck>/out" <slug>     # once, to render + index slides
 build_deck run "<deck>" --deck "ISF::Test 2::<Subject>::Week N" --slug <slug> \
-    --sources "powerpoint,transcript,junqueira" --max-author-rounds 2 [--dry-run]
+    --sources "powerpoint,transcript,junqueira" [--dry-run]
 ```
 `--sources` is **required** — scope is stated, not inferred (`--all-sources` is the explicit opt-out).
-`--max-author-rounds` defaults to 5; pass `2` to match the two-attempt policy in §9.
 
 `run` extracts sources, pushes slide media, authors and reviews per source file, dedupes, checks the
 transcript, fixes, re-reviews, and then **writes the `approved` cards to Anki and syncs** unless
@@ -316,8 +315,8 @@ that is the defect [accuracy](rules/accuracy.md) exists to catch, and it becomes
 
 Inside `run` this is automatic: a `needs-fix` card is re-authored from its note and **re-reviewed**
 before it can become `approved`; a rewrite is never approved by the pass that flagged it. A card the
-loop can't resolve within `--max-author-rounds` (**the flag defaults to 5; pass `2` to match the
-two-attempt policy below**) becomes `held` — surfaced in the status
+loop can't resolve within `--max-author-rounds` (**default 2**, matching the two-attempt policy
+below) becomes `held` — surfaced in the status
 file, and shipped to Anki suspended under `flag::held`, never silently passed. `commit` tags every
 `approved` card `src::reviewed` automatically. When you repair a **live** card by hand (the ongoing
 loop below), **read the note's current text before editing it** — note-ids are easy to mistake, and

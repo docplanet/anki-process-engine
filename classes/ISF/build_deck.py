@@ -1824,10 +1824,12 @@ def main():
     p.add_argument("--deck", required=True, help="target Anki deck name")
     p.add_argument("--slug", help="slide slug for slide::<slug>-NN tags")
     p.add_argument("--model", default="claude-sonnet-4-5", help="model for author + review sub-calls")
-    p.add_argument("--max-author-rounds", type=int, default=5,
-                   help="review->fix rounds before a card is surfaced as `held`. Higher than it was: "
-                        "a fix that still breaks a corpus invariant is now caught for free and "
-                        "returned to the fixer without spending a review call, so rounds are cheap")
+    p.add_argument("--max-author-rounds", type=int, default=2,
+                   help="review->fix rounds before a card is surfaced as `held`. TWO, matching "
+                        "process.md: a third attempt is the fixer reshaping markup instead of "
+                        "re-reading the source. It defaulted to 5 against that stated policy, and "
+                        "one card cycling on a two-<i> defect held a 29-card re-review for 20 "
+                        "minutes while everything else had long finished")
     p.add_argument("--no-media", action="store_true")
     p.add_argument("--sources", default=None,
                    help="WHAT TO CARD — comma-separated substrings of the source filenames, e.g. "
