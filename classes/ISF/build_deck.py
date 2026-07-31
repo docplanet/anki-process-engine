@@ -21,7 +21,7 @@ See classes/ISF/okf/process.md for the full procedure.
 Anki steps need Anki running with the AnkiConnect add-on (http://127.0.0.1:8765).
 Slide rendering needs poppler (pdftoppm, pdftotext, pdfinfo); .ppt/.pptx also needs LibreOffice.
 """
-import argparse, datetime, glob, json, os, re, subprocess, sys, urllib.parse, urllib.request
+import argparse, datetime, glob, json, os, re, subprocess, sys, time, urllib.parse, urllib.request
 
 import reference_cards
 
@@ -688,9 +688,28 @@ def _author_call(task, deck_dir, model, kind, audit_round):
     # stdin=DEVNULL like every other claude sub-call. Without it the CLI exits 1 with EMPTY
     # stderr whenever the run has no tty — so it worked interactively and died the moment the
     # pipeline was backgrounded, with no error to read.
-    r = subprocess.run(cmd, capture_output=True, text=True, stdin=subprocess.DEVNULL)
+    # RETRY, THEN DEGRADE — never raise. This used to raise on any non-zero exit, which killed the
+    # whole run: a topup that had already authored and approved 27 cards across two sources died on
+    # a transient failure at the third and took the process with it. The cards were safe (save()
+    # runs per file) but the run was over, and these runs are long and expensive.
+    #
+    # Every other sub-call here already prints a warning and continues. Returning empty is the
+    # correct degradation: the cards this call was meant to author or fix simply do not appear, so
+    # they stay `needs-fix` and get surfaced as `held` — which is the "nothing is dropped" design
+    # working, instead of a traceback.
+    r = None
+    for attempt in (1, 2, 3):
+        r = subprocess.run(cmd, capture_output=True, text=True, stdin=subprocess.DEVNULL)
+        if r.returncode == 0:
+            break
+        err = (r.stderr or "").strip()[:200] or "(empty stderr)"
+        print(f"  !! {kind} sub-call failed (exit {r.returncode}, try {attempt}/3): {err}")
+        if attempt < 3:
+            time.sleep(5 * attempt)
     if r.returncode != 0:
-        raise RuntimeError(f"author sub-call failed ({r.returncode}): {r.stderr[:300]}")
+        print(f"  !! {kind} sub-call gave up after 3 tries — its cards stay unresolved and will be "
+              f"surfaced as `held`. The run continues.")
+        return [], 0.0
     stamp = datetime.datetime.now().isoformat(timespec="seconds")
     cards, cost, meta, reads = [], 0.0, {}, []
     audit = open(os.path.join(out_dir, "author.audit.jsonl"), "a", encoding="utf-8")
