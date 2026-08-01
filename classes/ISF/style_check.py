@@ -87,6 +87,23 @@ def p_u_before_b(T):
     return "b" in s and "u" in s and s.index("u") < s.index("b")
 
 
+def p_i_before_u(T):
+    """An <u> facet placed AFTER the <i> answer.
+
+    The other half of role order, and it was never measured. `u_before_b` catches a facet ahead of
+    the subject; nothing caught a facet trailing the answer, so `<b>` -> `<i>` -> `<u>` sailed
+    through as "no findings". That shipped `{{c1::<b>Osteocytes</b>}} extend {{c2::<i>filopodia</i>}}
+    through <u>canaliculi</u>` — where the trailing span is not a facet at all but a second testable
+    structure, left visible and mislabelled.
+
+    Four of the six reference cards use all three roles and every one runs b -> u -> i. None puts
+    the facet after the answer, so this is 0/6 and BLOCKING. trailing_prose cannot see it: that
+    counts UNSTYLED words after the last styled span, and here the last styled span is the <u>
+    itself, so it measures zero."""
+    s = roleseq(T)
+    return "i" in s and "u" in s and s.index("i") < s.index("u")
+
+
 def p_gt3_clozes(T):
     return len({n for n, _, _ in clozes(T)}) > 3
 
@@ -194,6 +211,11 @@ PREDICATES = [
     ("u_before_b", "underlined facet appears before the bold subject",
      p_u_before_b,
      "Order the roles subject-first: <b>subject</b> ... <u>facet</u> ... <i>answer</i>."),
+    ("i_before_u", "underlined facet appears AFTER the italic answer",
+     p_i_before_u,
+     "The card ENDS on its answer: <b>subject</b> ... <u>facet</u> ... <i>answer</i>. If the "
+     "trailing <u> span is really a second thing being tested (a structure, not an aspect), it is "
+     "not a facet — either cloze it as the answer and demote the current one, or split the card."),
     ("gt3_clozes", "more than 3 distinct clozes",
      p_gt3_clozes,
      "Split the fact into linked cards; 3 is the ceiling."),

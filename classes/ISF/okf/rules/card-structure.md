@@ -74,7 +74,18 @@ English; the clozes only choose *which concepts get tested*.
      is the carboxylate, so c2 hands you c1.
    - Test by hiding each cloze in turn: the visible text (including the *other* answers) must not
      contain or spell out the hidden one.
-8. **Distinct clozes are distinctly styled — ONE red answer per CLOZE NUMBER.** (Per *number*, not
+8. **A second testable thing is not a facet.** `<u>` marks the ASPECT being asked about — a role,
+   a pH, a direction, a timing. If the span names a *thing* (a structure, a substance, a location),
+   it is an answer, not a facet, and dressing it as one is how a testable term ships visible:
+   - ❌ `{{c1::<b>Osteocytes</b>::which cells?}} extend {{c2::<i>filopodia</i>::extend what?}} through <u>canaliculi</u>`
+   - "canaliculi" is a structure. Either cloze it as the answer and demote the current one, or
+     **split the card** — this is a two-node fact, and rule 4 already says to split those.
+   - *Why this rule exists: eight shipped cards did it, every one with a noun in the `<u>` —
+     `neurovascular bundle`, `canaliculi`, `water`, `extracellular space`. Rule 9 forbids two `<i>`
+     answers, so an author holding two real answers has nowhere to put the second, and `<u>` accepts
+     it silently. The rule below created this workaround; `i_before_u` in `style_check` is what
+     finally measures it.*
+9. **Distinct clozes are distinctly styled — ONE red answer per CLOZE NUMBER.** (Per *number*, not
    per span: `ref-05`'s five list items are all `<i>` and all `c2`, which is what makes the list one
    answer.) Two *different* cloze
    numbers must not share the same role markup. **The reference is unambiguous: 0 of 6 cards have two
