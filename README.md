@@ -1,220 +1,60 @@
-# Study → Anki
+# Anki cards for the Bastyr ISF decks
 
-Turns a folder of course material (lecture slides, transcript, learning objectives) into reviewed
-Anki flashcards — against a rulebook whose style rules are **measured from your own accepted cards**
-rather than written down, with an independent review pass and a dedup pass, instead of a one-shot
-"generate cards" prompt. Built on Claude Code + MCP.
+Files go in, cards come out.
 
-> This repo is the **tooling only**. Course materials (copyrighted textbooks, lecture recordings,
-> transcripts, objectives, personal decks) are gitignored and stay local.
+You put a lecture's material in a folder — slides, the transcript, a textbook summary — say which
+of them to card, and get reviewed Anki cloze cards in the deck you name.
 
-## Start here
+**All of it is one file:** [`.claude/skills/anki-cards/SKILL.md`](.claude/skills/anki-cards/SKILL.md).
+It holds the six cards that define the style, what a normal card looks like, and the rules that
+don't fit in an example. There is no program to run.
 
-**[`classes/ISF/okf/`](classes/ISF/okf/)** is the single source of truth for card work — the process
-*and* the rules, in [Open Knowledge Format](https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf)
-(plain markdown + YAML frontmatter). Eight files, no more:
+> This repo is the **method only**. Course materials — textbooks, recordings, transcripts, your
+> decks — are gitignored and stay local.
 
-| Read | For |
-|---|---|
-| **[`okf/process.md`](classes/ISF/okf/process.md)** | **How to build a deck** — 12 numbered steps; most carry the driver command *and* the manual fallback |
-| [`okf/index.md`](classes/ISF/okf/index.md) | The governing principle and the map of the rulebook |
-| [`okf/style.md`](classes/ISF/okf/style.md) | The card style in five lines; every other shape question is answered by the reference **corpus**, not by prose |
-| [`okf/review-checklist.md`](classes/ISF/okf/review-checklist.md) | The per-card review — the bar, the five axes, what counts as a finding |
-| [`okf/rules/`](classes/ISF/okf/rules/) | The four judgment rules a corpus can't show — [yield](classes/ISF/okf/rules/yield.md), [accuracy](classes/ISF/okf/rules/accuracy.md), [no-duplicate](classes/ISF/okf/rules/no-duplicate.md), [card-structure](classes/ISF/okf/rules/card-structure.md) |
+## How to use it
 
-**There is exactly one process.** If a document describes a different pipeline, it is stale — delete
-it rather than follow it. The [`anki-cards` skill](.claude/skills/anki-cards/SKILL.md) is the entry
-trigger; it points a fresh session at these files.
+Put the material in a folder and say what to card:
 
-## What a card is for, and the constraint on how
+> Make cards for this week's histology lecture. The folder is
+> `classes/ISF/Exam 2/Histology/Week 5/Bone` — card the PowerPoint, the transcript, and the
+> Junqueira summary. Deck is `ISF::Test 2::Histology::Bone`.
 
-**A card exists to make the student produce a key term or phrase from memory, inside a complete
-thought.** That is the purpose, and it decides every cloze: *what must the student produce for this
-card to be doing its job?* That word is the blank.
+Then: sources get read one at a time, cards get drafted, **each source is read back against the
+deck to find what was taught and never carded**, every card is reviewed against the six examples,
+and you see the whole deck in a file before a single note reaches Anki.
 
-**Faithful transcription, not synthesis** is the constraint on *how* to serve it. Render the source
-into card shape — split into atomic cloze cards, apply markup and hints, tag provenance. **Add
-nothing:** no outside knowledge, no synthesized framing, no coined terminology. If a fact or term
-isn't in the source, it doesn't go on the card.
+Scope is stated, never inferred. Naming the files is how you say what must be carded.
 
-The purpose is stated first because its absence was not harmless. Without it, "should this subject
-be clozed?" has no answer that can be wrong — a reviewer once called `Parathyroid hormone` a
-"general FRAME (which hormone are we talking about)", writing down the exact recall question and
-filing it as context. Four hormone cards shipped with the hormone visible.
+## Why there is no code
 
-## The shape of it — one driver, four steps, nothing dropped
+There was: 2,924 lines of Python and 80,412 characters of rulebook, orchestrating sub-agents to
+produce cards that look like 1,737 characters of examples — machinery fifty times the size of the
+thing it was reproducing.
 
-**You run a driver; the agent is only ever a constrained sub-call.** `build_deck run` is a script
-*you* (or a scheduler) invoke; it orchestrates the whole pipeline and is the only thing that writes
-to Anki. It works over **one status-tracked `cards.jsonl`** — every card carries a `status`
-(`draft`/`approved`/`needs-fix`/`cut`/`held`) + a `note`, and **no card is ever deleted**: a card
-that fails is *marked* with the reason, so you can follow any card through the steps by reading one
-file.
+One day of debugging turned up nine bugs, every one in the plumbing and none in the model's ability
+to write a flashcard: a provenance check that parked honest cards before the reviewer could see
+them, a scope flag that silently defaulted to "everything", a step documented after the step that
+needed it, a retry limit at more than double the documented policy, a sub-process that died with an
+empty error whenever it ran detached, and — the one that explains the rest — **the six example
+cards sitting at 97% of the way into a 57,000-character prompt**, under an opening line telling the
+agent to compare each card against the reference cards *below*.
 
-```
-you run:  build_deck run <deck_dir> --deck "<name>" --sources "powerpoint,transcript,…"
-             │   the driver orchestrates; it is the ONLY writer to Anki
-  1 create+review → 1b dedup → 1c transcript → 2 review → 3 fix → 4 re-review
-  🧠 per SOURCE FILE  🧠 agent    🧠 agent       gate+🧠      🧠 author   (loop until
-  (author read-only)                            reviewer     (read-only)  none needs-fix)
-                                                            then approved → Anki
-```
+An independent pass over the rulebook kept 34 instructions out of roughly 140. The rest was
+history, post-mortems, rules about not writing rules, and descriptions of scripts that no longer
+exist.
 
-- **you state the scope** — `--sources` names which extracted files must be carded. A source you
-  name and don't have **stops the run**; scope is stated, never inferred from the folder.
-- **create** — the author is a sub-process spawned with **read-only tools** (`Read Grep Glob`). It
-  reads the named sources and *returns card drafts* — the driver writes them. With no write/Bash/Anki
-  tools it **cannot** edit a rule, touch Anki, or skip a step.
-- **dedup** — **an agent** reads the whole set and says which pairs teach one fact. It replaced a
-  word-overlap score that matched sentence frames: it called *type IV collagen in the basal lamina*
-  a duplicate of a type VII card. The later card is flagged `duplicate`, never deleted — and
-  `duplicate` is a sixth status the rest of this README's vocabulary doesn't list, so grep for it.
-- **transcript check** — a second agent reads the lecture recording and reports only what the
-  lecturer SAID that no other source can settle: he **contradicted** the card (→ `needs-fix`), or he
-  told the class **not to learn it** (→ `held`, for you). Absence from the transcript is not a
-  finding — most sources are handouts he never read aloud.
-- **review** — the verbatim-quote/media check (`check_cards`) plus the corpus-derived style
-  invariants (`style_check`) **mark** a bad card `needs-fix` *with the reason*; then a reviewer flags
-  each remaining card `approved` / `needs-fix` / `cut` + a note. **Every card carries its measured
-  style report inlined**, so the reviewer reads a verdict rather than recalling a rule. It does not
-  rewrite.
-- **fix** — the author rewrites `needs-fix` cards from the notes, back to `draft`. **Each returned
-  fix is re-checked immediately**; one that still breaks an invariant goes straight back to a fresh
-  fixer without spending a review call.
-- **re-review** — loop until nothing is `needs-fix`; anything unresolved after the round budget
-  becomes `held` (surfaced, in the file). `commit` then writes `approved` (tagged `src::reviewed`)
-  and `held` (tagged `flag::held`, suspended) to Anki — and **refuses to write any card that breaks
-  a corpus invariant**, as a backstop on the output.
+The deepest gap wasn't in the 140 either. Every one of them was a *prohibition* — not one described
+what a normal card looks like. Nothing said a card has a bold subject and an italic answer, or that
+most cards carry two clozes. That is why an agent could break no rule and still be wrong, and it is
+why the skill now opens with the measured shape of a card before it lists a single constraint.
 
-| Path | Role |
-|---|---|
-| [`classes/ISF/build_deck.py`](classes/ISF/build_deck.py) | **the driver** — all 13 subcommands (see below). Holds the author/review sub-call logic. |
-| [`classes/ISF/style_check.py`](classes/ISF/style_check.py) | **the style rules — derived, never written.** Runs a predicate battery over the corpus on every call and tiers each by its measured rate: **BLOCKING** (0 corpus violations), **UNUSUAL** (≤5%), or silently allowed. Change the corpus and the rules change with it. `--derive` prints the table. |
-| [`classes/ISF/style_mcp.py`](classes/ISF/style_mcp.py) | the same checker as an MCP tool, so the author/fixer can verify a *proposed* rewrite. (The per-card report is inlined into prompts rather than fetched — MCP tools are deferred in this CLI, so a tool the model must discover may simply never be called.) |
-| [`classes/ISF/check_cards.py`](classes/ISF/check_cards.py) | **provenance checks** — verbatim `Source:` quotes, media, and the one shape rule the corpus never breaks (>3 clozes) |
-| [`classes/ISF/reference_cards.py`](classes/ISF/reference_cards.py) | the **style authority** — six hand-built cards, one per shape. Edit this to change the style; `build_deck corpus` regenerates `reference_cards.jsonl` from it. Every rule is measured against those six, and the cards themselves go into the prompts. |
-| [`anki-mcp-server/`](anki-mcp-server/) | TypeScript AnkiConnect MCP server (note CRUD + review stats) |
-| `tests/` | `test_style_check.py` — the checker, dedup, and `--sources`. Its central assertion is that **every BLOCKING rule has zero corpus violations**, so a rule the corpus contradicts fails CI instead of shipping. |
-
-**Card style is settled by looking at real cards**, not by reading prose — six of them, one per
-shape, hand-built and tracked in git. It was a 37-card pull from a real deck; that deck's own habits
-then became rules by measurement (it was 22% hintless, so the derived rule became "hint only the
-clozes that need it", and the next deck came back 65% hintless). **An authority has to be right
-before it is large.** `build_deck corpus` regenerates the JSONL from `reference_cards.py`; the
-Anki-pull path now refuses to write over it.
-
-```bash
-classes/ISF/.venv/bin/python classes/ISF/build_deck.py --help
-```
-
-## The driver's subcommands
-
-`build_deck.py --help` lists thirteen. Six of them went undocumented long enough that a fresh
-session discovered them in `--help` and had no idea whether they were current — while `process.md`
-was telling it that a document describing a different pipeline should be **deleted**. They are all
-current.
-
-**Building a deck** — the path [`okf/process.md`](classes/ISF/okf/process.md) walks:
+## What's still here
 
 | | |
 |---|---|
-| `slides <pdf/ppt> <out> <slug>` | render one JPEG per slide + `slides.jsonl` |
-| `sources <deck_dir>` | extract PDFs/transcripts/docx → `out/sources/*.txt` |
-| `run <deck_dir> --deck …` | **the pipeline.** Authors, dedupes, checks the transcript, reviews, fixes, and writes approved cards to Anki unless `--dry-run` |
-| `media <out_dir>` | push slide JPEGs into Anki media. `run` now does this itself before the gate; this is the standalone form |
-| `commit <cards.jsonl> --deck …` | write by status — `approved` tagged `src::reviewed`, `held` suspended, `cut` never |
-| `sync` | AnkiConnect sync |
-
-**Repairing a deck that already exists in Anki** — a different job, and the reason `insert` still
-exists after `process.md` said it was removed (it was: the *un-gated* writer of that name is gone,
-and this one writes nothing):
-
-| | |
-|---|---|
-| `insert --deck …` | pull a live deck into review → fix → re-review. No create, no write |
-| `review-deck --deck …` | audit a live deck read-only: corpus-derived style check + reviewer |
-| `apply <cards.jsonl> --deck …` | write a reviewed file back — updates existing notes, adds splits |
-| `style-pass <cards.jsonl>` | cycle every card through a fresh one-card style agent until the file stops changing |
-
-**The style authority and the learning loop:**
-
-| | |
-|---|---|
-| `corpus` | regenerate `reference_cards.jsonl` from `reference_cards.py`. `--deck` dumps an Anki deck for comparison and refuses to overwrite the reference |
-| `baseline` | snapshot every ISF card — the diff base `wrap` compares against |
-| `wrap` | capture your Anki edits since the baseline → `corrections.jsonl` |
-
-**Three commands write to Anki:** `run` (approved, at the end, unless `--dry-run`), `commit`
-(approved + held), and `apply` (updates in place). Nothing else touches the collection.
-
-
-## Style rules are measured, not asserted
-
-**No style rule in this repo is written down as a rule.** `style_check.py` runs its predicates over
-the corpus on every call; a predicate the corpus violates **zero** times is BLOCKING, one it breaks
-rarely is advisory, one it breaks often is not a rule at all and is never reported.
-
-That design exists because authored rules failed four times — *"always cloze the `<b>` subject"*,
-`strict_shape`'s templates (calibrated to a
-deck the project had abandoned), and *"never force-cloze it"* (which caused four hormone cards to
-ship with the hormone visible). Each was enforced for a while against cards that contradicted it.
-
-So: **to change a style rule, change the corpus.** Adding a predicate that the corpus contradicts
-fails the test suite.
-
-What measurement can't settle is returned as explicit *questions* rather than guessed at — is this
-`<b>` span a term to recall or the frame the sentence is scoped to; does the hint read like English
-in its gap. Those are the reviewer's, and yours.
-
-## Review: measured report + a fresh reviewer per card
-
-The reviewer is a separate Claude from the author, so it isn't grading its own work, and it sees
-each card with **its style report already inlined** — the corpus-measured findings, the four
-structurally closest corpus cards, and the judgment questions. It flags
-`approved`/`needs-fix`/`cut`. Batches run concurrently; sequential review over 46 cards once took 42
-minutes for a single round.
-
-## The working loop
-
-Review cards in Anki → tag anything wrong `wrong-<defect>` → each flagged card gets fixed **and**,
-if it names a rule the book lacks, the defect becomes a rule. Every rule came from a real flagged
-card. Inside `build_deck run` the same discipline is mechanical: a `needs-fix` card is re-authored
-and **re-reviewed** before it can be `approved`; a card the reviewer can't confidently pass becomes
-`held` (surfaced in the status file, and shipped to Anki suspended under `flag::held`), never a
-silent pass.
-
-## Setup
-
-**Python 3** + poppler; LibreOffice for `.ppt`/`.pptx`; `textutil` (macOS-native) handles `.docx`
-objectives. On macOS:
-
-```bash
-brew install poppler                          # pdftoppm, pdftotext, pdfinfo
-brew install --cask libreoffice               # soffice — .ppt/.pptx → .pdf
-python3 -m venv classes/ISF/.venv
-classes/ISF/.venv/bin/pip install -r requirements.txt   # needs `mcp` — style_mcp.py imports it
-```
-
-Anki steps need **Anki running with the AnkiConnect add-on** (code `2055492159`); the driver creates
-its `Custom Cloze` note type on first insert. Transcribing a recording into the transcript input is a
-separate pre-step (mlx-whisper) — see [`okf/process.md`](classes/ISF/okf/process.md) §1 and
-[`requirements.txt`](requirements.txt).
-
-```bash
-classes/ISF/.venv/bin/pip install pytest
-classes/ISF/.venv/bin/python -m pytest tests/ -q
-```
-
-The reference cards are tracked in git, so the whole suite — including every derived-rule
-assertion — runs on CI with no Anki and no local setup.
-
-See the current derived rule table any time with:
-
-```bash
-classes/ISF/.venv/bin/python classes/ISF/style_check.py --derive
-```
-
----
-
-*Built collaboratively with Claude Code. Course materials are excluded for copyright; only the
-tooling is published here.*
+| [`.claude/skills/anki-cards/SKILL.md`](.claude/skills/anki-cards/SKILL.md) | the whole thing — style, examples, procedure |
+| `classes/ISF/reference_media/` | the image `ref-06` cites |
+| `classes/ISF/<Exam>/<Subject>/<Week>/` | your course material and built decks (gitignored) |
+| [`requirements.txt`](requirements.txt) | Anki, AnkiConnect, and the tools that turn slides and recordings into text |
+| `recaps/` | session history |

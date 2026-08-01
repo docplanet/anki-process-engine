@@ -31,10 +31,7 @@
 # it's the ONE artifact Anki can't regenerate (once the baseline advances, the "before" is gone).
 # Scoped in code to Custom-Cloze pipeline cards, so no imported AnKing/Pixorize content lands here.
 !/classes/ISF/corrections.jsonl
-# the style authority: six hand-built reference cards + the one image they need. Generated from
-# reference_cards.py, but tracked anyway — every style rule is DERIVED from this file, so a
-# checkout without it has no rules, and CI would measure nothing while reporting green.
-!/classes/ISF/reference_cards.jsonl
+# the image the ref-06 example card cites. The six cards themselves live in the skill.
 !/classes/ISF/reference_media/
 !/classes/ISF/reference_media/**
 !/classes/ISF/okf/

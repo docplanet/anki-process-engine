@@ -1,23 +1,25 @@
-# No pip dependencies — classes/ISF/*.py is pure Python standard library
-# (argparse, json, os, re, subprocess, sys, urllib, difflib, dataclasses, ...).
+# No Python here any more. Cards are built by the `anki-cards` skill
+# (.claude/skills/anki-cards/SKILL.md), which reads your source files and writes
+# notes through the Anki MCP server. There is no driver to install or run.
 #
-# Create the venv anyway so the documented commands work verbatim:
-#   python3 -m venv classes/ISF/.venv
+# WHAT YOU ACTUALLY NEED
 #
-# SYSTEM dependencies (not pip-installable):
-#   poppler      ->  pdftoppm, pdftotext, pdfinfo  (slide rendering + text extraction)
-#                    `brew install poppler`
-#   libreoffice  ->  soffice  (.ppt/.pptx -> .pdf, done automatically by `build_deck slides`)
-#                    `brew install --cask libreoffice`
-#   Anki + the AnkiConnect add-on (code 2055492159), running, for the media/insert/sync steps.
+#   Anki, running, with the AnkiConnect add-on (code 2055492159).
+#   The `anki` MCP server connected — that is how notes get written.
 #
-# TRANSCRIPTION pre-step only (lecture recording -> the transcript input; see okf/process.md §1) —
-# skip if the transcript already exists in the deck folder:
-#   ffmpeg       ->  decode .mp4/.m4a audio  (`brew install ffmpeg`)
-#   mlx-whisper  ->  recording -> transcript on Apple Silicon; install isolated:
-#                    `uv tool install --python 3.13 mlx-whisper`
-#                    Long lectures REQUIRE `--condition-on-previous-text False` or large-v3 loops.
+# TURNING SOURCE FILES INTO TEXT (before asking for cards)
 #
-# REVIEW LOOP (build_deck.py `review_all` / `author_fix` — process step 7):
-#   the `claude` CLI, logged in. No pip package, no ANTHROPIC_API_KEY — it drives `claude -p`
-#   (print mode, structured output) using your existing Claude Code auth, one call per card.
+#   poppler      pdftoppm, pdftotext  — render slides to images, pull slide text
+#                `brew install poppler`
+#   libreoffice  soffice  — convert .ppt/.pptx to PDF first
+#                `brew install --cask libreoffice`
+#   textutil     built into macOS — .doc/.docx/.rtf to text
+#
+# TRANSCRIBING A LECTURE RECORDING
+#
+#   ffmpeg       `brew install ffmpeg`
+#   mlx-whisper  `uv tool install --python 3.13 mlx-whisper`
+#
+#   Long lectures REQUIRE --condition-on-previous-text False, or large-v3 silently
+#   loops a phrase for minutes and still exits 0. Always check the output:
+#     sort transcript.txt | uniq -c | sort -rn | head
