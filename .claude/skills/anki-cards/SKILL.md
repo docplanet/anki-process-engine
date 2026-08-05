@@ -1,160 +1,147 @@
 ---
 name: anki-cards
-description: Build Anki cloze flashcards from course material (slides, lecture transcript, textbook summary) for the Bastyr ISF study decks, or fix cards already in Anki. Use whenever generating a deck, adding cards for a lecture, or repairing existing cards.
+description: Step 3 of 3. Write Anki cloze cards from a card plan and insert them into the Bastyr ISF study decks. Use after anki-organize, or on its own when repairing cards already in Anki.
 ---
 
 # What a card is
 
 A card makes the student **produce a key term from memory, inside a complete, true sentence.**
-That word is the blank. Everything below serves that.
+That term is the blank. Everything below serves that.
 
-Three roles, marked with HTML:
-
-| | | |
-|---|---|---|
-| `<b>` | **subject** — what the sentence is about | on every card except an image card |
-| `<u>` | **facet** — the *aspect* being asked about (a role, direction, timing, pH) | when the sentence names one, ~half of cards |
-| `<i>` | **answer** — the value being recalled | on **every** card |
-
-**Every card has an `<i>` answer, and — unless it is an image card — a `<b>` subject.**
-Most cards have **two clozes** — meaning two cloze *numbers*; ref-05's five spans all share `c2`,
-so that is one. One is common and fine, three is the ceiling, never four. **One `<b>` per card,
-never two.** Left to right the roles run **`<b>` → `<u>` → `<i>`**, and the card ends on its
-answer — except a recognition card, which closes on a few unstyled words (ref-06).
-
-*(Measured over 321 shipped cards: `<i>` 100%, `<b>` 98.8%, `<u>` 46%; two cloze numbers 69%,
-one 24%, three 7%, zero never, four never. The 4 cards without a `<b>` are not image cards — they
-are defects that shipped because no rule said a prose card needs a subject.)*
+Check the sentence against that line before checking it against anything else. A card can parse,
+carry every tag correctly, satisfy every rule below, and still fail it — that is the *common*
+failure, not a rare one. Ask: is this sentence true standing alone, and is the blank a term worth
+producing?
 
 # The six cards that define the style
 
 These are the whole style guide. Where a written rule below and these cards disagree, **the cards
-win.** When you write a card, find the one below with the same shape and put them side by side.
+win.** Put your draft beside the one with the same shape — pulled up, not from memory.
+
+They are canonical, so keep them correct: if one of them is wrong, fix it here rather than working
+around it. *ref-05 once read "'plate' visible and not bolded", which is the opposite of the rule
+below, and 24 cards were written to match it before anyone compared the two.* And whenever you
+build a check of any kind, **run these six through it first** — they are the regression test. A
+check that fails ref-06 has not understood recognition cards; a check that passes a card these six
+would reject is not checking the right thing.
 
 ```
-ref-01  {{c1::<b>Osteoid</b>::which material?}} is {{c2::<i>unmineralized bone matrix</i>::what is it?}}
+ref-01  <b>{{c1::Osteoid::which material?}}</b> is {{c2::<i>unmineralized bone matrix</i>::what is it?}}
 
-ref-02  {{c1::<b>Osteoclasts</b>::which bone cells?}} <u>function</u> to {{c2::<i>resorb bone matrix</i>::do what?}}
+ref-02  <b>{{c1::Osteoclasts::which bone cells?}}</b> <u>function</u> to {{c2::<i>resorb bone matrix</i>::do what?}}
 
-ref-03  {{c1::<b>Calcitonin</b>::which hormone?}} acts on bone to {{c2::<u>lower</u>::raise or lower?}} {{c3::<i>blood calcium levels</i>::which levels?}}
+ref-03  <b>{{c1::Calcitonin::which hormone?}}</b> acts on bone to {{c2::<u>lower</u>::raise or lower?}} {{c3::<i>blood calcium levels</i>::which levels?}}
 
 ref-04  <b>Connective tissue</b> is <u>classified</u> into {{c1::<i>embryonic, proper, and specialized types</i>::which three classes?}}
 
-ref-05  The {{c1::<b>epiphyseal growth</b>::which structure?}} plate has five <u>zones</u>:<br><br>1. {{c2::<i>resting cartilage</i>::which five zones?}}<br>2. {{c2::<i>proliferating cartilage</i>}}<br>3. {{c2::<i>hypertrophic cartilage</i>}}<br>4. {{c2::<i>calcified cartilage</i>}}<br>5. {{c2::<i>ossification</i>}}
+ref-05  The <b>{{c1::epiphyseal growth::which?}} plate</b> has five <u>zones</u>:<br><br>1. {{c2::<i>resting cartilage</i>::which five zones?}}<br>2. {{c2::<i>proliferating cartilage</i>}}<br>3. {{c2::<i>hypertrophic cartilage</i>}}<br>4. {{c2::<i>calcified cartilage</i>}}<br>5. {{c2::<i>ossification</i>}}
 
 ref-06  {{c1::<img src="ref-osteon.jpg">}}<br><br>This is {{c2::<i>compact bone</i>::which tissue?}} that we can see
 ```
 
-Read off them: **ref-01** subject + answer, the workhorse. **ref-02** a *visible* facet.
-**ref-03** an either/or choice wears `<u>`, the value wears `<i>`. **ref-04** the subject is the
-frame, so it stays visible. **ref-05** a list — numbers **outside** the braces and unstyled, one
-item per line, every item on **one** cloze number, hint on item 1 only, and "plate" visible and
-*not* bolded. **ref-06** a recognition card — the picture is a cloze with **no hint**, there is
-**no `<b>` at all**, and it closes on four unstyled words.
+**ref-01** subject + answer, the workhorse. **ref-02** a *visible* facet. **ref-03** an either/or
+choice wears `<u>`, the value wears `<i>`. **ref-04** the subject is the frame, so it stays visible.
+**ref-05** a list — numbers **outside** the braces and unstyled, one item per line, every item on
+**one** cloze number, and hint on item 1 only. The whole subject — "epiphyseal growth plate" —
+is bolded; only "epiphyseal growth" is clozed, so "plate" stays visible to make the hint read. **ref-06** a
+recognition card — the picture is a cloze with **no hint**, there is **no `<b>` at all**, and it
+closes on four unstyled words.
 
-# Building a deck
+**And read what they have in common:** every subject is a **specific named entity** — Osteoid,
+Osteoclasts, Calcitonin, the epiphyseal growth plate — and each card states **one property of it**.
+Not one has a topic heading in the subject slot. Reading these six for their markup and not for
+that is how a deck ends up with the same subject on three-quarters of its cards.
 
-1. **The user states the scope** — the folder, and which files to card. Never infer it from what
-   happens to be in the directory. The material in that folder is the only input; never open Anki
-   to decide what to card.
-2. **Read every named source end to end.**
-3. **Draft cards one source at a time**, not one pass over all of them. Quality collapses inside a
-   single long response.
-4. **Coverage pass — this is the step that matters most.** Read each source back against the whole
-   deck: what was taught that has no card? Weight by what the lecturer *stressed* — "I need you to
-   know", spelling a term aloud, repeating himself, quizzing the class, minutes on one slide — not
-   by word count. Draft those. Repeat until a source comes back with nothing. *Skipping this once
-   produced a deck that carded the textbook thoroughly and skimmed the lecture, missing two-thirds
-   of what the lecturer emphasised.*
-5. **Review every card** against the same-shape card above, open side by side — not from memory.
-6. **Write the deck to a file, show the user, then insert** with `anki_add_notes` once they say go.
+# From plan to card
 
-Note type `Custom Cloze`; fields `Text` (the card), `Extra` (slide image + `Source:` quote),
-`Source` (e.g. "Slide 12"). Deck by lecture — `ISF::Test N::<Subject>::<Lecture>` — and tag by
-topic. **The folder says `Exam`, the deck says `Test`**; check `anki_find_notes` for the existing
-deck before creating a sibling. Tag every card `isf::<subject>::<topic>`, `week::NN`, `test::N`,
-`slide::<slug>-NN` — the slug is required, since two slide decks in one folder both number from 1.
+`ENTITY → <b>` · `ASPECT → <u>` · `VALUE → <i>`
 
-# Shape
+- `<i>` on every card; `<b>` on every card but an image card. **One `<b>`, never two.**
+- Left to right the roles run **`<b>` → `<u>` → `<i>`**, and the card **ends on its answer** —
+  except a recognition card, which closes on a few unstyled words (ref-06).
+- **The subject opens the sentence**, behind at most an article. A clause in front of it means
+  either a facet standing in the wrong place — "In cross section, `<b>`skeletal muscle`</b>` fibers
+  appear polygonal" wants to be "`<b>`Skeletal muscle`</b>` fibers in `<u>`cross section`</u>`
+  appear polygonal" — or filler to cut.
+- **The `<b>` wraps the whole subject. The cloze sits inside the bold and covers only the key
+  identifier.** Bold the thing the sentence is about, in full — then blank the part that answers
+  *which one*:
 
-- **Write down the question the card asks. If the subject is that question's answer, cloze it; if
-  it only scopes the sentence, leave it visible.** "Which hormone raises blood calcium?" makes PTH
-  the answer — cloze it. "Amino acids have (S) configuration" asks nothing about amino acids —
-  leave it visible. Never apply a blanket rule either way; both blankets have shipped as defects.
-- Cloze every term the student must produce, **including the condition a fact hinges on** ("at
-  physiological pH"). Never leave a testable term as visible prose.
-- **One fact per card.** Split a chain (A does B, which does C) into linked cards rather than
-  adding a second `<i>` answer. ref-05's five items share one cloze number, so they are one answer.
-- **`<u>` is what the question is ABOUT; `<i>` is what the student produces.** Not a parts-of-speech
-  test — `<u>function</u>` and `<u>zones</u>` are both nouns and both correct. Ask which one the
-  card is asking you to recall. If the underlined span is a second thing being recalled, it is an
-  answer: cloze it and demote the other, or split the card. *Eight cards shipped with the second
-  answer hidden in a `<u>`, because the author had two answers and nowhere to put the second.*
-- Cloze the facet only when it is a **value to produce**: ref-03 clozes `lower` because
-  *raise or lower* is the recall; ref-02 leaves `function` visible because it only names the aspect.
-- **Cloze the whole answer.** No fragment clozes with the rest trailing as prose.
-- Cloze the distinguishing word and leave a generic head noun visible **and unstyled** —
-  ref-05's "plate". Never bold it too.
+  ```
+  The <b>{{c1::A::which?}} band</b> is {{c2::<i>dark</i>::dark or light?}}
+  <b>{{c1::Type IIb::which?}} muscle fibers</b> have the {{c2::<u>fewest</u>::most or fewest?}} {{c3::<i>mitochondria</i>::which organelle?}}
+  <b>{{c1::sarcomere::which unit?}}</b> is {{c2::<i>the functional unit of contraction</i>::what is it?}}
+  ```
+
+  "muscle fibers" and "band" are part of the subject's name, so they are **inside the bold**; they
+  are not what distinguishes it, so they are **outside the cloze**. Where the subject is a single
+  term the bold and the cloze coincide. *Getting these two nested the wrong way round — cloze
+  outside, bold inside — is what produced `<b>A band</b>` blanked whole and `{{Type IIb}} muscle
+  fibers` with the name broken in half.*
 - Nothing unstyled goes inside the braces; scoping words and articles stay outside. (An `<img>` is
-  the one thing that goes in a cloze wearing no role tag — ref-06.)
-- Cut a parenthetical you are not testing rather than leaving it dangling.
+  the one thing in a cloze wearing no role tag — ref-06.)
+- **No possessives.** With the right entity there is nothing to possess, only to describe, so an
+  apostrophe-s (or a "whose") means step 2 handed you the wrong entity — go back rather than patch.
+- Assert only what the source states. No added qualifier, no inference, no invented comparison.
+
+# Which spans get clozed
+
+- **A card asks two questions, forward and backward.** Cloze the subject as well when the reverse
+  question has a single right answer *that discriminates*; leave it visible when many terms answer
+  it equally well (ref-04). Never apply a blanket rule either way — both blankets have shipped as
+  defects.
+- **Cloze the whole value**, never a fragment with the explanation left as prose. *"…because the
+  thin and thick filaments never form {{sarcomeres}}" is a 1-word answer with 11 words of
+  explanation visible; the six run 3-word answers with 0–3 words visible.*
+- **The hint must be the question you meant to ask.** If you are writing a hint to fit a blank you
+  already chose, you clozed by word-type instead of by answer — technical nouns *look* like answers
+  and the eye lands on them.
+- Cloze the facet only when it is a **value to produce**: ref-03 clozes `lower` because *raise or
+  lower* is the recall; ref-02 leaves `function` visible because it only names the aspect. An
+  either/or is ref-03 **only when a separate value survives it** — otherwise mark the aspect noun
+  `<u>` and let the either/or be the `<i>` answer.
+- One to three cloze numbers. Never four.
 
 # Hints
 
-- **Hint every cloze, except an image cloze and list items that share a number** (they inherit the
-  hint from item 1). Those two carve-outs are the whole exception list — stating the rule as
-  "no exceptions" is what once made a reader put a hint on a picture.
-- Hints are **questions ending in `?`**, one to three words, no commas, and must read as natural
-  English substituted into the blank: `{{c1::<i>osteocytes</i>::what cells?}}` reads
-  *"Lacunae contain [what cells?]"*.
-- Bare `what?` / `which?` are house style. So are two-option hints — `raise or lower?`,
-  `regular or irregular?`. **A two-option hint is not a leak**; it makes recall fast. Do not flag it.
-- **Hide each cloze in turn.** Nothing visible — including the *sibling answers* — may give it
-  away. `{{c2::<i>phosphates</i>}} … a high concentration of phosphate ions` is self-answering.
-- Every answer must be recallable **as a unit**. A clause with its own subject and verb is a
-  sentence, not an answer.
+- **Hint every cloze, except an image cloze and list items that share a number** (they inherit
+  item 1's). Those two carve-outs are the whole exception list.
+- Questions ending in `?`, one to three words, no commas, reading as natural English substituted
+  into the blank.
+- **The hint supplies exactly what the visible sentence does not, and fluency is the test.** Read
+  the sentence with the blank in place; if it does not read as English, the hint is wrong.
+  `The <b>{{c1::A::which band?}} band</b>` gives *"the [which band?] band is dark"* — the noun is
+  said twice. Because "band" is already visible, the hint is simply `which?`.
+- Where nothing visible names the category, the hint must: `<b>{{c1::sarcolemma::which membrane?}}</b>`, not a bare `what?`. **A hint that could sit in front of any answer is not a hint** —
+  `what else?` is the clearest failure. Otherwise a hint names the category (`which organelle?`),
+  prompts an action (`do what?`), offers an either/or (`raise or lower?`), asks for a definition
+  (`what is it?`), or asks a cause (`why?`, whose answer is a whole clause). A two-option hint is
+  *not* a leak; it makes recall fast.
+- **Hide each cloze in turn.** Nothing visible — including the sibling answers — may give it away.
 
-# What earns a card
+# Working
 
-- The bar is not "is it true" but **"did the teacher signal this as need-to-know."** Slides are the
-  signal; the transcript is the emphasis.
-- One card per stressed slide, occasionally two. **Zero for a slide is fine; zero for a taught
-  topic is a failure.** When unsure, card it.
-- Precedence: **objectives** (the coverage contract) ▸ **slides** (the anchor) ▸ **transcript**
-  (emphasis) ▸ **textbook** (precision).
-- An objective-backed fact always gets a card, even if the lecture deferred it.
-- If the instructor says a value will be given, or says not to memorise something, **do not card it.**
-- Where sources contradict on fact, card what the slides and textbook agree on and raise the
-  conflict. Never ship both sides.
-- Two cards teaching one fact are one card. **A shared sentence frame is not a shared fact** —
-  parallel cards on contrasting terms are correct and wanted.
-- **Scope by session, not by topic.** Card everything taught in the recording, including material
-  carrying over from last week. Slides the lecture never reached belong to the next deck.
+**Draft 10–15 cards per pass and re-read the six at the start of every pass.** Not from memory:
+pull them up. Quality does not decay gently inside a long response, it collapses, because after the
+first pass your nearest exemplar stops being ref-01 and becomes **your own previous card** — so
+errors inherit instead of scattering. *One 228-card sitting used the facet role in half the cards in
+its first block of 20 and in none at all by the seventh, with the six in context the whole time.*
 
-# Fidelity
+**There is no target ratio.** Judge every card against the six and the rules. If a whole block
+skips a role entirely, go and look at those cards — the finding is in the cards, never in a
+percentage.
 
-- Assert only what the source states. No added qualifier, no inference, no outside knowledge.
-- **Cite or omit, never coin.** Established terminology only; prefer the source's own words.
-- `Extra` carries the slide image plus a **verbatim** `Source:` quote. A card with no resolvable
-  source does not ship.
-- Quote verbatim. Never tidy a quote, and **never splice two separate cues into one sentence.**
-  Eliding rambling with `…` is fine as long as each fragment is word-for-word and in order.
-- For a spoken fact, quote the **transcript** and label it as such, even if you also show the slide.
-  Never cite a slide that does not state the fact.
-- Transcripts mangle technical terms. Quote the garble with the correction in `[brackets]`, put the
-  correct term on the card face, and cite the slide instead when the correction would be a guess.
-- A paraphrase is not a quote: the lecturer's "in your 20s" written as "in your twenties" is altered.
+A review reports; fixing is a separate pass that gets reviewed again. A flag sends you back to the
+source, not to the markup.
 
-# Reviewing
+# Anki
 
-- **The six cards define an acceptable card.** If a construction appears in them, it is not a
-  finding. Say nothing.
-- Grade each card beside the same-shape card above, pulled up — not from memory.
-- **A review reports; fixing is a separate pass that gets reviewed again.** Never approve a rewrite
-  in the pass that flagged it.
-- **A flag sends you back to the source, not to the markup.** If you are editing markup and the
-  fact hasn't changed, stop.
-- **Two fixing attempts, then stop** and put the original and both attempts in front of the user.
-  Escalate at once if the fact is disputed, or if cutting the card leaves its topic uncovered.
-- Nothing is dropped silently. A card you cut or hold stays in the file with the reason.
-- Re-read a live card's current text from Anki before editing it.
+Note type `Custom Cloze`; fields `Text` (the card), `Extra` (slide image + verbatim `Source:`
+quote), `Source` (e.g. "Slide 12"). Deck by lecture, `ISF::Test N::<Subject>::<Lecture>` —
+**the folder says `Exam`, the deck says `Test`**; check `anki_find_notes` for the existing deck
+before creating a sibling. Tag every card `isf::<subject>::<topic>`, `week::NN`, `test::N`,
+`slide::<slug>-NN` — the slug is required, since two slide decks in one folder both number from 1.
+Slide images go into `collection.media` as `isf-<slug>-slide-NN.jpg`.
+
+Write the deck to a file, show the user, then insert with `anki_add_notes` once they say go.
+Re-read a live card's current text from Anki before editing it.

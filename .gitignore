@@ -37,13 +37,16 @@
 !/classes/ISF/okf/
 !/classes/ISF/okf/**
 
-# 4) .claude/  →  ONLY the card-authoring skill
+# 4) .claude/  →  ONLY the three card-authoring skills, named one by one so a future
+#    skill has to be added here deliberately rather than publishing itself.
 /.claude/*
 !/.claude/skills/
 /.claude/skills/*
+!/.claude/skills/anki-extract/
+!/.claude/skills/anki-organize/
 !/.claude/skills/anki-cards/
-/.claude/skills/anki-cards/*
-!/.claude/skills/anki-cards/*.md
+/.claude/skills/*/*
+!/.claude/skills/*/*.md
 
 # 5) anki-mcp-server/  →  source only, drop build artifacts
 /anki-mcp-server/node_modules/
