@@ -26,15 +26,15 @@ check that fails ref-06 has not understood recognition cards; a check that passe
 would reject is not checking the right thing.
 
 ```
-ref-01  <b>{{c1::Osteoid::which material?}}</b> is {{c2::<i>unmineralized bone matrix</i>::what is it?}}
+ref-01  {{c1::<b>Osteoid</b>::which material?}} is {{c2::<i>unmineralized bone matrix</i>::what is it?}}
 
-ref-02  <b>{{c1::Osteoclasts::which bone cells?}}</b> <u>function</u> to {{c2::<i>resorb bone matrix</i>::do what?}}
+ref-02  {{c1::<b>Osteoclasts</b>::which bone cells?}} <u>function</u> to {{c2::<i>resorb bone matrix</i>::do what?}}
 
-ref-03  <b>{{c1::Calcitonin::which hormone?}}</b> acts on bone to {{c2::<u>lower</u>::raise or lower?}} {{c3::<i>blood calcium levels</i>::which levels?}}
+ref-03  {{c1::<b>Calcitonin</b>::which hormone?}} acts on bone to {{c2::<u>lower</u>::raise or lower?}} {{c3::<i>blood calcium levels</i>::which levels?}}
 
 ref-04  <b>Connective tissue</b> is <u>classified</u> into {{c1::<i>embryonic, proper, and specialized types</i>::which three classes?}}
 
-ref-05  The <b>{{c1::epiphyseal growth::which?}} plate</b> has five <u>zones</u>:<br><br>1. {{c2::<i>resting cartilage</i>::which five zones?}}<br>2. {{c2::<i>proliferating cartilage</i>}}<br>3. {{c2::<i>hypertrophic cartilage</i>}}<br>4. {{c2::<i>calcified cartilage</i>}}<br>5. {{c2::<i>ossification</i>}}
+ref-05  The {{c1::<b>epiphyseal growth</b>::which?}} <b>plate</b> has five <u>zones</u>:<br><br>1. {{c2::<i>resting cartilage</i>::which five zones?}}<br>2. {{c2::<i>proliferating cartilage</i>}}<br>3. {{c2::<i>hypertrophic cartilage</i>}}<br>4. {{c2::<i>calcified cartilage</i>}}<br>5. {{c2::<i>ossification</i>}}
 
 ref-06  {{c1::<img src="ref-osteon.jpg">}}<br><br>This is {{c2::<i>compact bone</i>::which tissue?}} that we can see
 ```
@@ -43,7 +43,8 @@ ref-06  {{c1::<img src="ref-osteon.jpg">}}<br><br>This is {{c2::<i>compact bone<
 choice wears `<u>`, the value wears `<i>`. **ref-04** the subject is the frame, so it stays visible.
 **ref-05** a list — numbers **outside** the braces and unstyled, one item per line, every item on
 **one** cloze number, and hint on item 1 only. The whole subject — "epiphyseal growth plate" —
-is bolded; only "epiphyseal growth" is clozed, so "plate" stays visible to make the hint read. **ref-06** a
+is bolded &mdash; in two `<b>` runs, because a cloze boundary cuts through it; only "epiphyseal
+growth" is clozed, so "plate" stays visible to make the hint read. **ref-06** a
 recognition card — the picture is a cloze with **no hint**, there is **no `<b>` at all**, and it
 closes on four unstyled words.
 
@@ -56,22 +57,32 @@ that is how a deck ends up with the same subject on three-quarters of its cards.
 
 `ENTITY → <b>` · `ASPECT → <u>` · `VALUE → <i>`
 
-- `<i>` on every card; `<b>` on every card but an image card. **One `<b>`, never two.**
+- `<i>` on every card; `<b>` on every card but an image card. **One subject, never two** —
+  which is not the same as one `<b>` tag; see the nesting rule below.
 - Left to right the roles run **`<b>` → `<u>` → `<i>`**, and the card **ends on its answer** —
   except a recognition card, which closes on a few unstyled words (ref-06).
 - **The subject opens the sentence**, behind at most an article. A clause in front of it means
   either a facet standing in the wrong place — "In cross section, `<b>`skeletal muscle`</b>` fibers
   appear polygonal" wants to be "`<b>`Skeletal muscle`</b>` fibers in `<u>`cross section`</u>`
   appear polygonal" — or filler to cut.
-- **The `<b>` wraps the whole subject. The cloze sits inside the bold and covers only the key
-  identifier.** Bold the thing the sentence is about, in full — then blank the part that answers
-  *which one*:
+- **The whole subject is bolded; only the key identifier is clozed.** That is the rule about
+  *what*. The rule about *how* is separate, and getting it wrong silently breaks the card:
+
+  **A role tag must sit directly on the text it styles — never wrap a cloze.** Anki renders a
+  revealed cloze as its own `<span class="cloze">`, and that span sets colour on itself, so a
+  colour merely *inherited* from an enclosing `<b>` is overridden and the role is lost on screen.
+  A subject that a cloze boundary cuts through therefore takes **two `<b>` runs**, one inside the
+  braces and one outside. It is still one subject.
 
   ```
-  The <b>{{c1::A::which?}} band</b> is {{c2::<i>dark</i>::dark or light?}}
-  <b>{{c1::Type IIb::which?}} muscle fibers</b> have the {{c2::<u>fewest</u>::most or fewest?}} {{c3::<i>mitochondria</i>::which organelle?}}
-  <b>{{c1::sarcomere::which unit?}}</b> is {{c2::<i>the functional unit of contraction</i>::what is it?}}
+  The {{c1::<b>A</b>::which?}} <b>band</b> is {{c2::<i>dark</i>::dark or light?}}
+  {{c1::<b>Type IIb</b>::which?}} <b>muscle fibers</b> have the {{c2::<u>fewest</u>::most or fewest?}} {{c3::<i>mitochondria</i>::which organelle?}}
+  {{c1::<b>sarcomere</b>::which unit?}} is {{c2::<i>the functional unit of contraction</i>::what is it?}}
   ```
+
+  *Written as `<b>{{c1::A::which?}} band</b>` it reads correctly in the source and renders wrong:
+  148 of 172 cards shipped with the subject showing in the cloze colour instead of the subject
+  colour. Nothing in the markup looks amiss — only the rendered card shows it.*
 
   "muscle fibers" and "band" are part of the subject's name, so they are **inside the bold**; they
   are not what distinguishes it, so they are **outside the cloze**. Where the subject is a single
