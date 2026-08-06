@@ -121,9 +121,9 @@ that is how a deck ends up with the same subject on three-quarters of its cards.
   into the blank.
 - **The hint supplies exactly what the visible sentence does not, and fluency is the test.** Read
   the sentence with the blank in place; if it does not read as English, the hint is wrong.
-  `The <b>{{c1::A::which band?}} band</b>` gives *"the [which band?] band is dark"* — the noun is
-  said twice. Because "band" is already visible, the hint is simply `which?`.
-- Where nothing visible names the category, the hint must: `<b>{{c1::sarcolemma::which membrane?}}</b>`, not a bare `what?`. **A hint that could sit in front of any answer is not a hint** —
+  `The {{c1::<b>A</b>::which band?}} <b>band</b>` gives *"the [which band?] band is dark"* — the
+  noun is said twice. Because "band" is already visible, the hint is simply `which?`.
+- Where nothing visible names the category, the hint must: `{{c1::<b>sarcolemma</b>::which membrane?}}`, not a bare `what?`. **A hint that could sit in front of any answer is not a hint** —
   `what else?` is the clearest failure. Otherwise a hint names the category (`which organelle?`),
   prompts an action (`do what?`), offers an either/or (`raise or lower?`), asks for a definition
   (`what is it?`), or asks a cause (`why?`, whose answer is a whole clause). A two-option hint is
